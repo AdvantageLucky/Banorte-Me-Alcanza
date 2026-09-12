@@ -1,0 +1,46 @@
+export class ApiError extends Error {
+  constructor(status, detail) {
+    super(detail || `Error HTTP ${status}`);
+    this.name = 'ApiError';
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+async function parseErrorDetail(response) {
+  try {
+    const body = await response.json();
+    return body.detail;
+  } catch {
+    return undefined;
+  }
+}
+
+export function createApiClient(baseUrl) {
+  async function post(path, { token, body } = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body ?? {}),
+    });
+    if (!response.ok) {
+      throw new ApiError(response.status, await parseErrorDetail(response));
+    }
+    return response.json();
+  }
+
+  return {
+    login: (username, password) => post('/api/login', { body: { username, password } }),
+    sendMessage: (token, mensaje) => post('/api/chat', { token, body: { mensaje } }),
+    confirmAction: (token, proposalId) =>
+      post('/api/confirm-action', { token, body: { proposal_id: proposalId } }),
+  };
+}
+
+const DEFAULT_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+
+export const apiClient = createApiClient(DEFAULT_BASE_URL);

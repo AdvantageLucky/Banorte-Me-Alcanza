@@ -1,0 +1,166 @@
+html:root {
+  --a2ui-color-primary: #0f6e5c;
+  --a2ui-color-secondary: #f2a541;
+  --a2ui-color-background: #f7f5f0;
+  --a2ui-color-surface: #ffffff;
+  --a2ui-color-border: #d8d3c7;
+  --a2ui-color-input: #ffffff;
+  --a2ui-color-on-background: #1f2421;
+  --a2ui-color-on-surface: #1f2421;
+  --a2ui-color-on-primary: #ffffff;
+  --a2ui-color-on-secondary: #1f2421;
+  --a2ui-color-on-input: #1f2421;
+  --a2ui-border-radius: 12px;
+  --a2ui-border-width: 1px;
+  --a2ui-font-family-title: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --a2ui-font-family-monospace: 'SFMono-Regular', Consolas, monospace;
+  --a2ui-font-size-xs: 12px;
+  --a2ui-font-size-s: 14px;
+  --a2ui-font-size-m: 16px;
+  --a2ui-font-size-l: 20px;
+  --a2ui-font-size-xl: 24px;
+  --a2ui-font-size-2xl: 32px;
+  --a2ui-font-scale: 1;
+  --a2ui-line-height-body: 1.5;
+  --a2ui-line-height-headings: 1.2;
+  --a2ui-grid-base: 8px;
+  --a2ui-spacing-xs: 4px;
+  --a2ui-spacing-s: 8px;
+  --a2ui-spacing-m: 16px;
+  --a2ui-spacing-l: 24px;
+  --a2ui-spacing-xl: 32px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--a2ui-font-family-title);
+  background: var(--a2ui-color-background);
+  color: var(--a2ui-color-on-background);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.login-view {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--a2ui-spacing-l);
+}
+
+.login-form {
+  width: 100%;
+  max-width: 360px;
+  background: var(--a2ui-color-surface);
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: var(--a2ui-border-radius);
+  padding: var(--a2ui-spacing-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-m);
+}
+
+.login-form h1 {
+  margin: 0 0 var(--a2ui-spacing-s);
+  font-size: var(--a2ui-font-size-2xl);
+  color: var(--a2ui-color-primary);
+}
+
+.login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-xs);
+  font-size: var(--a2ui-font-size-s);
+}
+
+.login-form input {
+  padding: var(--a2ui-spacing-s);
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  font-size: var(--a2ui-font-size-m);
+}
+
+.login-form button,
+.chat-input button {
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  border: none;
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  background: var(--a2ui-color-primary);
+  color: var(--a2ui-color-on-primary);
+  font-size: var(--a2ui-font-size-m);
+  cursor: pointer;
+}
+
+.login-form button:disabled,
+.chat-input button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.login-error,
+.chat-error {
+  color: #b3261e;
+  font-size: var(--a2ui-font-size-s);
+}
+
+.chat-view {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--a2ui-spacing-m) var(--a2ui-spacing-l);
+  background: var(--a2ui-color-surface);
+  border-bottom: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  font-size: var(--a2ui-font-size-l);
+  font-weight: 600;
+  color: var(--a2ui-color-primary);
+}
+
+.chat-header button {
+  background: none;
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  padding: var(--a2ui-spacing-xs) var(--a2ui-spacing-m);
+  cursor: pointer;
+  font-size: var(--a2ui-font-size-s);
+}
+
+.chat-surfaces {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--a2ui-spacing-l);
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-m);
+}
+
+.chat-empty {
+  opacity: 0.6;
+}
+
+.chat-input {
+  display: flex;
+  gap: var(--a2ui-spacing-s);
+  padding: var(--a2ui-spacing-m) var(--a2ui-spacing-l);
+  background: var(--a2ui-color-surface);
+  border-top: var(--a2ui-border-width) solid var(--a2ui-color-border);
+}
+
+.chat-input input {
+  flex: 1;
+  padding: var(--a2ui-spacing-s);
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  font-size: var(--a2ui-font-size-m);
+}
