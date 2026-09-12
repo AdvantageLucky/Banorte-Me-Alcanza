@@ -1,9 +1,16 @@
-function App() {
-  return (
-    <div>
-      <h1>Me Alcanza Frontend</h1>
-    </div>
-  )
+import { AuthProvider, useAuth } from './auth/AuthContext.jsx';
+import LoginView from './views/LoginView.jsx';
+import ChatView from './views/ChatView.jsx';
+
+function AppShell() {
+  const { token } = useAuth();
+  return token ? <ChatView /> : <LoginView />;
 }
 
-export default App
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
+  );
+}
