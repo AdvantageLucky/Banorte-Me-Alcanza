@@ -8,12 +8,12 @@ from .orchestrator import Orchestrator
 from .routes import router
 
 
-def create_app(genai_client, model: str, jwt_secret: str, db_path: str) -> FastAPI:
+def create_app(genai_client, model: str, jwt_secret: str, db_path: str, provider: str = "gemini") -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         async with connect_mcp(db_path) as session:
             app.state.mcp_client = BankMcpClient(session)
-            app.state.orchestrator = Orchestrator(genai_client, model, app.state.mcp_client)
+            app.state.orchestrator = Orchestrator(genai_client, model, app.state.mcp_client, provider=provider)
             app.state.jwt_secret = jwt_secret
             yield
 
