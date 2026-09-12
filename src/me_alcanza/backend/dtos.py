@@ -17,6 +17,7 @@ class LoginResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     mensaje: str
+    conversacion_id: int | None = None
 
 
 class ChatResponse(BaseModel):
@@ -159,3 +160,20 @@ class ScoreSaludResponse(BaseModel):
     score: int
     categoria: str
     factores: list[str]
+
+
+class ConversacionResponse(BaseModel):
+    id: int
+    titulo: str
+    created_at: str
+    updated_at: str
+
+
+class MensajeResponse(BaseModel):
+    rol: str
+    contenido: str
+    created_at: str
+
+
+class CrearConversacionRequest(BaseModel):
+    titulo: str | None = None
