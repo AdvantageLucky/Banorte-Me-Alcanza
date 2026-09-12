@@ -14,6 +14,12 @@ _logger = logging.getLogger(__name__)
 
 def main():
     provider = os.environ.get("LLM_PROVIDER", "gemini")
+    if provider not in ("gemini", "fake"):
+        _logger.warning(
+            "LLM_PROVIDER=%r no es un valor reconocido (usa 'gemini' o 'fake') — usando 'gemini' por defecto.",
+            provider,
+        )
+        provider = "gemini"
     api_key = os.environ.get("GOOGLE_AI_STUDIO_API_KEY")
     if provider != "fake" and not api_key:
         _logger.warning(

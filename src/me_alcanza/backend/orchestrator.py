@@ -14,6 +14,9 @@ _logger = logging.getLogger(__name__)
 _VERSION = "0.9"
 _ALLOWED_COMPONENTS = ["Card", "Column", "Row", "Text", "Button", "List", "Divider", "Modal"]
 MAX_TOOL_CALL_ROUNDS = 5
+# Cuántos mensajes de historial (no turnos) se reenvían a Gemini como
+# contexto: últimos 10 mensajes ≈ últimos 5 pares usuario/modelo.
+_MAX_HISTORIAL_MENSAJES = 10
 
 _READ_ONLY_TOOLS = {
     "get_saldo",
@@ -834,14 +837,27 @@ class Orchestrator:
             historial = await self._mcp.call(
                 "obtener_mensajes_conversacion", {"account_id": account_id, "conversacion_id": conversacion_id}
             )
+            # Solo se reenvían los últimos N turnos: reenviar el historial
+            # completo en cada llamada a generate_content (hasta
+            # MAX_TOOL_CALL_ROUNDS veces por turno) multiplica el costo en
+            # tokens sin límite a medida que crece la conversación, arriesgando
+            # la misma cuota que el modo offline existe para proteger.
             contents = [
                 types.Content(role=m["rol"], parts=[types.Part.from_text(text=m["contenido"])])
-                for m in historial
+                for m in historial[-_MAX_HISTORIAL_MENSAJES:]
             ]
             contents.append(types.Content(role="user", parts=[types.Part.from_text(text=mensaje)]))
 
+            # es_respuesta_offline rastrea si final_text vino de
+            # fake_provider (boilerplate de modo offline) en vez de una
+            # respuesta real del modelo: una respuesta offline nunca debe
+            # persistirse en el historial de la conversación, para no
+            # contaminar turnos futuros con afirmaciones fabricadas de que
+            # "el servicio no está disponible".
+            es_respuesta_offline = False
             if self._provider == "fake":
                 final_text = fake_provider.generar_respuesta_offline(mensaje)
+                es_respuesta_offline = True
             else:
                 final_text = await self._run_tool_loop(account_id, contents)
 
@@ -870,30 +886,36 @@ class Orchestrator:
                         # transporte MCP) nunca debe tirar una respuesta ya
                         # generada con éxito ni disfrazarla de una respuesta
                         # offline falsa. Solo se loguea.
-                        try:
-                            await self._mcp.call(
-                                "agregar_mensaje_conversacion",
-                                {
-                                    "account_id": account_id,
-                                    "conversacion_id": conversacion_id,
-                                    "rol": "user",
-                                    "contenido": mensaje,
-                                },
-                            )
-                            await self._mcp.call(
-                                "agregar_mensaje_conversacion",
-                                {
-                                    "account_id": account_id,
-                                    "conversacion_id": conversacion_id,
-                                    "rol": "model",
-                                    "contenido": final_text,
-                                },
-                            )
-                        except Exception:  # noqa: BLE001 - no persistir no debe tirar una respuesta ya exitosa
-                            _logger.exception(
-                                "no se pudo persistir el turno de conversación, "
-                                "la respuesta ya se generó con éxito"
-                            )
+                        # Nunca se persiste una respuesta offline/fake: es
+                        # boilerplate de emergencia, no una respuesta real del
+                        # modelo, y guardarla contaminaría el contexto de
+                        # turnos futuros si más adelante se vuelve a un
+                        # provider real.
+                        if not es_respuesta_offline:
+                            try:
+                                await self._mcp.call(
+                                    "agregar_mensaje_conversacion",
+                                    {
+                                        "account_id": account_id,
+                                        "conversacion_id": conversacion_id,
+                                        "rol": "user",
+                                        "contenido": mensaje,
+                                    },
+                                )
+                                await self._mcp.call(
+                                    "agregar_mensaje_conversacion",
+                                    {
+                                        "account_id": account_id,
+                                        "conversacion_id": conversacion_id,
+                                        "rol": "model",
+                                        "contenido": final_text,
+                                    },
+                                )
+                            except Exception:  # noqa: BLE001 - no persistir no debe tirar una respuesta ya exitosa
+                                _logger.exception(
+                                    "no se pudo persistir el turno de conversación, "
+                                    "la respuesta ya se generó con éxito"
+                                )
                         return _rewrite_surface_id(part.a2ui_json, _new_surface_id())
 
                 break

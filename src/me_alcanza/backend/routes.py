@@ -61,9 +61,12 @@ async def chat(
 ) -> ChatResponse:
     conversacion_id = payload.conversacion_id
     if conversacion_id is None:
-        nueva = await request.app.state.mcp_client.call(
-            "crear_conversacion", {"account_id": account_id, "titulo": payload.mensaje[:60]}
-        )
+        try:
+            nueva = await request.app.state.mcp_client.call(
+                "crear_conversacion", {"account_id": account_id, "titulo": payload.mensaje[:60]}
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         conversacion_id = nueva["id"]
 
     messages = await request.app.state.orchestrator.handle_message(

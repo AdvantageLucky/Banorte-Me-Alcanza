@@ -967,6 +967,39 @@ async def test_handle_message_carga_historial_y_construye_contents_con_roles():
 
 
 @pytest.mark.asyncio
+async def test_handle_message_limita_historial_a_los_ultimos_10_mensajes():
+    # El historial completo NO debe reenviarse a Gemini en cada turno: eso
+    # multiplica el costo en tokens sin límite a medida que crece la
+    # conversación. Solo se reenvían los últimos 10 mensajes de historial
+    # (más el mensaje nuevo del usuario).
+    historial_largo = [
+        {"rol": "user" if i % 2 == 0 else "model", "contenido": f"mensaje {i}"} for i in range(14)
+    ]
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(
+        side_effect=[
+            historial_largo,
+            None,  # agregar_mensaje_conversacion (mensaje del usuario)
+            None,  # agregar_mensaje_conversacion (respuesta del modelo)
+        ]
+    )
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(side_effect=[_mock_final_response(SALDO_A2UI_RESPONSE)])
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", 1, "¿cuánto tengo?")
+
+    contents_enviados = genai_client.models.generate_content.call_args.kwargs["contents"]
+    # 10 mensajes de historial (los más recientes) + 1 mensaje nuevo = 11.
+    assert len(contents_enviados) == 11
+    ultimos_esperados = [f"mensaje {i}" for i in range(4, 14)]
+    contenidos_historial_enviados = [
+        p.text for c in contents_enviados[:-1] for p in c.parts
+    ]
+    assert contenidos_historial_enviados == ultimos_esperados
+
+
+@pytest.mark.asyncio
 async def test_handle_message_persiste_el_turno_completo():
     mcp_client = MagicMock()
     mcp_client.call = AsyncMock(side_effect=[[], None, None])
@@ -1046,6 +1079,26 @@ async def test_handle_message_fallback_offline_no_persiste_historial():
     genai_client.models.generate_content = MagicMock(side_effect=RuntimeError("429 cuota agotada"))
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", 1, "¿cuál es mi saldo?")
+
+    llamadas = [c.args[0] for c in mcp_client.call.call_args_list]
+    assert "agregar_mensaje_conversacion" not in llamadas
+
+
+@pytest.mark.asyncio
+async def test_handle_message_provider_fake_no_persiste_historial():
+    # Mismo requisito que el fallback offline: provider="fake" también
+    # produce una respuesta de emergencia (boilerplate de fake_provider), no
+    # una respuesta real del modelo, así que tampoco debe guardarse en el
+    # historial de la conversación -- de lo contrario, al volver a un
+    # provider real, Gemini recibiría sus propias afirmaciones fabricadas de
+    # estar offline como si fueran contexto legítimo de turnos anteriores.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock()
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client, provider="fake")
     await orchestrator.handle_message("ana", 1, "¿cuál es mi saldo?")
 
     llamadas = [c.args[0] for c in mcp_client.call.call_args_list]

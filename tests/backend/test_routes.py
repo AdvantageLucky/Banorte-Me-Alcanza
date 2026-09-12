@@ -76,6 +76,23 @@ def test_chat_con_token_llama_al_orquestador(app):
         assert args[2] == "¿me alcanza para el concierto?"
 
 
+def test_chat_sin_conversacion_id_falla_del_mcp_al_autocrear_devuelve_400(app):
+    with TestClient(app) as client:
+        token = _login(client)
+
+        async def fake_call(name, args=None):
+            if name == "crear_conversacion":
+                raise RuntimeError("mcp caído")
+            return None
+
+        app.state.mcp_client.call = AsyncMock(side_effect=fake_call)
+        response = client.post(
+            "/api/chat", json={"mensaje": "hola"}, headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 400
+        assert "mcp caído" in response.json()["detail"]
+
+
 def test_confirm_action_sin_token_devuelve_401(app):
     with TestClient(app) as client:
         response = client.post("/api/confirm-action", json={"proposal_id": "x"})
@@ -102,6 +119,11 @@ def test_confirm_action_con_token_llama_al_orquestador(app):
 
 def _login(client) -> str:
     login = client.post("/api/login", json={"username": "ana", "password": "pass123"})
+    return login.json()["token"]
+
+
+def _login_luis(client) -> str:
+    login = client.post("/api/login", json={"username": "luis", "password": "pass456"})
     return login.json()["token"]
 
 
@@ -514,6 +536,21 @@ def test_obtener_mensajes_de_conversacion(app):
         )
         assert response.status_code == 200
         assert response.json() == []
+
+
+def test_obtener_mensajes_de_conversacion_ajena_devuelve_400(app):
+    with TestClient(app) as client:
+        token_ana = _login(client)
+        creada = client.post(
+            "/api/conversaciones", json={}, headers={"Authorization": f"Bearer {token_ana}"}
+        ).json()
+
+        token_luis = _login_luis(client)
+        response = client.get(
+            f"/api/conversaciones/{creada['id']}/mensajes",
+            headers={"Authorization": f"Bearer {token_luis}"},
+        )
+        assert response.status_code == 400
 
 
 def test_eliminar_conversacion(app):
