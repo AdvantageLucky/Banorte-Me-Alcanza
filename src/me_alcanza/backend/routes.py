@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from . import auth
 from .dtos import (
+    ApartadoCreate,
+    ApartadoResponse,
     ChatRequest,
     ChatResponse,
     ConfirmActionRequest,
@@ -415,3 +417,50 @@ async def delete_meta(
         await request.app.state.mcp_client.call("eliminar_meta", {"account_id": account_id, "meta_id": meta_id})
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/apartados", response_model=list[ApartadoResponse])
+async def list_apartados(
+    request: Request, account_id: str = Depends(auth.get_current_account_id)
+) -> list[ApartadoResponse]:
+    try:
+        apartados = await request.app.state.mcp_client.call("listar_apartados", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [ApartadoResponse(**a) for a in apartados]
+
+
+@router.post("/apartados", response_model=ApartadoResponse, status_code=201)
+async def create_apartado(
+    payload: ApartadoCreate,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> ApartadoResponse:
+    try:
+        resultado = await request.app.state.mcp_client.call(
+            "crear_apartado",
+            {
+                "account_id": account_id,
+                "meta_id": payload.meta_id,
+                "monto_por_periodo": payload.monto_por_periodo,
+                "periodicidad": payload.periodicidad,
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApartadoResponse(**resultado["apartado"])
+
+
+@router.post("/apartados/{apartado_id}/cancelar", response_model=ApartadoResponse)
+async def cancelar_apartado_route(
+    apartado_id: int,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> ApartadoResponse:
+    try:
+        resultado = await request.app.state.mcp_client.call(
+            "cancelar_apartado", {"account_id": account_id, "apartado_id": apartado_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApartadoResponse(**resultado)

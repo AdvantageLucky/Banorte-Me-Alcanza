@@ -341,3 +341,47 @@ def test_delete_meta_con_apartado_activo_devuelve_400(app):
         )
         response = client.delete(f"/api/metas/{meta_id}", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 400
+
+
+def test_list_apartados_vacio(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/apartados", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+
+def test_create_apartado(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        meta_id = client.get("/api/metas", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.post(
+            "/api/apartados",
+            json={"meta_id": meta_id, "monto_por_periodo": 50.0, "periodicidad": "semanal"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["estado"] == "activo"
+
+
+def test_cancelar_apartado(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        meta_id = client.get("/api/metas", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        apartado = client.post(
+            "/api/apartados",
+            json={"meta_id": meta_id, "monto_por_periodo": 50.0, "periodicidad": "semanal"},
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()
+        response = client.post(
+            f"/api/apartados/{apartado['id']}/cancelar", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        assert response.json()["estado"] == "cancelado"
+
+
+def test_cancelar_apartado_inexistente_devuelve_400(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post("/api/apartados/999999/cancelar", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 400
