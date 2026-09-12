@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <path d="M 502.489 253.491 C 502.489 333.035 479.856 390.506 420.628 434.643" style="fill: none; stroke-width: 11px;"/>
+  <path d="M 335.964 483.574 C 312.18 491.383 286.769 495.608 260.371 495.608 C 126.653 495.608 18.254 387.209 18.254 253.491 C 18.254 119.772 126.653 11.373 260.371 11.373 C 394.09 11.373 502.489 119.772 502.489 253.491" style="fill: none; stroke-width: 11px;"/>
+  <g id="layer" transform="matrix(0.862281, -0.075439, 0.053718, 0.614005, 572.588684, 127.398109)" style="transform-origin: -311.804px 222.325px;">
+    <g id="g24" transform="matrix(3.2, 0, 0, 3.2, -562.524475, -806.314697)">
+      <path class="st0" d="m 84.5,284.7 c -28.5,0 -51.6,7.5 -51.6,16.8 0,7.8 16.1,14.3 38,16.2 l 9,-27.7 1.6,28.2 c 1,0 2,0 3.1,0 28.5,0 51.6,-7.5 51.6,-16.8 -0.1,-9.1 -23.2,-16.7 -51.7,-16.7" id="path18" style="fill: rgb(236, 28, 45);"/>
+      <path class="st0" d="m 70.6,318.7 c -27.8,0.3 -50.1,9.1 -50.1,20 0,9.2 15.8,16.9 37.4,19.3 z" id="path20" style="fill: rgb(236, 28, 45);"/>
+      <path class="st0" d="m 81.4,319 2.2,39.2 c 22.9,-2 39.9,-10 39.9,-19.5 0.1,-9.8 -18.1,-18 -42.1,-19.7" id="path22" style="fill: rgb(236, 28, 45);"/>
+    </g>
+  </g>
+  <path style="fill: none; stroke: rgb(0, 0, 0); stroke-width: 7px;" d="M 206.789 161.961 L 167.926 76.168"/>
+  <path style="fill: none; stroke: rgb(0, 0, 0); stroke-width: 7px;" d="M 278.413 148.29 L 283.245 84.87 L 310.994 93.065 L 316.472 57.21"/>
+  <rect style="stroke-width: 5px; fill: rgb(236, 28, 45); stroke: rgb(236, 28, 45); transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0.994522, -0.104528, 0.104528, 0.994522, -5.359116, -75.460183)" x="99.929" y="223.124" width="313.472" height="119.635" rx="30" ry="30"/>
+  <ellipse style="stroke: rgb(0, 0, 0);" cx="317.622" cy="50.108" rx="11.809" ry="11.809"/>
+  <ellipse style="stroke: rgb(0, 0, 0); stroke-width: 1;" cx="165.442" cy="70.547" rx="11.809" ry="11.809"/>
+  <path style="fill: rgb(236, 28, 45); stroke: rgb(236, 28, 45); paint-order: fill; stroke-linejoin: round; stroke-width: 5px; transform-box: fill-box; transform-origin: 50% 50%;" d="M 410.366 331.007 L 429.909 351.5 L 457.237 308.286 L 437.143 289.944 L 410.366 331.007 Z" transform="matrix(-1, 0, 0, -1, -0.000087, -0.000017)"/>
+  <path style="fill: rgb(236, 28, 45); stroke: rgb(236, 28, 45); paint-order: fill; stroke-linejoin: round; stroke-width: 5; transform-origin: 105.307px 337.033px;" d="M 81.873 326.748 L 101.416 306.256 L 128.744 349.47 L 108.649 367.811 L 81.873 326.748 Z"/>
+  <path style="stroke: rgb(0, 0, 0); stroke-linejoin: round; stroke-width: 7; stroke-linecap: round; transform-origin: 341.593px 435.76px;" d="M 325.877 442.235 L 338.983 455.134 L 357.309 427.932 L 343.834 416.387 L 325.877 442.235 Z" transform="matrix(0.906308, 0.422618, -0.422618, 0.906308, -0.000002, -0.000031)"/>
+  <path style="stroke: rgb(0, 0, 0); stroke-linejoin: round; stroke-width: 7; stroke-linecap: round; transform-origin: 188.449px 452.466px;" d="M 172.733 445.991 L 185.839 433.093 L 204.166 460.295 L 190.69 471.84 L 172.733 445.991 Z" transform="matrix(-0.906308, 0.422618, -0.422618, -0.906308, 0.000047, 0.000021)"/>
+  <ellipse style="stroke: rgb(236, 28, 45); fill: rgb(236, 28, 45); visibility: hidden; transform-box: fill-box; transform-origin: 50% 50%;" cx="254.867" cy="303.804" rx="143.983" ry="64.871" transform="matrix(0.996195, -0.087156, 0.087156, 0.996195, -4.088812, -98.827029)"/>
+  <ellipse style="stroke: rgb(255, 255, 255); fill: rgb(255, 255, 255); transform-box: fill-box; transform-origin: 50% 50%;" cx="289.442" cy="191.778" rx="12.587" ry="20.986" transform="matrix(0.87462, -0.48481, 0.48481, 0.87462, 24.706837, -4.730915)"/>
+  <ellipse style="stroke-width: 1; stroke: rgb(255, 255, 255); fill: rgb(255, 255, 255); transform-origin: 289.442px 191.778px;" cx="289.442" cy="191.778" rx="12.587" ry="20.986" transform="matrix(-0.87462, -0.48481, -0.48481, 0.87462, -103.025975, 12.255442)"/>
+  <path style="fill: none; stroke-linejoin: bevel; stroke-width: 11px;" d="M 331.17 483.217 L 434.054 532.097 C 437.604 533.527 397.397 452.78 426.156 429.994"/>
+  <g style="" transform="matrix(1.122203, 0, 0, 1.122203, -17.741264, -22.486683)"/>
+</svg>
