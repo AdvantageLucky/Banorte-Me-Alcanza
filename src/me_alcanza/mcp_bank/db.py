@@ -261,6 +261,69 @@ def get_contacto(conn: sqlite3.Connection, account_id: str, contacto_id: int) ->
     return dict(row)
 
 
+def crear_contacto(
+    conn: sqlite3.Connection,
+    account_id: str,
+    nombre: str,
+    alias: str,
+    cuenta_destino: str,
+    relacion: str,
+) -> dict:
+    cursor = conn.execute(
+        """
+        INSERT INTO contactos (account_id_titular, nombre, alias, cuenta_destino, relacion)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (account_id, nombre, alias, cuenta_destino, relacion),
+    )
+    conn.commit()
+    return {
+        "id": cursor.lastrowid,
+        "nombre": nombre,
+        "alias": alias,
+        "cuenta_destino": cuenta_destino,
+        "relacion": relacion,
+    }
+
+
+def actualizar_contacto(
+    conn: sqlite3.Connection,
+    account_id: str,
+    contacto_id: int,
+    nombre: str,
+    alias: str,
+    cuenta_destino: str,
+    relacion: str,
+) -> dict:
+    if get_contacto(conn, account_id, contacto_id) is None:
+        raise ValueError(f"Contacto no encontrado para esta cuenta: {contacto_id}")
+    conn.execute(
+        """
+        UPDATE contactos SET nombre = ?, alias = ?, cuenta_destino = ?, relacion = ?
+        WHERE id = ? AND account_id_titular = ?
+        """,
+        (nombre, alias, cuenta_destino, relacion, contacto_id, account_id),
+    )
+    conn.commit()
+    return {
+        "id": contacto_id,
+        "nombre": nombre,
+        "alias": alias,
+        "cuenta_destino": cuenta_destino,
+        "relacion": relacion,
+    }
+
+
+def eliminar_contacto(conn: sqlite3.Connection, account_id: str, contacto_id: int) -> None:
+    if get_contacto(conn, account_id, contacto_id) is None:
+        raise ValueError(f"Contacto no encontrado para esta cuenta: {contacto_id}")
+    conn.execute(
+        "DELETE FROM contactos WHERE id = ? AND account_id_titular = ?",
+        (contacto_id, account_id),
+    )
+    conn.commit()
+
+
 def ejecutar_transferencia(
     conn: sqlite3.Connection,
     origen_id: str,

@@ -167,3 +167,44 @@ def test_get_contacto_inexistente_devuelve_none(conn):
 def test_get_contacto_de_otra_cuenta_devuelve_none(conn):
     contactos = db.buscar_contacto(conn, "ana", "pepe")
     assert db.get_contacto(conn, "luis", contactos[0]["id"]) is None
+
+
+def test_crear_contacto(conn):
+    contacto = db.crear_contacto(conn, "ana", "Sofía López", "Sofi", "5566778899", "amiga")
+    assert contacto["nombre"] == "Sofía López"
+    assert contacto["id"] is not None
+    assert len(db.buscar_contacto(conn, "ana", "sofi")) == 1
+
+
+def test_actualizar_contacto(conn):
+    contactos = db.buscar_contacto(conn, "ana", "pepe")
+    contacto_id = contactos[0]["id"]
+    actualizado = db.actualizar_contacto(
+        conn, "ana", contacto_id, "José R. Actualizado", "Pepe2", "1112223333", "hermano"
+    )
+    assert actualizado["nombre"] == "José R. Actualizado"
+    assert db.get_contacto(conn, "ana", contacto_id)["alias"] == "Pepe2"
+
+
+def test_actualizar_contacto_inexistente(conn):
+    with pytest.raises(ValueError):
+        db.actualizar_contacto(conn, "ana", 999999, "x", "y", "z", "w")
+
+
+def test_actualizar_contacto_de_otra_cuenta(conn):
+    contactos = db.buscar_contacto(conn, "ana", "pepe")
+    with pytest.raises(ValueError):
+        db.actualizar_contacto(conn, "luis", contactos[0]["id"], "x", "y", "z", "w")
+
+
+def test_eliminar_contacto(conn):
+    contactos = db.buscar_contacto(conn, "ana", "pepe")
+    contacto_id = contactos[0]["id"]
+    db.eliminar_contacto(conn, "ana", contacto_id)
+    assert db.get_contacto(conn, "ana", contacto_id) is None
+
+
+def test_eliminar_contacto_de_otra_cuenta(conn):
+    contactos = db.buscar_contacto(conn, "ana", "pepe")
+    with pytest.raises(ValueError):
+        db.eliminar_contacto(conn, "luis", contactos[0]["id"])
