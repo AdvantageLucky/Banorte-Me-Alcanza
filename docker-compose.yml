@@ -13,5 +13,21 @@ services:
       - banco-db:/data
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Debe ser una URL que el NAVEGADOR del cliente pueda resolver
+        # (IP/hostname del homelab, tailnet, etc.) -no "backend", que solo
+        # existe dentro de la red de docker compose. Queda horneada en el
+        # bundle: si cambia, hay que reconstruir la imagen (docker compose
+        # up --build frontend).
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:10000}
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   banco-db:

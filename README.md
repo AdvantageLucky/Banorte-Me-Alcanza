@@ -114,11 +114,21 @@ cp .env.example .env        # VITE_API_BASE_URL=http://localhost:8000
 npm install && npm run dev  # http://localhost:5173
 ```
 
-**Docker** (solo backend, puerto 10000, DB en volumen):
+**Docker** (backend + frontend, para el homelab):
 
 ```bash
 docker compose up --build
 ```
+
+- Backend: puerto `10000`, DB en volumen.
+- Frontend: puerto `8080`, servido como estático por nginx.
+- `VITE_API_BASE_URL` (en `.env`) se hornea en el build del frontend y
+  debe ser una URL que el **navegador** del cliente pueda resolver (IP
+  o hostname del homelab, tailnet, etc.) — no `backend`, que solo
+  existe dentro de la red de docker compose. Si cambia, hay que
+  reconstruir: `docker compose up --build frontend`.
+- Para levantar solo uno de los dos: `docker compose up --build backend`
+  o `docker compose up --build frontend`.
 
 **Flutter** (opcional): `cd flutter_app && flutter run`. El emulador Android llega al host por `10.0.2.2:8000` ([`config.dart`](flutter_app/lib/config.dart)).
 
