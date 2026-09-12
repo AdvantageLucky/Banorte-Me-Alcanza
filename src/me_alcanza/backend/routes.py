@@ -6,8 +6,10 @@ from .dtos import (
     ChatResponse,
     ConfirmActionRequest,
     ConfirmActionResponse,
+    CuentaResponse,
     LoginRequest,
     LoginResponse,
+    MovimientoResponse,
 )
 
 router = APIRouter(prefix="/api")
@@ -54,3 +56,26 @@ async def confirm_action(
         account_id, payload.proposal_id
     )
     return ConfirmActionResponse(a2ui_messages=messages)
+
+
+@router.get("/cuenta", response_model=CuentaResponse)
+async def get_cuenta_route(
+    request: Request, account_id: str = Depends(auth.get_current_account_id)
+) -> CuentaResponse:
+    try:
+        cuenta = await request.app.state.mcp_client.call("get_cuenta", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return CuentaResponse(**cuenta)
+
+
+@router.get("/movimientos", response_model=list[MovimientoResponse])
+async def get_movimientos_route(
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+    limit: int = 10,
+) -> list[MovimientoResponse]:
+    movimientos = await request.app.state.mcp_client.call(
+        "get_movimientos", {"account_id": account_id, "limit": limit}
+    )
+    return [MovimientoResponse(**m) for m in movimientos]

@@ -95,3 +95,39 @@ def test_confirm_action_con_token_llama_al_orquestador(app):
         assert response.status_code == 200
         assert response.json() == {"a2ui_messages": fake_messages}
         app.state.orchestrator.confirm_action.assert_awaited_once_with("ana", "prop-1")
+
+
+def _login(client) -> str:
+    login = client.post("/api/login", json={"username": "ana", "password": "pass123"})
+    return login.json()["token"]
+
+
+def test_get_cuenta(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/cuenta", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        body = response.json()
+        assert body["numero_cuenta"] == "001122"
+        assert body["saldo"] == 500.00
+
+
+def test_get_cuenta_sin_token_devuelve_401(app):
+    with TestClient(app) as client:
+        response = client.get("/api/cuenta")
+        assert response.status_code == 401
+
+
+def test_get_movimientos_vacio(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/movimientos", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+
+def test_get_movimientos_respeta_limit(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/movimientos?limit=3", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
