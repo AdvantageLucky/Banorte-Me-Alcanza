@@ -383,3 +383,61 @@ def test_cancelar_apartado_de_otra_cuenta(conn):
     )["apartado"]["id"]
     with pytest.raises(ValueError):
         db.cancelar_apartado(conn, "luis", apartado_id)
+
+
+def test_migracion_categoria_es_idempotente(conn):
+    # Correr get_connection otra vez (como pasaría en un segundo arranque del
+    # proceso) no debe fallar aunque la columna ya exista.
+    db.get_connection(":memory:")
+    columnas = [row["name"] for row in conn.execute("PRAGMA table_info(movimientos)")]
+    assert "categoria" in columnas
+
+
+def test_ejecutar_transferencia_categoriza_egreso_e_ingreso(conn):
+    db.ejecutar_transferencia(
+        conn, origen_id="luis", destino_cuenta="001122", monto=100.0, concepto="Pago"
+    )
+    egreso = conn.execute(
+        "SELECT categoria FROM movimientos WHERE account_id = 'luis' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    assert egreso["categoria"] == "transferencia_enviada"
+    ingreso = conn.execute(
+        "SELECT categoria FROM movimientos WHERE account_id = 'ana' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    assert ingreso["categoria"] == "transferencia_recibida"
+
+
+def test_crear_apartado_categoriza_como_ahorro(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    db.crear_apartado(conn, account_id="ana", meta_id=meta_id, monto_por_periodo=50.0, periodicidad="semanal")
+    fila = conn.execute(
+        "SELECT categoria FROM movimientos WHERE account_id = 'ana' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    assert fila["categoria"] == "ahorro"
+
+
+def test_get_resumen_movimientos_agrupa_por_categoria(conn):
+    from datetime import date
+
+    db.ejecutar_transferencia(conn, origen_id="luis", destino_cuenta="999999", monto=50.0, concepto="x")
+    db.ejecutar_transferencia(conn, origen_id="luis", destino_cuenta="999999", monto=30.0, concepto="y")
+    hoy = date.today().isoformat()
+    resumen = db.get_resumen_movimientos(conn, "luis", hoy, hoy)
+    assert len(resumen) == 1
+    assert resumen[0]["categoria"] == "transferencia_enviada"
+    assert resumen[0]["total"] == -80.0
+    assert resumen[0]["count"] == 2
+
+
+def test_get_resumen_movimientos_respeta_rango_de_fechas(conn):
+    resumen = db.get_resumen_movimientos(conn, "luis", "2020-01-01", "2020-01-02")
+    assert resumen == []
+
+
+def test_get_resumen_movimientos_no_mezcla_cuentas(conn):
+    from datetime import date
+
+    db.ejecutar_transferencia(conn, origen_id="luis", destino_cuenta="999999", monto=50.0, concepto="x")
+    hoy = date.today().isoformat()
+    resumen_ana = db.get_resumen_movimientos(conn, "ana", hoy, hoy)
+    assert resumen_ana == []

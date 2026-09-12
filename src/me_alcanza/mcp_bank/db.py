@@ -88,6 +88,10 @@ def get_connection(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    try:
+        conn.execute("ALTER TABLE movimientos ADD COLUMN categoria TEXT NOT NULL DEFAULT 'otro'")
+    except sqlite3.OperationalError:
+        pass  # la columna ya existe (DB migrada en un arranque anterior)
     return conn
 
 
@@ -585,8 +589,8 @@ def ejecutar_transferencia(
         (nuevo_saldo_origen, origen_id),
     )
     conn.execute(
-        "INSERT INTO movimientos (account_id, fecha, concepto, monto) VALUES (?, ?, ?, ?)",
-        (origen_id, fecha, concepto, -monto),
+        "INSERT INTO movimientos (account_id, fecha, concepto, monto, categoria) VALUES (?, ?, ?, ?, ?)",
+        (origen_id, fecha, concepto, -monto, "transferencia_enviada"),
     )
 
     destino = conn.execute(
@@ -598,8 +602,8 @@ def ejecutar_transferencia(
             (destino["saldo"] + monto, destino["account_id"]),
         )
         conn.execute(
-            "INSERT INTO movimientos (account_id, fecha, concepto, monto) VALUES (?, ?, ?, ?)",
-            (destino["account_id"], fecha, f"Transferencia recibida: {concepto}", monto),
+            "INSERT INTO movimientos (account_id, fecha, concepto, monto, categoria) VALUES (?, ?, ?, ?, ?)",
+            (destino["account_id"], fecha, f"Transferencia recibida: {concepto}", monto, "transferencia_recibida"),
         )
 
     conn.commit()
@@ -652,8 +656,8 @@ def crear_apartado(
         (account_id, meta_id, monto_por_periodo, periodicidad, fecha_inicio),
     )
     conn.execute(
-        "INSERT INTO movimientos (account_id, fecha, concepto, monto) VALUES (?, ?, ?, ?)",
-        (account_id, fecha_inicio, "Apartado de ahorro", -monto_por_periodo),
+        "INSERT INTO movimientos (account_id, fecha, concepto, monto, categoria) VALUES (?, ?, ?, ?, ?)",
+        (account_id, fecha_inicio, "Apartado de ahorro", -monto_por_periodo, "ahorro"),
     )
     conn.commit()
 
@@ -699,3 +703,18 @@ def cancelar_apartado(conn: sqlite3.Connection, account_id: str, apartado_id: in
     resultado = dict(row)
     resultado["estado"] = "cancelado"
     return resultado
+
+
+def get_resumen_movimientos(
+    conn: sqlite3.Connection, account_id: str, fecha_inicio: str, fecha_fin: str
+) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT categoria, SUM(monto) AS total, COUNT(*) AS count
+        FROM movimientos
+        WHERE account_id = ? AND fecha >= ? AND fecha <= ?
+        GROUP BY categoria
+        """,
+        (account_id, fecha_inicio, fecha_fin),
+    ).fetchall()
+    return [dict(r) for r in rows]
