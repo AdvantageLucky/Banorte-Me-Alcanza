@@ -133,4 +133,56 @@ describe('createApiClient', () => {
       });
     });
   });
+
+  describe('sugerencias', () => {
+    it('getSugerencias hace un GET autenticado a /api/sugerencias', async () => {
+      const sugerencias = [
+        { id: 1, tipo: 'meta_en_riesgo', entidad_id: '3', detalle: {}, estado: 'pendiente', created_at: '2026-09-12T10:00:00', resuelta_at: null },
+      ];
+      fetchMock.mockResolvedValue({ ok: true, json: async () => sugerencias });
+      const client = createApiClient('http://api.test');
+
+      const result = await client.getSugerencias('jwt-123');
+
+      expect(result).toEqual(sugerencias);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/api/sugerencias',
+        expect.objectContaining({ method: 'GET', headers: { Authorization: 'Bearer jwt-123' } }),
+      );
+    });
+
+    it('atenderSugerencia hace POST a /api/sugerencias/{id}/atender', async () => {
+      const actualizada = { id: 1, tipo: 'meta_en_riesgo', entidad_id: '3', detalle: {}, estado: 'atendida', created_at: '2026-09-12T10:00:00', resuelta_at: '2026-09-12T11:00:00' };
+      fetchMock.mockResolvedValue({ ok: true, json: async () => actualizada });
+      const client = createApiClient('http://api.test');
+
+      const result = await client.atenderSugerencia('jwt-123', 1);
+
+      expect(result).toEqual(actualizada);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/api/sugerencias/1/atender',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer jwt-123' },
+        }),
+      );
+    });
+
+    it('descartarSugerencia hace POST a /api/sugerencias/{id}/descartar', async () => {
+      const actualizada = { id: 2, tipo: 'gasto_fijo_proximo', entidad_id: '7', detalle: {}, estado: 'descartada', created_at: '2026-09-12T10:00:00', resuelta_at: '2026-09-12T11:00:00' };
+      fetchMock.mockResolvedValue({ ok: true, json: async () => actualizada });
+      const client = createApiClient('http://api.test');
+
+      const result = await client.descartarSugerencia('jwt-123', 2);
+
+      expect(result).toEqual(actualizada);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/api/sugerencias/2/descartar',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer jwt-123' },
+        }),
+      );
+    });
+  });
 });

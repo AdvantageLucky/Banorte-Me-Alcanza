@@ -289,6 +289,10 @@ body {
   opacity: 0.75;
 }
 
+.logout {
+  opacity: 1 !important;
+}
+
 .app-navbar-tab-active {
   opacity: 1;
   background: rgba(255, 255, 255, 0.16);
@@ -575,4 +579,121 @@ body {
 .yo-badge-cancelado {
   background: var(--color-border);
   color: var(--color-secondary);
+}
+
+.dashboard-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dashboard-filters {
+  display: flex;
+  gap: var(--a2ui-spacing-xs);
+  overflow-x: auto;
+  padding: var(--a2ui-spacing-m) var(--a2ui-spacing-l) 0;
+  background: var(--color-surface);
+  border-bottom: var(--a2ui-border-width) solid var(--a2ui-color-border);
+}
+
+.dashboard-filter-tab {
+  background: none;
+  border: none;
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-s);
+  font-weight: 600;
+  color: var(--color-secondary);
+  white-space: nowrap;
+}
+
+.dashboard-filter-tab-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.dashboard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--a2ui-spacing-l);
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-m);
+}
+
+.dashboard-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-m);
+}
+
+.sugerencia-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--a2ui-spacing-m);
+  background: var(--color-surface);
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--a2ui-border-radius);
+  padding: var(--a2ui-spacing-m);
+}
+
+.sugerencia-card-atendida,
+.sugerencia-card-descartada {
+  border-left-color: var(--color-border);
+  opacity: 0.7;
+}
+
+.sugerencia-titulo {
+  margin: 0 0 var(--a2ui-spacing-xs);
+  font-weight: 700;
+}
+
+.sugerencia-descripcion {
+  margin: 0;
+  font-size: var(--a2ui-font-size-s);
+  color: var(--color-secondary);
+}
+
+.sugerencia-resuelta {
+  margin: var(--a2ui-spacing-xs) 0 0;
+  font-size: var(--a2ui-font-size-xs);
+  color: var(--color-secondary);
+}
+
+.sugerencia-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-xs);
+  flex-shrink: 0;
+}
+
+.sugerencia-actions button {
+  padding: var(--a2ui-spacing-xs) var(--a2ui-spacing-m);
+  border: none;
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-xs);
+  white-space: nowrap;
+}
+
+.sugerencia-actions button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sugerencia-actions-secundaria {
+  background: none !important;
+  border: var(--a2ui-border-width) solid var(--color-border) !important;
+  color: var(--color-secondary) !important;
 }
