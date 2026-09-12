@@ -208,3 +208,49 @@ def test_eliminar_contacto_de_otra_cuenta(conn):
     contactos = db.buscar_contacto(conn, "ana", "pepe")
     with pytest.raises(ValueError):
         db.eliminar_contacto(conn, "luis", contactos[0]["id"])
+
+
+def test_crear_ingreso_programado(conn):
+    ingreso = db.crear_ingreso_programado(
+        conn, "ana", "Bono anual", 5000.0, "anual", "2026-12-01"
+    )
+    assert ingreso["id"] is not None
+    assert ingreso["descripcion"] == "Bono anual"
+    assert len(db.get_ingresos_programados(conn, "ana")) == 2
+
+
+def test_crear_ingreso_programado_rechaza_monto_no_positivo(conn):
+    with pytest.raises(ValueError):
+        db.crear_ingreso_programado(conn, "ana", "x", 0, "mensual", "2026-12-01")
+
+
+def test_actualizar_ingreso_programado(conn):
+    ingreso_id = db.get_ingresos_programados(conn, "ana")[0]["id"]
+    actualizado = db.actualizar_ingreso_programado(
+        conn, "ana", ingreso_id, "Nómina actualizada", 13000.0, "quincenal", "2026-10-01"
+    )
+    assert actualizado["monto"] == 13000.0
+    assert db.get_ingresos_programados(conn, "ana")[0]["descripcion"] == "Nómina actualizada"
+
+
+def test_actualizar_ingreso_programado_inexistente(conn):
+    with pytest.raises(ValueError):
+        db.actualizar_ingreso_programado(conn, "ana", 999999, "x", 100.0, "mensual", "2026-10-01")
+
+
+def test_actualizar_ingreso_programado_de_otra_cuenta(conn):
+    ingreso_id = db.get_ingresos_programados(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.actualizar_ingreso_programado(conn, "luis", ingreso_id, "x", 100.0, "mensual", "2026-10-01")
+
+
+def test_eliminar_ingreso_programado(conn):
+    ingreso_id = db.get_ingresos_programados(conn, "ana")[0]["id"]
+    db.eliminar_ingreso_programado(conn, "ana", ingreso_id)
+    assert db.get_ingresos_programados(conn, "ana") == []
+
+
+def test_eliminar_ingreso_programado_de_otra_cuenta(conn):
+    ingreso_id = db.get_ingresos_programados(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.eliminar_ingreso_programado(conn, "luis", ingreso_id)

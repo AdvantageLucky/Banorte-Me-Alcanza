@@ -211,6 +211,84 @@ def get_ingresos_programados(conn: sqlite3.Connection, account_id: str) -> list[
     return [dict(r) for r in rows]
 
 
+def crear_ingreso_programado(
+    conn: sqlite3.Connection,
+    account_id: str,
+    descripcion: str,
+    monto: float,
+    frecuencia: str,
+    proxima_fecha: str,
+) -> dict:
+    if monto <= 0:
+        raise ValueError("monto debe ser mayor a cero")
+    cursor = conn.execute(
+        """
+        INSERT INTO ingresos_programados (account_id, descripcion, monto, frecuencia, proxima_fecha)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (account_id, descripcion, monto, frecuencia, proxima_fecha),
+    )
+    conn.commit()
+    return {
+        "id": cursor.lastrowid,
+        "descripcion": descripcion,
+        "monto": monto,
+        "frecuencia": frecuencia,
+        "proxima_fecha": proxima_fecha,
+    }
+
+
+def _get_ingreso_programado(conn: sqlite3.Connection, account_id: str, ingreso_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, descripcion, monto, frecuencia, proxima_fecha
+        FROM ingresos_programados WHERE id = ? AND account_id = ?
+        """,
+        (ingreso_id, account_id),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def actualizar_ingreso_programado(
+    conn: sqlite3.Connection,
+    account_id: str,
+    ingreso_id: int,
+    descripcion: str,
+    monto: float,
+    frecuencia: str,
+    proxima_fecha: str,
+) -> dict:
+    if monto <= 0:
+        raise ValueError("monto debe ser mayor a cero")
+    if _get_ingreso_programado(conn, account_id, ingreso_id) is None:
+        raise ValueError(f"Ingreso programado no encontrado para esta cuenta: {ingreso_id}")
+    conn.execute(
+        """
+        UPDATE ingresos_programados SET descripcion = ?, monto = ?, frecuencia = ?, proxima_fecha = ?
+        WHERE id = ? AND account_id = ?
+        """,
+        (descripcion, monto, frecuencia, proxima_fecha, ingreso_id, account_id),
+    )
+    conn.commit()
+    return {
+        "id": ingreso_id,
+        "descripcion": descripcion,
+        "monto": monto,
+        "frecuencia": frecuencia,
+        "proxima_fecha": proxima_fecha,
+    }
+
+
+def eliminar_ingreso_programado(conn: sqlite3.Connection, account_id: str, ingreso_id: int) -> None:
+    if _get_ingreso_programado(conn, account_id, ingreso_id) is None:
+        raise ValueError(f"Ingreso programado no encontrado para esta cuenta: {ingreso_id}")
+    conn.execute(
+        "DELETE FROM ingresos_programados WHERE id = ? AND account_id = ?",
+        (ingreso_id, account_id),
+    )
+    conn.commit()
+
+
 def get_gastos_fijos(conn: sqlite3.Connection, account_id: str) -> list[dict]:
     rows = conn.execute(
         """
