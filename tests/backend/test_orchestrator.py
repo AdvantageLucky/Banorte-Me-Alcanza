@@ -142,29 +142,6 @@ async def test_handle_message_ignora_account_id_que_intente_inyectar_el_llm():
 
 
 @pytest.mark.asyncio
-async def test_handle_message_get_movimientos_reenvia_limit():
-    mcp_client = MagicMock()
-    mcp_client.call = AsyncMock(return_value=[])
-
-    genai_client = MagicMock()
-    genai_client.models.generate_content = MagicMock(
-        side_effect=[
-            _mock_function_call_response("get_movimientos", {"limit": 3}),
-            _mock_final_response(SALDO_A2UI_RESPONSE),
-        ]
-    )
-
-    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    messages = await orchestrator.handle_message("ana", "mis últimos movimientos")
-
-    mcp_client.call.assert_awaited_once_with("get_movimientos", {"account_id": "ana", "limit": 3})
-    # El resultado de get_movimientos es una list; esto prueba que el round-trip
-    # completo (incluyendo Part.from_function_response con ese resultado) termina
-    # en el bloque A2UI real y no cae silenciosamente a error_a2ui_block.
-    assert messages[0]["createSurface"]["surfaceId"].startswith("turno-")
-
-
-@pytest.mark.asyncio
 async def test_handle_message_simular_flujo_de_caja_reenvia_argumentos():
     mcp_client = MagicMock()
     mcp_client.call = AsyncMock(
@@ -540,7 +517,7 @@ def test_read_only_tool_declarations_expone_exactamente_las_herramientas_permiti
     assert names == {
         "get_saldo",
         "get_cuenta",
-        "get_movimientos",
+        "get_resumen_movimientos",
         "get_ingresos_programados",
         "get_gastos_fijos",
         "get_metas",
@@ -878,3 +855,32 @@ async def test_confirm_action_meta_llama_crear_meta_en_mcp():
         {"account_id": "ana", "descripcion": "Viaje", "monto_objetivo": 20000.0, "fecha_objetivo": "2027-01-01"},
     )
     assert "createSurface" in messages[0]
+
+
+def test_get_movimientos_ya_no_esta_en_read_only_tools():
+    from me_alcanza.backend.orchestrator import _READ_ONLY_TOOLS
+
+    assert "get_movimientos" not in _READ_ONLY_TOOLS
+    assert "get_resumen_movimientos" in _READ_ONLY_TOOLS
+
+
+@pytest.mark.asyncio
+async def test_handle_message_get_resumen_movimientos_reenvia_fechas():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value=[{"categoria": "ahorro", "total": -100.0, "count": 2}])
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "get_resumen_movimientos", {"fecha_inicio": "2026-09-01", "fecha_fin": "2026-09-30"}
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", "¿en qué gasté este mes?")
+
+    mcp_client.call.assert_awaited_once_with(
+        "get_resumen_movimientos",
+        {"account_id": "ana", "fecha_inicio": "2026-09-01", "fecha_fin": "2026-09-30"},
+    )

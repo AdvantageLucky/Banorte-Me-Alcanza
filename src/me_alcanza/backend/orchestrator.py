@@ -18,7 +18,7 @@ MAX_TOOL_CALL_ROUNDS = 5
 _READ_ONLY_TOOLS = {
     "get_saldo",
     "get_cuenta",
-    "get_movimientos",
+    "get_resumen_movimientos",
     "get_ingresos_programados",
     "get_gastos_fijos",
     "get_metas",
@@ -138,16 +138,24 @@ def read_only_tool_declarations() -> list[types.Tool]:
                     parameters=types.Schema(type=types.Type.OBJECT, properties={}),
                 ),
                 types.FunctionDeclaration(
-                    name="get_movimientos",
-                    description="Obtiene los movimientos más recientes de la cuenta del usuario actual.",
+                    name="get_resumen_movimientos",
+                    description=(
+                        "Obtiene el total y conteo de movimientos de la cuenta del usuario actual, "
+                        "agrupados por categoría, dentro de un rango de fechas. Úsala para responder "
+                        "preguntas sobre patrones de gasto (ej. '¿en qué gasté este mes?'); nunca "
+                        "pidas el detalle de movimientos individuales."
+                    ),
                     parameters=types.Schema(
                         type=types.Type.OBJECT,
                         properties={
-                            "limit": types.Schema(
-                                type=types.Type.INTEGER,
-                                description="Cantidad máxima de movimientos a devolver.",
-                            )
+                            "fecha_inicio": types.Schema(
+                                type=types.Type.STRING, description="Formato YYYY-MM-DD."
+                            ),
+                            "fecha_fin": types.Schema(
+                                type=types.Type.STRING, description="Formato YYYY-MM-DD."
+                            ),
                         },
+                        required=["fecha_inicio", "fecha_fin"],
                     ),
                 ),
                 types.FunctionDeclaration(
@@ -361,7 +369,11 @@ def build_system_prompt() -> str:
             "ingreso programado o meta ya se guardó: solo se crean cuando el usuario confirma "
             "explícitamente. Estas herramientas son solo para CREAR: editar o borrar un contacto/"
             "gasto fijo/ingreso programado/meta existente no se hace por chat, dile al usuario que "
-            "lo haga desde la pantalla correspondiente."
+            "lo haga desde la pantalla correspondiente. "
+            "Para preguntas sobre patrones de gasto (ej. '¿en qué gasté este mes?', '¿cuánto gasté en "
+            "transferencias?'), usa 'get_resumen_movimientos' calculando tú mismo el rango de fechas a "
+            "partir de hoy (ej. 'este mes' = del día 1 del mes actual a hoy); nunca pidas ni inventes "
+            "el detalle de movimientos individuales."
         ),
         ui_description=(
             "Usa SIEMPRE jerarquía visual, nunca texto plano sin estructura: "
@@ -436,8 +448,16 @@ class Orchestrator:
     async def _dispatch_tool_call(self, account_id: str, call) -> Any:
         if call.name in _READ_ONLY_TOOLS:
             args = {"account_id": account_id}
-            if call.name == "get_movimientos" and call.args and "limit" in call.args:
-                args["limit"] = call.args["limit"]
+            if call.name == "get_resumen_movimientos":
+                call_args = call.args or {}
+                fecha_inicio = call_args.get("fecha_inicio")
+                fecha_fin = call_args.get("fecha_fin")
+                if fecha_inicio is None:
+                    return {"error": "Falta el argumento requerido: fecha_inicio"}
+                if fecha_fin is None:
+                    return {"error": "Falta el argumento requerido: fecha_fin"}
+                args["fecha_inicio"] = fecha_inicio
+                args["fecha_fin"] = fecha_fin
             elif call.name == "buscar_contacto":
                 query = (call.args or {}).get("query")
                 if query is None:
