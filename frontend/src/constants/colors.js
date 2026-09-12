@@ -8,6 +8,7 @@ const PALETTE = {
     brand: {
         primary: '#ec0029',
         secondary: '#6a6867',
+        tertiary: '#5b6570',
     },
     accent: {
         yellow: '#f8d44c',
@@ -25,6 +26,7 @@ export const COLORS = Object.freeze({
     surface: PALETTE.neutral.white,
     border: PALETTE.neutral.gray,
     input: PALETTE.neutral.white,
+    messageUser: PALETTE.brand.tertiary,
 
     // Textos / Elementos "On" (sobre)
     onBackground: PALETTE.neutral.dark,

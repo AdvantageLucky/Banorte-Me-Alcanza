@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Fragment } from 'react';
 import { MessageProcessor } from '@a2ui/web_core/v0_9';
 import { A2uiSurface, basicCatalog } from '@a2ui/react/v0_9';
 import { injectStyles, removeStyles } from '@a2ui/react/styles';
@@ -7,6 +7,7 @@ import { createActionHandler } from '../chat/actionHandler.js';
 import { dropDuplicateCreateSurface } from '../chat/messageFilter.js';
 import { extractSurfaceId } from '../chat/extractSurfaceId.js';
 import { useAuth } from '../auth/AuthContext.jsx';
+import logo from '../assets/images/logo.svg';
 
 export default function ChatView() {
   const { token, logout } = useAuth();
@@ -106,7 +107,12 @@ export default function ChatView() {
           if (!surface) {
             return null;
           }
-          return <A2uiSurface key={turn.id} surface={surface} />;
+          return (
+            <div className="chat-bot" key={turn.id}>
+              <img className="chat-logo" src={logo} alt="Logo" width="40" height="40" />
+              <A2uiSurface key={turn.id} surface={surface} />
+            </div>
+          );
         })}
       </main>
       {errorMessage && <p className="chat-error">{errorMessage}</p>}

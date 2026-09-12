@@ -182,7 +182,7 @@ body {
   max-width: 80%;
   margin: 0;
   padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
-  background: var(--a2ui-color-primary);
+  background: var(--color-message-user);
   color: var(--a2ui-color-on-primary);
   border-radius: var(--a2ui-border-radius);
   border-bottom-right-radius: calc(var(--a2ui-border-radius) / 4);
@@ -195,7 +195,7 @@ body {
   display: flex;
   gap: var(--a2ui-spacing-s);
   padding: var(--a2ui-spacing-m) var(--a2ui-spacing-l);
-  background: var(--a2ui-color-surface);
+  background: var(--color-on-primary);
   border-top: var(--a2ui-border-width) solid var(--a2ui-color-border);
 }
 
@@ -206,6 +206,7 @@ body {
   border-radius: calc(var(--a2ui-border-radius) / 2);
   font-size: var(--a2ui-font-size-m);
   font-family: var(--a2ui-font-family-title);
+  background: var(--color-on-primary);
 }
 
 .chat-header {
@@ -218,4 +219,11 @@ body {
 .chat-header-subtitle {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-m);
+}
+.chat-bot {
+  margin-top: -30px;
+}
+.chat-logo {
+  margin-bottom: -35px;
+  margin-left: -4px;
 }
