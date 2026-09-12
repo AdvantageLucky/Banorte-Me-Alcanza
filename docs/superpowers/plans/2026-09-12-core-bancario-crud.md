@@ -1414,9 +1414,12 @@ Agregar al final del archivo:
 async def list_contactos(
     request: Request, account_id: str = Depends(auth.get_current_account_id)
 ) -> list[ContactoResponse]:
-    contactos = await request.app.state.mcp_client.call(
-        "buscar_contacto", {"account_id": account_id, "query": ""}
-    )
+    try:
+        contactos = await request.app.state.mcp_client.call(
+            "buscar_contacto", {"account_id": account_id, "query": ""}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return [ContactoResponse(**c) for c in contactos]
 
 
@@ -1426,16 +1429,19 @@ async def create_contacto(
     request: Request,
     account_id: str = Depends(auth.get_current_account_id),
 ) -> ContactoResponse:
-    contacto = await request.app.state.mcp_client.call(
-        "crear_contacto",
-        {
-            "account_id": account_id,
-            "nombre": payload.nombre,
-            "alias": payload.alias,
-            "cuenta_destino": payload.cuenta_destino,
-            "relacion": payload.relacion,
-        },
-    )
+    try:
+        contacto = await request.app.state.mcp_client.call(
+            "crear_contacto",
+            {
+                "account_id": account_id,
+                "nombre": payload.nombre,
+                "alias": payload.alias,
+                "cuenta_destino": payload.cuenta_destino,
+                "relacion": payload.relacion,
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ContactoResponse(**contacto)
 
 
@@ -1578,9 +1584,12 @@ Agregar al final del archivo:
 async def list_ingresos_programados(
     request: Request, account_id: str = Depends(auth.get_current_account_id)
 ) -> list[IngresoProgramadoResponse]:
-    ingresos = await request.app.state.mcp_client.call(
-        "get_ingresos_programados", {"account_id": account_id}
-    )
+    try:
+        ingresos = await request.app.state.mcp_client.call(
+            "get_ingresos_programados", {"account_id": account_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return [IngresoProgramadoResponse(**i) for i in ingresos]
 
 
@@ -1590,16 +1599,19 @@ async def create_ingreso_programado(
     request: Request,
     account_id: str = Depends(auth.get_current_account_id),
 ) -> IngresoProgramadoResponse:
-    ingreso = await request.app.state.mcp_client.call(
-        "crear_ingreso_programado",
-        {
-            "account_id": account_id,
-            "descripcion": payload.descripcion,
-            "monto": payload.monto,
-            "frecuencia": payload.frecuencia,
-            "proxima_fecha": str(payload.proxima_fecha),
-        },
-    )
+    try:
+        ingreso = await request.app.state.mcp_client.call(
+            "crear_ingreso_programado",
+            {
+                "account_id": account_id,
+                "descripcion": payload.descripcion,
+                "monto": payload.monto,
+                "frecuencia": payload.frecuencia,
+                "proxima_fecha": str(payload.proxima_fecha),
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return IngresoProgramadoResponse(**ingreso)
 
 
@@ -1610,9 +1622,12 @@ async def update_ingreso_programado(
     request: Request,
     account_id: str = Depends(auth.get_current_account_id),
 ) -> IngresoProgramadoResponse:
-    ingresos = await request.app.state.mcp_client.call(
-        "get_ingresos_programados", {"account_id": account_id}
-    )
+    try:
+        ingresos = await request.app.state.mcp_client.call(
+            "get_ingresos_programados", {"account_id": account_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     actual = next((i for i in ingresos if i["id"] == ingreso_id), None)
     if actual is None:
         raise HTTPException(status_code=400, detail=f"Ingreso programado no encontrado para esta cuenta: {ingreso_id}")
@@ -1735,7 +1750,10 @@ Agregar al final del archivo:
 async def list_gastos_fijos(
     request: Request, account_id: str = Depends(auth.get_current_account_id)
 ) -> list[GastoFijoResponse]:
-    gastos = await request.app.state.mcp_client.call("get_gastos_fijos", {"account_id": account_id})
+    try:
+        gastos = await request.app.state.mcp_client.call("get_gastos_fijos", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return [GastoFijoResponse(**g) for g in gastos]
 
 
@@ -1745,16 +1763,19 @@ async def create_gasto_fijo(
     request: Request,
     account_id: str = Depends(auth.get_current_account_id),
 ) -> GastoFijoResponse:
-    gasto = await request.app.state.mcp_client.call(
-        "crear_gasto_fijo",
-        {
-            "account_id": account_id,
-            "concepto": payload.concepto,
-            "monto": payload.monto,
-            "frecuencia": payload.frecuencia,
-            "proxima_fecha": str(payload.proxima_fecha),
-        },
-    )
+    try:
+        gasto = await request.app.state.mcp_client.call(
+            "crear_gasto_fijo",
+            {
+                "account_id": account_id,
+                "concepto": payload.concepto,
+                "monto": payload.monto,
+                "frecuencia": payload.frecuencia,
+                "proxima_fecha": str(payload.proxima_fecha),
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return GastoFijoResponse(**gasto)
 
 
@@ -1765,7 +1786,10 @@ async def update_gasto_fijo(
     request: Request,
     account_id: str = Depends(auth.get_current_account_id),
 ) -> GastoFijoResponse:
-    gastos = await request.app.state.mcp_client.call("get_gastos_fijos", {"account_id": account_id})
+    try:
+        gastos = await request.app.state.mcp_client.call("get_gastos_fijos", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     actual = next((g for g in gastos if g["id"] == gasto_id), None)
     if actual is None:
         raise HTTPException(status_code=400, detail=f"Gasto fijo no encontrado para esta cuenta: {gasto_id}")
@@ -1910,7 +1934,10 @@ Agregar al final del archivo:
 async def list_metas(
     request: Request, account_id: str = Depends(auth.get_current_account_id)
 ) -> list[MetaResponse]:
-    metas = await request.app.state.mcp_client.call("get_metas", {"account_id": account_id})
+    try:
+        metas = await request.app.state.mcp_client.call("get_metas", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return [MetaResponse(**m) for m in metas]
 
 
@@ -1920,15 +1947,18 @@ async def create_meta(
     request: Request,
     account_id: str = Depends(auth.get_current_account_id),
 ) -> MetaResponse:
-    meta = await request.app.state.mcp_client.call(
-        "crear_meta",
-        {
-            "account_id": account_id,
-            "descripcion": payload.descripcion,
-            "monto_objetivo": payload.monto_objetivo,
-            "fecha_objetivo": str(payload.fecha_objetivo),
-        },
-    )
+    try:
+        meta = await request.app.state.mcp_client.call(
+            "crear_meta",
+            {
+                "account_id": account_id,
+                "descripcion": payload.descripcion,
+                "monto_objetivo": payload.monto_objetivo,
+                "fecha_objetivo": str(payload.fecha_objetivo),
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return MetaResponse(**meta)
 
 
@@ -1939,7 +1969,10 @@ async def update_meta(
     request: Request,
     account_id: str = Depends(auth.get_current_account_id),
 ) -> MetaResponse:
-    metas = await request.app.state.mcp_client.call("get_metas", {"account_id": account_id})
+    try:
+        metas = await request.app.state.mcp_client.call("get_metas", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     actual = next((m for m in metas if m["id"] == meta_id), None)
     if actual is None:
         raise HTTPException(status_code=400, detail=f"Meta no encontrada para esta cuenta: {meta_id}")
@@ -2064,7 +2097,10 @@ Agregar al final del archivo:
 async def list_apartados(
     request: Request, account_id: str = Depends(auth.get_current_account_id)
 ) -> list[ApartadoResponse]:
-    apartados = await request.app.state.mcp_client.call("listar_apartados", {"account_id": account_id})
+    try:
+        apartados = await request.app.state.mcp_client.call("listar_apartados", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return [ApartadoResponse(**a) for a in apartados]
 
 
