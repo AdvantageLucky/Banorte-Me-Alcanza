@@ -23,6 +23,7 @@ def test_alcanza_con_margen_amplio():
     )
     assert resultado["alcanza"] is True
     assert resultado["apartado_sugerido"] is None
+    assert resultado["saldo_minimo_proyectado"] == pytest.approx(500.0)
 
 
 def test_no_alcanza_sugiere_apartado():
@@ -84,3 +85,24 @@ def test_eventos_posteriores_a_fecha_objetivo_se_ignoran():
     )
     assert resultado["alcanza"] is True
     assert resultado["margen"] == pytest.approx(50.0)
+
+
+def test_ingreso_y_gasto_mismo_dia_ingreso_se_aplica_primero():
+    # Verifies that when an ingreso and gasto share the same date, the ingreso
+    # is processed first (per the sort key: 0 for income, 1 for expenses).
+    # With these numbers, the ordering is observable:
+    # - Income first: 100 + 300 - 200 = 200, min = 100 (never went negative)
+    # - Expense first: 100 - 200 + 300 = 200, min = -100 (would dip below zero)
+    resultado = simular_flujo_de_caja(
+        saldo_actual=100.00,
+        ingresos=[{"monto": 300.00, "proxima_fecha": "2026-09-12"}],
+        gastos=[{"monto": 200.00, "proxima_fecha": "2026-09-12"}],
+        hoy="2026-09-11",
+        fecha_objetivo="2026-09-30",
+        monto_objetivo=0.00,
+    )
+    # If the sort key worked correctly (income before expense), min should be 100
+    # If expenses were somehow processed first, min would be -100
+    assert resultado["saldo_minimo_proyectado"] == pytest.approx(100.0)
+    assert resultado["margen"] == pytest.approx(100.0)
+    assert resultado["alcanza"] is True
