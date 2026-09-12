@@ -6,6 +6,7 @@ import { apiClient } from '../api/client.js';
 import { createActionHandler } from '../chat/actionHandler.js';
 import { dropDuplicateCreateSurface } from '../chat/messageFilter.js';
 import { extractSurfaceId } from '../chat/extractSurfaceId.js';
+import Typewriter from '../components/typewritter.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import logo from '../assets/images/logo.svg';
 
@@ -93,7 +94,7 @@ export default function ChatView() {
       </header>
       <main className="chat-surfaces">
         {turns.length === 0 && (
-          <p className="chat-empty">Escribe tu primer mensaje para empezar ; )</p>
+          <Typewriter />
         )}
         {turns.map((turn) => {
           if (turn.kind === 'user') {

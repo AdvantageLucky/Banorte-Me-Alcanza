@@ -230,3 +230,12 @@ body {
   margin-bottom: -35px;
   margin-left: -4px;
 }
+.cursor {
+  font-weight: bold;
+  animation: blink 1s step-start infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
