@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Any
 
@@ -7,6 +8,8 @@ from google.genai import types
 
 from . import proposals
 from .mcp_client import BankMcpClient
+
+_logger = logging.getLogger(__name__)
 
 _VERSION = "0.9"
 _ALLOWED_COMPONENTS = ["Card", "Column", "Row", "Text", "Button", "List", "Divider"]
@@ -274,6 +277,26 @@ def build_system_prompt() -> str:
             "automáticamente, así que usa cualquier id consistente dentro de tu propia respuesta "
             "(el mismo en createSurface, updateComponents y updateDataModel de este turno)."
         ),
+        ui_description=(
+            "Usa SIEMPRE jerarquía visual, nunca texto plano sin estructura: "
+            "1) Todo Text lleva un 'variant' explícito según su rol — 'h3' para el título de la "
+            "tarjeta (ej. 'Saldo disponible', 'Confirmar transferencia'), 'h1' o 'h2' para el dato "
+            "numérico principal (el monto o saldo destacado), 'body' para texto descriptivo normal, "
+            "y 'caption' para etiquetas secundarias o aclaraciones pequeñas. Nunca dejes 'variant' "
+            "sin especificar para un título o un monto destacado. "
+            "2) Para pares etiqueta-valor (ej. 'Concepto: Renta', 'Fecha: 15 oct'), usa un Row con "
+            "justify='spaceBetween' conteniendo la etiqueta (variant='caption' o 'body') y el valor "
+            "(variant='body'), nunca los concatenes en un solo Text. "
+            "3) Separa secciones distintas dentro de una misma tarjeta (ej. el resumen de un dato y "
+            "la acción de confirmación debajo) con un Divider entre ellas. "
+            "4) En cada Button, usa variant='primary' para la única acción principal/de confirmación "
+            "de la tarjeta (ej. el botón que dispara 'confirmar_accion'), y variant='borderless' o "
+            "'default' para acciones secundarias si las hay. Nunca dejes el variant del botón "
+            "principal sin especificar. "
+            "5) Envuelve el contenido de cada Card en un Column con algo de estructura (título, "
+            "luego el contenido, nunca un solo Text suelto como único hijo) — una tarjeta con un "
+            "solo dato sin título ni jerarquía se ve incompleta y debe evitarse."
+        ),
         allowed_components=_ALLOWED_COMPONENTS,
         include_schema=True,
     )
@@ -482,8 +505,16 @@ class Orchestrator:
                 )
 
             return error_a2ui_block(f"Tipo de propuesta desconocido: {proposal.tipo}")
-        except Exception as exc:  # noqa: BLE001 - fallback controlado hacia UI de error
-            return error_a2ui_block(f"No se pudo completar la acción: {exc}")
+        except Exception:  # noqa: BLE001 - fallback controlado hacia UI de error
+            # Nunca se interpola el texto crudo de la excepción en el mensaje
+            # que ve el usuario: puede traer payloads de proveedores externos
+            # (ej. el cuerpo de error de la API de Gemini en un 429 de cuota,
+            # que incluye límites, links y detalles internos). El detalle real
+            # queda solo en el log del servidor.
+            _logger.exception("confirm_action falló de forma inesperada")
+            return error_a2ui_block(
+                "No se pudo completar la acción. Intenta de nuevo en unos momentos."
+            )
 
     async def handle_message(self, account_id: str, mensaje: str) -> list[dict]:
         contents = [mensaje]
@@ -516,8 +547,15 @@ class Orchestrator:
                         return _rewrite_surface_id(part.a2ui_json, _new_surface_id())
 
                 break
-        except Exception as exc:  # noqa: BLE001 - fallback controlado hacia UI de error
-            return error_a2ui_block(f"Ocurrió un error al procesar tu solicitud: {exc}")
+        except Exception:  # noqa: BLE001 - fallback controlado hacia UI de error
+            # Mismo motivo que en confirm_action: nunca mostrar el texto crudo
+            # de la excepción (puede traer el cuerpo de error de la API de
+            # Gemini, incluyendo detalles de cuota/rate-limit). Se loguea
+            # completo server-side y se muestra un mensaje genérico.
+            _logger.exception("handle_message falló de forma inesperada")
+            return error_a2ui_block(
+                "Ocurrió un error al procesar tu solicitud. Intenta de nuevo en unos momentos."
+            )
 
         return error_a2ui_block(
             "No se pudo generar una respuesta válida. Intenta de nuevo."
