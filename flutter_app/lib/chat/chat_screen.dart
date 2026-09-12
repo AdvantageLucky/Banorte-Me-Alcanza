@@ -73,6 +73,18 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() {
           _turns.add(AgentTurn('turn-${_turnCounter++}', event.surfaceId));
         });
+      } else if (event is ConversationError) {
+        // Cubre, entre otros casos, el error interno que
+        // SurfaceController.reportError empuja por el mismo stream
+        // onSubmit que las acciones de botón (payload
+        // {"version": "v0.9", "error": {...}}, sin clave "action"): ese
+        // caso hace que A2uiTransportAdapter.sendRequest falle dentro de
+        // _handleSend (ver más abajo), y Conversation.sendRequest
+        // convierte esa excepción en este evento en vez de dejarla
+        // propagar sin control.
+        setState(() {
+          _errorMessage = 'Ocurrió un error inesperado. Intenta de nuevo.';
+        });
       }
     });
   }
@@ -116,7 +128,16 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     final decoded = jsonDecode(interactionPart.interaction) as Map<String, dynamic>;
-    final action = decoded['action'] as Map<String, dynamic>;
+    // No todo UiInteractionPart representa una acción de usuario: por
+    // ejemplo, SurfaceController.reportError empuja por este mismo canal
+    // un payload {"version": "v0.9", "error": {...}} sin clave "action"
+    // (ver genui-0.10.3/lib/src/engine/surface_controller.dart:296-309).
+    // Forzar el cast a Map no-nulable lanzaría un TypeError en ese caso;
+    // en vez de eso, simplemente ignoramos interacciones sin acción.
+    final action = decoded['action'] as Map<String, dynamic>?;
+    if (action == null) {
+      return;
+    }
     await _actionRouter.handle(action);
   }
 
