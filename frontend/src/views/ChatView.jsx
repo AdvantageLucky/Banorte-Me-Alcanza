@@ -4,6 +4,7 @@ import { A2uiSurface, basicCatalog } from '@a2ui/react/v0_9';
 import { injectStyles, removeStyles } from '@a2ui/react/styles';
 import { apiClient } from '../api/client.js';
 import { createActionHandler } from '../chat/actionHandler.js';
+import { dropDuplicateCreateSurface } from '../chat/messageFilter.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 export default function ChatView() {
@@ -25,7 +26,12 @@ export default function ChatView() {
     let proc;
     const handleAction = createActionHandler({
       confirmAction: (proposalId) => apiClient.confirmAction(token, proposalId),
-      onMessages: (messages) => proc.processMessages(messages),
+      onMessages: (messages) => {
+        setErrorMessage(null);
+        proc.processMessages(
+          dropDuplicateCreateSurface(messages, new Set(proc.model.surfacesMap.keys())),
+        );
+      },
       onError: (err) => handleApiError(err, 'No se pudo confirmar la acción, intenta de nuevo.'),
     });
     proc = new MessageProcessor([basicCatalog], handleAction);
@@ -58,7 +64,9 @@ export default function ChatView() {
     setErrorMessage(null);
     try {
       const { a2ui_messages } = await apiClient.sendMessage(token, mensaje);
-      processor.processMessages(a2ui_messages);
+      processor.processMessages(
+        dropDuplicateCreateSurface(a2ui_messages, new Set(processor.model.surfacesMap.keys())),
+      );
       setMensaje('');
     } catch (err) {
       handleApiError(err, 'No se pudo enviar el mensaje, intenta de nuevo.');
