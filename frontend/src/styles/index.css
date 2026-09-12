@@ -64,6 +64,13 @@ html:root {
   box-sizing: border-box;
 }
 
+/* La librería no da ninguna señal visual de que el trigger de un Modal
+   (ej. el texto "¿Cómo se calculó?" que arma el LLM) es clickeable —
+   agrega el cursor aquí, sin tocar el paquete. */
+.a2ui-modal-trigger {
+  cursor: pointer;
+}
+
 body {
   margin: 0;
   font-family: var(--a2ui-font-family-title);
