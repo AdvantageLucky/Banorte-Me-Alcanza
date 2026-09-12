@@ -360,6 +360,13 @@ class Orchestrator:
                 "La propuesta no existe, no te pertenece, o expiró. Pídela de nuevo."
             )
 
+        # Descartar la propuesta ANTES de llamar al MCP: si dos confirmaciones
+        # concurrentes de la misma propuesta llegaran a pasar la validación de
+        # arriba, solo una debe poder ejecutar la mutación real (transferencia o
+        # apartado). Descartar al final (en un finally) dejaría una ventana en la
+        # que ambas pasan la validación y ambas ejecutan la acción dos veces.
+        proposals.descartar_propuesta(proposal_id)
+
         try:
             if proposal.tipo == "apartado":
                 await self._mcp.call(
@@ -398,8 +405,6 @@ class Orchestrator:
             return error_a2ui_block(f"Tipo de propuesta desconocido: {proposal.tipo}")
         except Exception as exc:  # noqa: BLE001 - fallback controlado hacia UI de error
             return error_a2ui_block(f"No se pudo completar la acción: {exc}")
-        finally:
-            proposals.descartar_propuesta(proposal_id)
 
     async def handle_message(self, account_id: str, mensaje: str) -> list[dict]:
         contents = [mensaje]

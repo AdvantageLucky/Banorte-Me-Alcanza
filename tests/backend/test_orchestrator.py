@@ -379,7 +379,40 @@ async def test_confirm_action_apartado_llama_crear_apartado_en_mcp():
 
 
 @pytest.mark.asyncio
+async def test_confirm_action_descarta_propuesta_antes_de_llamar_al_mcp():
+    # Cierra la ventana de doble ejecución: la propuesta debe quedar descartada
+    # ANTES de que se dispare la llamada al MCP que ejecuta la mutación real, no
+    # después (en un finally al final). Lo verificamos observando el estado de
+    # PROPOSALS desde dentro del propio side_effect de la llamada al MCP.
+    proposal = proposals.crear_propuesta(
+        "ana", "apartado", {"meta_id": 7, "monto_por_periodo": 142.5, "periodicidad": "semanal"}, "Apartar $142.50"
+    )
+
+    seen_still_present = "not observed"
+
+    async def fake_call(_name, _args):
+        nonlocal seen_still_present
+        seen_still_present = proposal.id in proposals.PROPOSALS
+        return {"ok": True, "apartado": {"id": 1}}
+
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=fake_call)
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+
+    await orchestrator.confirm_action("ana", proposal.id)
+
+    assert seen_still_present is False
+    assert proposal.id not in proposals.PROPOSALS
+
+
+@pytest.mark.asyncio
 async def test_confirm_action_transferencia_revalida_contacto_y_ejecuta():
+    # El payload guardado en la propuesta trae una cuenta destino DISTINTA a la que
+    # devuelve la revalidación de get_contacto (simula que el contacto cambió su
+    # cuenta destino entre proponer y confirmar). Esto prueba que ejecutar_transferencia
+    # usa SIEMPRE el valor recién revalidado, nunca el valor obsoleto guardado en la
+    # propuesta -- es el comportamiento de seguridad más importante de esta tarea.
     mcp_client = MagicMock()
     mcp_client.call = AsyncMock(
         side_effect=[
@@ -393,7 +426,7 @@ async def test_confirm_action_transferencia_revalida_contacto_y_ejecuta():
     proposal = proposals.crear_propuesta(
         "ana",
         "transferencia",
-        {"contacto_id": 1, "destino_cuenta": "9988776655", "monto": 142.5, "concepto": "Regalo"},
+        {"contacto_id": 1, "destino_cuenta": "OLD_ACCOUNT", "monto": 142.5, "concepto": "Regalo"},
         "Transferir $142.50 a José Ramírez",
     )
 
