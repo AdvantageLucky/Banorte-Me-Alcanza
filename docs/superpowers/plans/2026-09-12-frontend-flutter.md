@@ -1502,3 +1502,45 @@ backend sin duplicar lógica de negocio. Pendiente fuera de este plan:
 funcionalidad real en Dashboard/Yo (hoy placeholders, por decisión
 explícita), y la verificación manual en un emulador/dispositivo real si
 este entorno de desarrollo no tuviera uno configurado.
+
+## Corrección post-revisión final (defectos del propio plan)
+
+La revisión final de todo el branch (tras completarse las 9 tareas)
+encontró 3 defectos que venían del texto de este plan, no de que algún
+implementador se desviara de él. Se corrigieron en un único fix wave
+(commit posterior a `4d08732`); se documentan aquí para que una futura
+relectura de este plan no reproduzca los mismos bugs:
+
+1. **Task 9 nunca pidió el permiso de tráfico sin cifrar en Android.**
+   El manifest de debug (`flutter_app/android/app/src/debug/AndroidManifest.xml`,
+   generado por el scaffold de la Task 1 y nunca tocado después) no
+   declara `android:usesCleartextTraffic="true"`. Con `targetSdkVersion`
+   36, Android bloquea todo tráfico `http://` por defecto — y toda la
+   app le habla a `http://10.0.2.2:8000` o a una IP LAN (ver Task 7,
+   `config.dart`). Sin este flag la app no puede hacer ninguna petición
+   de red en un dispositivo/emulador real; el bug es invisible a
+   `flutter analyze`/`flutter test`/`flutter build apk`, solo aparece
+   corriendo la app de verdad — exactamente el paso que la Task 9 marcó
+   como "pendiente, sin emulador en este entorno". Debió incluirse como
+   un step explícito de la Task 1 (que ya crea el scaffold) o de la
+   Task 7 (que introduce el primer uso real de red desde la app).
+
+2. **Task 7's `AppShell.build()` usa `body: screens[_currentIndex]`.**
+   Esto reconstruye los 3 widgets de tab en cada `setState`, destruyendo
+   el `State` de `ChatScreen` — y con él toda la transcripción del chat
+   y las instancias de `SurfaceController`/`Conversation` — cada vez que
+   el usuario visita otro tab y regresa. Debió ser
+   `IndexedStack(index: _currentIndex, children: screens)`.
+
+3. **Task 6's `dispose()` en `ChatScreen` está incompleto.** Solo
+   dispone `_messageController` y `_transport`; nunca cancela la
+   suscripción de `_conversation.events.listen(...)` creada en
+   `initState`, ni llama `dispose()` en `_conversation`/`_surfaceController`.
+   Combinado con el defecto #2, cada cambio de tab crea una instancia
+   nueva de estos objetos sin liberar la anterior — fuga de recursos que
+   se compone con el uso normal de la app durante una demo larga.
+
+Ninguno de los 3 requirió reabrir tareas ya cerradas del ledger — se
+resolvieron como hallazgos de la revisión final, siguiendo la regla de
+subagent-driven-development de un solo fix wave sin reabrir el loop de
+tareas individuales.
