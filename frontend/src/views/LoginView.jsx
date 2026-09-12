@@ -8,6 +8,7 @@ export default function LoginView() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -28,26 +29,52 @@ export default function LoginView() {
 
   return (
     <div className="login-view">
-      <form className="login-form" onSubmit={handleSubmit}>
-        <h1>me-alcanza</h1>
-        <label>
-          Usuario
-          <input value={username} onChange={(event) => setUsername(event.target.value)} required />
-        </label>
-        <label>
-          Contraseña
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-        </label>
-        {error && <p className="login-error">{error}</p>}
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Entrando...' : 'Entrar'}
-        </button>
-      </form>
+      <header className="login-navbar">
+        <span className="login-navbar-brand">Banorte</span>
+        <span className="login-navbar-tagline"> — ¿Me alcanza?</span>
+      </header>
+
+      <div className="login-stage">
+        <div className="login-panel">
+          <div className="login-card">
+            <form className="login-form" onSubmit={handleSubmit}>
+              <p className="login-card-subtitle">Inicia sesión para continuar.</p>
+              <label>
+                Usuario
+                <input value={username} onChange={(event) => setUsername(event.target.value)} required />
+              </label>
+              <label>
+                Contraseña
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+              </label>
+              {error && <p className="login-error">{error}</p>}
+              <button type="submit" disabled={submitting}>
+                {submitting ? 'Entrando...' : 'Entrar'}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div className="login-video-wrap">
+          {!videoFailed && (
+            <video
+              className="login-video"
+              autoPlay
+              loop
+              muted
+              playsInline
+              onError={() => setVideoFailed(true)}
+            >
+              <source src="/videos/login-animation.mp4" type="video/mp4" />
+            </video>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
