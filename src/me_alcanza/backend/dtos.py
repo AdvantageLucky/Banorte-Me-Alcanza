@@ -153,3 +153,9 @@ class SugerenciaResponse(BaseModel):
     estado: str
     created_at: str
     resuelta_at: str | None
+
+
+class ScoreSaludResponse(BaseModel):
+    score: int
+    categoria: str
+    factores: list[str]
