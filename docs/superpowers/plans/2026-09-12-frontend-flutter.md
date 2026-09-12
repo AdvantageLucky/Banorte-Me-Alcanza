@@ -343,14 +343,20 @@ class ApiClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       String? detail;
       try {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        // NO usar response.body: decodifica según el charset del header
+        // Content-Type, y cae a latin1 si no hay uno declarado (que es
+        // el caso cuando el header no existe, ej. en tests) —
+        // corrompería acentos/ñ. Toda esta API es JSON, que por RFC 8259
+        // siempre es UTF-8, así que se decodifica explícito.
+        final decoded =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         detail = decoded['detail'] as String?;
       } catch (_) {
         detail = null;
       }
       throw ApiException(response.statusCode, detail);
     }
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
   }
 }
 ```
@@ -809,6 +815,7 @@ git commit -m "feat: add AuthController and LoginScreen"
 
 **Files:**
 - Create: `flutter_app/lib/chat/chat_screen.dart`
+- Modify: `flutter_app/pubspec.yaml` (agregar `a2ui_core`)
 
 **Interfaces:**
 - Consumes: `ApiClient` (Task 2), `ActionRouter`/`confirmActionName` (Task 4), `AuthController` (Task 5), y los hallazgos de `flutter_app/GENUI_API_NOTES.md` (Task 1).
@@ -817,18 +824,55 @@ git commit -m "feat: add AuthController and LoginScreen"
 No hay tests automatizados para esta tarea (widget con dependencia de
 `genui` — ver Global Constraints); verificación manual en la Task 9.
 
-**Antes de escribir esta tarea, leer `flutter_app/GENUI_API_NOTES.md`
-(producido en la Task 1).** El código de abajo es la mejor
-aproximación posible basada en el patrón de inicialización confirmado
-en el README público de `genui`, pero **la parte de captura de
-acciones de botón está marcada explícitamente donde debe ajustarse**
-según lo que la Task 1 haya encontrado — no se garantiza que compile
-tal cual si los hallazgos difieren.
+**Actualizado tras la Task 1** (que ya se ejecutó y verificó
+independientemente contra el código fuente real de `genui`): el
+borrador original de esta tarea asumía `Surface(host:, surfaceId:)` y
+que las acciones de botón llegaban por `_conversation.events` — **ambas
+suposiciones eran incorrectas**. El código de abajo ya incorpora los
+hallazgos reales de `flutter_app/GENUI_API_NOTES.md`:
 
-- [ ] **Step 1: Implementar `lib/chat/chat_screen.dart`**
+- Las acciones de botón (incluyendo `confirmar_accion`) llegan
+  automáticamente al mismo `onSend` del `A2uiTransportAdapter` — no hay
+  que suscribirse a nada aparte. `Conversation` internamente hace
+  `controller.onSubmit.listen(sendRequest)`, y `SurfaceController`
+  empuja ahí un `ChatMessage.user('', parts: [UiInteractionPart.create(
+  jsonEncode({'version': 'v0.9', 'action': event.toMap()}))])` cada vez
+  que se toca un botón en cualquier superficie.
+- `Surface` requiere `surfaceContext` (obtenido con
+  `SurfaceController.contextFor(surfaceId)`), no `host`/`surfaceId`.
+- El parseo de JSON a `A2uiMessage` usa el factory
+  `A2uiMessage.fromJson(Map<String, dynamic>)` de `package:a2ui_core`
+  — que hay que agregar explícitamente a `pubspec.yaml` (hoy solo es
+  dependencia transitiva de `genui`, y Dart exige declarar
+  explícitamente lo que se importa directamente).
+
+**Queda un solo detalle sin confirmar por la Task 1** (marcado abajo
+como "AJUSTAR AQUÍ"): el nombre exacto del campo dentro de
+`UiInteractionPart` que expone el JSON crudo que se le pasó a
+`.create(...)`. Verificarlo con:
+
+```bash
+grep -n "class UiInteractionPart" -A 20 ~/.pub-cache/hosted/pub.dev/genui-0.10.3/lib/src/model/*.dart
+```
+
+- [ ] **Step 1: Agregar `a2ui_core` a `pubspec.yaml`**
+
+En `flutter_app/pubspec.yaml`, agregar bajo `dependencies:` (junto a
+`genui`, `http`, `shared_preferences` ya agregados en la Task 1):
+
+```yaml
+  a2ui_core: ^0.1.1
+```
+
+Luego: `cd flutter_app && flutter pub get`.
+
+- [ ] **Step 2: Implementar `lib/chat/chat_screen.dart`**
 
 ```dart
 // flutter_app/lib/chat/chat_screen.dart
+import 'dart:convert';
+
+import 'package:a2ui_core/a2ui_core.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 
@@ -901,12 +945,6 @@ class _ChatScreenState extends State<ChatScreen> {
           _turns.add(AgentTurn('turn-${_turnCounter++}', event.surfaceId));
         });
       }
-      // AJUSTAR AQUÍ según flutter_app/GENUI_API_NOTES.md: si las
-      // acciones de botón llegan como otro tipo de evento dentro de
-      // este mismo stream (en vez de un callback separado), agregar
-      // aquí un `else if (event is <TipoDeAccionReal>) { ... }` que
-      // construya el mapa {'name': ..., 'context': ...} y lo pase a
-      // `_actionRouter.handle(...)`.
     });
   }
 
@@ -918,26 +956,30 @@ class _ChatScreenState extends State<ChatScreen> {
   );
 
   void _feedMessagesToConversation(List<dynamic> messages) {
-    // AJUSTAR AQUÍ según flutter_app/GENUI_API_NOTES.md: convertir cada
-    // elemento (un Map<String, dynamic>) al tipo que `_transport`
-    // realmente acepta (candidato: `A2uiMessage.fromJson(m)` de
-    // `package:a2ui_core`, alimentado uno por uno a
-    // `_transport.addMessage(...)`).
     for (final message in messages) {
-      _transport.addMessage(message as dynamic);
+      _transport.addMessage(A2uiMessage.fromJson(message as Map<String, dynamic>));
     }
   }
 
-  Future<void> _handleSend(dynamic chatMessage) async {
-    // Este callback lo invoca `genui` cuando se llama a
-    // `_conversation.sendRequest(...)`. Aquí NO usamos ese mecanismo
-    // directamente para el mensaje de texto del usuario (ver
-    // `_handleSubmit` abajo, que llama a la API propia sin pasar por
-    // `sendRequest`) — este `onSend` existe para satisfacer el
-    // constructor de `A2uiTransportAdapter`, pero el envío real ocurre
-    // en `_handleSubmit`. AJUSTAR si `GENUI_API_NOTES.md` documenta que
-    // `sendRequest` es en realidad el único camino soportado para
-    // enviar mensajes del usuario.
+  Future<void> _handleSend(ChatMessage message) async {
+    // Cualquier acción de botón (incluyendo confirmar_accion) llega aquí
+    // automáticamente: Conversation suscribe internamente
+    // controller.onSubmit.listen(sendRequest), y sendRequest reenvía al
+    // onSend del transporte el ChatMessage que armó
+    // SurfaceController.handleUiEvent (ver GENUI_API_NOTES.md). Los
+    // mensajes de texto del usuario NO pasan por aquí — ver
+    // _handleSubmit abajo, que llama a la API propia directamente sin
+    // pasar por _conversation.sendRequest.
+    final interactionPart = message.parts.whereType<UiInteractionPart>().firstOrNull;
+    if (interactionPart == null) {
+      return;
+    }
+    // AJUSTAR AQUÍ si el campo real de UiInteractionPart con el JSON
+    // crudo no se llama `.data` — ver el grep sugerido arriba, antes
+    // del Step 1 de esta tarea.
+    final decoded = jsonDecode(interactionPart.data) as Map<String, dynamic>;
+    final action = decoded['action'] as Map<String, dynamic>;
+    await _actionRouter.handle(action);
   }
 
   void _handleError(Object err, String fallback) {
@@ -1024,8 +1066,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Surface(
-                          host: _conversation.host,
-                          surfaceId: turn.surfaceId,
+                          surfaceContext: _surfaceController.contextFor(turn.surfaceId),
                         ),
                       );
                     },
@@ -1065,27 +1106,27 @@ class _ChatScreenState extends State<ChatScreen> {
 }
 ```
 
-- [ ] **Step 2: Ajustar según `GENUI_API_NOTES.md`**
+- [ ] **Step 3: Resolver el único detalle marcado "AJUSTAR AQUÍ"**
 
-Releer el documento de la Task 1 y corregir los tres puntos marcados
-con "AJUSTAR AQUÍ" arriba (parseo de mensajes, captura de acciones,
-mecanismo de envío) para que coincidan exactamente con la API real
-verificada. Esto **no es opcional** — el código de arriba es un punto
-de partida informado, no una garantía.
+Correr el `grep` sugerido arriba (antes del Step 1) para confirmar el
+nombre real del campo de `UiInteractionPart` que expone el JSON crudo.
+Si no es `.data`, corregir esa línea en `_handleSend`. Si `UiInteractionPart`
+no tiene un campo público directo (ej. si el JSON solo es accesible vía
+algún método), usar lo que el código fuente real muestre.
 
-- [ ] **Step 3: Verificar que compila**
+- [ ] **Step 4: Verificar que compila**
 
 Run: `cd flutter_app && flutter analyze`
-Expected: sin errores. Si `Surface`, `A2uiTransportAdapter.addMessage`,
-`ConversationSurfaceAdded`, o cualquier otro símbolo no existe con ese
-nombre exacto, corregirlo usando lo documentado en
-`GENUI_API_NOTES.md` (o, si aún hace falta, repetir el Step 5/6 de la
-Task 1 con más detalle).
+Expected: sin errores. Si algún símbolo (`Surface`, `A2uiMessage`,
+`UiInteractionPart`, `ConversationSurfaceAdded`, etc.) no existe con el
+nombre exacto usado arriba, corregirlo releyendo
+`flutter_app/GENUI_API_NOTES.md` y, si hace falta, el código fuente real
+del paquete (rutas documentadas ahí).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add flutter_app/lib/chat/chat_screen.dart
+git add flutter_app/lib/chat/chat_screen.dart flutter_app/pubspec.yaml flutter_app/pubspec.lock
 git commit -m "feat: add ChatScreen with genui surface rendering and action wiring"
 ```
 
@@ -1461,3 +1502,45 @@ backend sin duplicar lógica de negocio. Pendiente fuera de este plan:
 funcionalidad real en Dashboard/Yo (hoy placeholders, por decisión
 explícita), y la verificación manual en un emulador/dispositivo real si
 este entorno de desarrollo no tuviera uno configurado.
+
+## Corrección post-revisión final (defectos del propio plan)
+
+La revisión final de todo el branch (tras completarse las 9 tareas)
+encontró 3 defectos que venían del texto de este plan, no de que algún
+implementador se desviara de él. Se corrigieron en un único fix wave
+(commit posterior a `4d08732`); se documentan aquí para que una futura
+relectura de este plan no reproduzca los mismos bugs:
+
+1. **Task 9 nunca pidió el permiso de tráfico sin cifrar en Android.**
+   El manifest de debug (`flutter_app/android/app/src/debug/AndroidManifest.xml`,
+   generado por el scaffold de la Task 1 y nunca tocado después) no
+   declara `android:usesCleartextTraffic="true"`. Con `targetSdkVersion`
+   36, Android bloquea todo tráfico `http://` por defecto — y toda la
+   app le habla a `http://10.0.2.2:8000` o a una IP LAN (ver Task 7,
+   `config.dart`). Sin este flag la app no puede hacer ninguna petición
+   de red en un dispositivo/emulador real; el bug es invisible a
+   `flutter analyze`/`flutter test`/`flutter build apk`, solo aparece
+   corriendo la app de verdad — exactamente el paso que la Task 9 marcó
+   como "pendiente, sin emulador en este entorno". Debió incluirse como
+   un step explícito de la Task 1 (que ya crea el scaffold) o de la
+   Task 7 (que introduce el primer uso real de red desde la app).
+
+2. **Task 7's `AppShell.build()` usa `body: screens[_currentIndex]`.**
+   Esto reconstruye los 3 widgets de tab en cada `setState`, destruyendo
+   el `State` de `ChatScreen` — y con él toda la transcripción del chat
+   y las instancias de `SurfaceController`/`Conversation` — cada vez que
+   el usuario visita otro tab y regresa. Debió ser
+   `IndexedStack(index: _currentIndex, children: screens)`.
+
+3. **Task 6's `dispose()` en `ChatScreen` está incompleto.** Solo
+   dispone `_messageController` y `_transport`; nunca cancela la
+   suscripción de `_conversation.events.listen(...)` creada en
+   `initState`, ni llama `dispose()` en `_conversation`/`_surfaceController`.
+   Combinado con el defecto #2, cada cambio de tab crea una instancia
+   nueva de estos objetos sin liberar la anterior — fuga de recursos que
+   se compone con el uso normal de la app durante una demo larga.
+
+Ninguno de los 3 requirió reabrir tareas ya cerradas del ledger — se
+resolvieron como hallazgos de la revisión final, siguiendo la regla de
+subagent-driven-development de un solo fix wave sin reabrir el loop de
+tareas individuales.
