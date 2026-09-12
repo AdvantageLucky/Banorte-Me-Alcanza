@@ -70,6 +70,8 @@ async def test_mcp_server_expone_las_tools_esperadas(tmp_path):
                 "eliminar_meta",
                 "listar_apartados",
                 "cancelar_apartado",
+                "generar_y_listar_sugerencias",
+                "marcar_sugerencia",
             }
 
 
@@ -198,3 +200,41 @@ async def test_mcp_server_eliminar_meta_con_apartado_activo_reporta_error(tmp_pa
             result = await session.call_tool("eliminar_meta", {"account_id": "ana", "meta_id": meta_id})
             assert result.is_error is True
             assert "apartados activos" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_generar_y_listar_sugerencias_detecta_gasto_proximo(tmp_path):
+    db_path = tmp_path / "test_banco.db"
+    async with stdio_client(_params(db_path)) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            sugerencias = await _call(session, "generar_y_listar_sugerencias", {"account_id": "ana"})
+            tipos = {s["tipo"] for s in sugerencias}
+            # Los datos sembrados de "ana" tienen gastos fijos a 3-4 días con
+            # montos que superan el 30% de su saldo (500.00) -> debe disparar.
+            assert "gasto_fijo_proximo" in tipos
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_generar_y_listar_sugerencias_no_duplica(tmp_path):
+    db_path = tmp_path / "test_banco.db"
+    async with stdio_client(_params(db_path)) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            primera = await _call(session, "generar_y_listar_sugerencias", {"account_id": "ana"})
+            segunda = await _call(session, "generar_y_listar_sugerencias", {"account_id": "ana"})
+            assert len(segunda) == len(primera)
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_marcar_sugerencia(tmp_path):
+    db_path = tmp_path / "test_banco.db"
+    async with stdio_client(_params(db_path)) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            sugerencias = await _call(session, "generar_y_listar_sugerencias", {"account_id": "ana"})
+            sugerencia_id = sugerencias[0]["id"]
+            actualizada = await _call(
+                session, "marcar_sugerencia", {"account_id": "ana", "sugerencia_id": sugerencia_id, "nuevo_estado": "atendida"}
+            )
+            assert actualizada["estado"] == "atendida"
