@@ -37,7 +37,7 @@ def _as_function_response_payload(value: Any) -> dict:
 
 
 def error_a2ui_block(mensaje: str) -> list[dict]:
-    surface_id = "error"
+    surface_id = "main"
     return [
         {
             "version": "v0.9",
@@ -65,7 +65,7 @@ def error_a2ui_block(mensaje: str) -> list[dict]:
 
 
 def _confirmation_a2ui_block(mensaje: str) -> list[dict]:
-    surface_id = "confirmacion"
+    surface_id = "main"
     return [
         {
             "version": "v0.9",
@@ -171,7 +171,8 @@ def read_only_tool_declarations() -> list[types.Tool]:
                     description=(
                         "Propone una transferencia a un contacto YA IDENTIFICADO por su id exacto "
                         "(nunca por nombre libre — primero usa 'buscar_contacto'; si hay más de un "
-                        "resultado, pide al usuario que elija antes de llamar esta herramienta). "
+                        "resultado, llama a esta herramienta UNA VEZ POR CADA candidato en el mismo "
+                        "turno, en vez de esperar a que el usuario elija en otro mensaje). "
                         "NO ejecuta la transferencia: solo genera una propuesta que el usuario debe "
                         "confirmar explícitamente en la UI."
                     ),
@@ -227,14 +228,23 @@ def build_system_prompt() -> str:
             "'proponer_apartado' (usando el meta_id de 'get_metas'), y muestra una tarjeta con un "
             "botón cuya acción sea el evento 'confirmar_accion' con context={'proposalId': "
             "'<el id que te devolvió la herramienta>'}. Para transferencias, primero llama a "
-            "'buscar_contacto' con el nombre que mencione el usuario; si el resultado tiene más de "
-            "un contacto, MUESTRA una lista de selección en la UI (no adivines) y espera a que el "
-            "usuario elija antes de continuar. Ya con un contacto exacto, usa "
-            "'proponer_transferencia' con su id y muestra una tarjeta de confirmación con un botón "
-            "cuya acción sea el evento 'confirmar_accion' con context={'proposalId': '<el id>'}. "
+            "'buscar_contacto' con el nombre que mencione el usuario. Si el resultado tiene un solo "
+            "contacto, usa 'proponer_transferencia' con su id y muestra una tarjeta de confirmación "
+            "con un botón cuya acción sea el evento 'confirmar_accion' con context={'proposalId': "
+            "'<el id que te devolvió esa llamada>'}. Si el resultado tiene más de un contacto "
+            "(nombre ambiguo), NO esperes a que el usuario responda en otro mensaje para elegir "
+            "(la conversación no conserva memoria entre turnos): en cambio, en el MISMO turno llama "
+            "a 'proponer_transferencia' una vez POR CADA contacto candidato (cada llamada es "
+            "independiente y devuelve su propio proposalId) y muestra una tarjeta de confirmación "
+            "POR CADA candidato, cada una con su botón 'confirmar_accion' llevando el "
+            "context={'proposalId': '<el id devuelto por esa llamada específica>'} correspondiente "
+            "a ESE candidato; el usuario desambigua simplemente confirmando la tarjeta correcta. "
             "Nunca afirmes que una transferencia o un apartado ya se realizó: solo se ejecutan "
             "cuando el usuario confirma explícitamente. Nunca inventes saldos, movimientos, "
-            "ingresos, gastos, metas o contactos: siempre usa el resultado real de las herramientas."
+            "ingresos, gastos, metas o contactos: siempre usa el resultado real de las herramientas. "
+            "Reutiliza el mismo surfaceId a lo largo de toda la sesión de conversación y prefiere "
+            "actualizaciones incrementales con 'updateComponents' en vez de recrear la superficie "
+            "desde cero en cada turno."
         ),
         allowed_components=_ALLOWED_COMPONENTS,
         include_schema=True,
@@ -290,10 +300,20 @@ class Orchestrator:
             if call.name == "get_movimientos" and call.args and "limit" in call.args:
                 args["limit"] = call.args["limit"]
             elif call.name == "buscar_contacto":
-                args["query"] = call.args["query"]
+                query = (call.args or {}).get("query")
+                if query is None:
+                    return {"error": "Falta el argumento requerido: query"}
+                args["query"] = query
             elif call.name == "simular_flujo_de_caja":
-                args["fecha_objetivo"] = call.args["fecha_objetivo"]
-                args["monto_objetivo"] = float(call.args["monto_objetivo"])
+                call_args = call.args or {}
+                fecha_objetivo = call_args.get("fecha_objetivo")
+                monto_objetivo = call_args.get("monto_objetivo")
+                if fecha_objetivo is None:
+                    return {"error": "Falta el argumento requerido: fecha_objetivo"}
+                if monto_objetivo is None:
+                    return {"error": "Falta el argumento requerido: monto_objetivo"}
+                args["fecha_objetivo"] = fecha_objetivo
+                args["monto_objetivo"] = float(monto_objetivo)
             try:
                 return await self._mcp.call(call.name, args)
             except RuntimeError as exc:
@@ -311,11 +331,22 @@ class Orchestrator:
         return {"error": f"Herramienta no permitida: {call.name}"}
 
     async def _proponer_transferencia(self, account_id: str, args: dict) -> dict:
-        monto = float(args["monto"])
+        args = args or {}
+        monto = args.get("monto")
+        if monto is None:
+            return {"error": "Falta el argumento requerido: monto"}
+        contacto_id = args.get("contacto_id")
+        if contacto_id is None:
+            return {"error": "Falta el argumento requerido: contacto_id"}
+        concepto = args.get("concepto")
+        if concepto is None:
+            return {"error": "Falta el argumento requerido: concepto"}
+
+        monto = float(monto)
         if monto <= 0:
             return {"error": "El monto debe ser mayor a cero"}
 
-        contacto_id = int(args["contacto_id"])
+        contacto_id = int(contacto_id)
         try:
             contacto = await self._mcp.call(
                 "get_contacto", {"account_id": account_id, "contacto_id": contacto_id}
@@ -330,14 +361,25 @@ class Orchestrator:
                 "contacto_id": contacto_id,
                 "destino_cuenta": contacto["cuenta_destino"],
                 "monto": monto,
-                "concepto": args["concepto"],
+                "concepto": concepto,
             },
             resumen=f"Transferir ${monto:.2f} a {contacto['nombre']}",
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
     def _proponer_apartado(self, account_id: str, args: dict) -> dict:
-        monto_por_periodo = float(args["monto_por_periodo"])
+        args = args or {}
+        meta_id = args.get("meta_id")
+        if meta_id is None:
+            return {"error": "Falta el argumento requerido: meta_id"}
+        monto_por_periodo = args.get("monto_por_periodo")
+        if monto_por_periodo is None:
+            return {"error": "Falta el argumento requerido: monto_por_periodo"}
+        periodicidad = args.get("periodicidad")
+        if periodicidad is None:
+            return {"error": "Falta el argumento requerido: periodicidad"}
+
+        monto_por_periodo = float(monto_por_periodo)
         if monto_por_periodo <= 0:
             return {"error": "monto_por_periodo debe ser mayor a cero"}
 
@@ -345,11 +387,11 @@ class Orchestrator:
             account_id=account_id,
             tipo="apartado",
             payload={
-                "meta_id": int(args["meta_id"]),
+                "meta_id": int(meta_id),
                 "monto_por_periodo": monto_por_periodo,
-                "periodicidad": args["periodicidad"],
+                "periodicidad": periodicidad,
             },
-            resumen=f"Apartar ${monto_por_periodo:.2f} {args['periodicidad']} hacia tu meta",
+            resumen=f"Apartar ${monto_por_periodo:.2f} {periodicidad} hacia tu meta",
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 

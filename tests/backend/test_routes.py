@@ -38,6 +38,17 @@ def test_login_credenciales_incorrectas_devuelve_401(app):
         assert response.status_code == 401
 
 
+def test_login_falla_del_mcp_devuelve_error_limpio_no_500_crudo(app):
+    with TestClient(app) as client:
+        # Forzamos una falla del lado del MCP (no credenciales inválidas, que
+        # devuelven None): si login() no tuviera el try/except, TestClient
+        # dejaría escapar esta excepción sin manejar en vez de una respuesta.
+        app.state.mcp_client.call = AsyncMock(side_effect=RuntimeError("mcp caído"))
+        response = client.post("/api/login", json={"username": "ana", "password": "pass123"})
+        assert response.status_code == 503
+        assert "mcp caído" not in response.text
+
+
 def test_chat_sin_token_devuelve_401(app):
     with TestClient(app) as client:
         response = client.post("/api/chat", json={"mensaje": "hola"})

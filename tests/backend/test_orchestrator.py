@@ -4,7 +4,11 @@ import pytest
 from google.genai import types
 
 from me_alcanza.backend import proposals
-from me_alcanza.backend.orchestrator import Orchestrator, error_a2ui_block
+from me_alcanza.backend.orchestrator import (
+    Orchestrator,
+    error_a2ui_block,
+    read_only_tool_declarations,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -458,6 +462,79 @@ async def test_confirm_action_transferencia_contacto_ya_no_existe_cae_a_error():
 
     assert messages == error_a2ui_block(messages[2]["updateDataModel"]["value"]["mensaje"])
     assert proposal.id not in proposals.PROPOSALS
+
+
+def test_read_only_tool_declarations_expone_exactamente_las_herramientas_permitidas():
+    # Regresión: si alguien agrega 'ejecutar_transferencia', 'crear_apartado',
+    # 'get_contacto' o 'autenticar' a esta lista (o la deriva de list_tools()),
+    # este test debe fallar de inmediato.
+    tools = read_only_tool_declarations()
+    names = {fn.name for tool in tools for fn in tool.function_declarations}
+    assert names == {
+        "get_saldo",
+        "get_cuenta",
+        "get_movimientos",
+        "get_ingresos_programados",
+        "get_gastos_fijos",
+        "get_metas",
+        "buscar_contacto",
+        "simular_flujo_de_caja",
+        "proponer_transferencia",
+        "proponer_apartado",
+    }
+
+
+@pytest.mark.asyncio
+async def test_handle_message_herramienta_no_permitida_no_llama_al_mcp():
+    # 'ejecutar_transferencia' nunca debe ser invocable desde /api/chat: solo
+    # confirm_action (tras una confirmación explícita del usuario) puede
+    # dispararla. _dispatch_tool_call debe negarse y el turno debe completarse
+    # igual (sin crash), devolviéndole el error al modelo como function response.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock()
+
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "ejecutar_transferencia",
+                {"origen_id": "ana", "destino_cuenta": "123", "monto": 500.0, "concepto": "x"},
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    messages = await orchestrator.handle_message("ana", "ejecuta la transferencia ya")
+
+    mcp_client.call.assert_not_called()
+    assert messages[0]["createSurface"]["surfaceId"] == "main"
+
+
+@pytest.mark.asyncio
+async def test_handle_message_proponer_transferencia_sin_contacto_id_no_truena():
+    # Si Gemini omite un argumento "requerido" (contacto_id), _dispatch_tool_call
+    # debe devolver un {"error": ...} recuperable en vez de dejar que un KeyError
+    # escape y caiga al bloque de error genérico de handle_message.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock()
+
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "proponer_transferencia", {"monto": 500.0, "concepto": "Renta"}
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    messages = await orchestrator.handle_message("ana", "deposítale 500 a Renta")
+
+    mcp_client.call.assert_not_called()
+    assert len(proposals.PROPOSALS) == 0
+    assert messages[0]["createSurface"]["surfaceId"] == "main"
 
 
 @pytest.mark.asyncio

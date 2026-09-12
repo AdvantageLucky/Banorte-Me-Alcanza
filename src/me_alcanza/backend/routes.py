@@ -15,9 +15,17 @@ router = APIRouter(prefix="/api")
 
 @router.post("/login", response_model=LoginResponse)
 async def login(payload: LoginRequest, request: Request) -> LoginResponse:
-    account_id = await request.app.state.mcp_client.call(
-        "autenticar", {"username": payload.username, "password": payload.password}
-    )
+    try:
+        account_id = await request.app.state.mcp_client.call(
+            "autenticar", {"username": payload.username, "password": payload.password}
+        )
+    except RuntimeError as exc:
+        # Falla del lado del MCP (ej. servidor caído), no credenciales inválidas:
+        # no debe escapar como un 500 crudo con traceback hacia el cliente.
+        raise HTTPException(
+            status_code=503,
+            detail="No se pudo verificar las credenciales, intenta de nuevo",
+        ) from exc
     if account_id is None:
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
     token = auth.create_token(account_id, request.app.state.jwt_secret)
