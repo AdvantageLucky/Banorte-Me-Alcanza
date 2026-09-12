@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import pytest
 from me_alcanza.mcp_bank import db
 
@@ -65,7 +67,7 @@ def test_get_ingresos_programados(conn):
     assert ingresos[0]["descripcion"] == "Nómina"
     assert ingresos[0]["monto"] == 12500.00
     assert ingresos[0]["frecuencia"] == "quincenal"
-    assert ingresos[0]["proxima_fecha"] == "2026-09-12"
+    assert ingresos[0]["proxima_fecha"] == (date.today() + timedelta(days=1)).isoformat()
 
 
 def test_get_gastos_fijos(conn):
@@ -79,7 +81,7 @@ def test_get_metas(conn):
     metas = db.get_metas(conn, "ana")
     assert len(metas) == 1
     assert metas[0]["monto_objetivo"] == 8000.00
-    assert metas[0]["fecha_objetivo"] == "2026-10-13"
+    assert metas[0]["fecha_objetivo"] == (date.today() + timedelta(days=32)).isoformat()
     assert metas[0]["monto_ahorrado"] == 0
 
 

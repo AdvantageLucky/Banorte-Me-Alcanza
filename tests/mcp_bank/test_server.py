@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import date, timedelta
 
 import pytest
 from mcp import ClientSession, StdioServerParameters
@@ -73,10 +74,16 @@ async def test_mcp_server_flujo_de_caja_y_apartado(tmp_path):
             simulacion = await _call(
                 session,
                 "simular_flujo_de_caja",
-                {"account_id": "ana", "fecha_objetivo": "2026-10-13", "monto_objetivo": 8000.0},
+                {
+                    "account_id": "ana",
+                    "fecha_objetivo": (date.today() + timedelta(days=32)).isoformat(),
+                    "monto_objetivo": 8000.0,
+                },
             )
             assert simulacion["alcanza"] is False
+            assert simulacion["margen"] == pytest.approx(-570.0)
             assert simulacion["apartado_sugerido"]["periodicidad"] == "semanal"
+            assert simulacion["apartado_sugerido"]["monto_por_periodo"] == pytest.approx(142.5)
 
             metas = await _call(session, "get_metas", {"account_id": "ana"})
             meta_id = metas[0]["id"]

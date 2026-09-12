@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import os
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS usuarios (
@@ -96,6 +96,8 @@ def seed(conn: sqlite3.Connection) -> None:
     if existing > 0:
         return
 
+    hoy = date.today()
+
     conn.execute(
         "INSERT INTO usuarios (account_id, username, password_hash, nombre) VALUES (?, ?, ?, ?)",
         ("ana", "ana", hash_password("pass123"), "Ana Torres"),
@@ -109,27 +111,27 @@ def seed(conn: sqlite3.Connection) -> None:
         INSERT INTO ingresos_programados (account_id, descripcion, monto, frecuencia, proxima_fecha)
         VALUES (?, ?, ?, ?, ?)
         """,
-        ("ana", "Nómina", 12500.00, "quincenal", "2026-09-12"),
+        ("ana", "Nómina", 12500.00, "quincenal", (hoy + timedelta(days=1)).isoformat()),
     )
-    for concepto, monto, fecha in [
-        ("Agua", 320.00, "2026-09-14"),
-        ("Luz", 450.00, "2026-09-14"),
-        ("Colegiatura hijo 1", 2400.00, "2026-09-15"),
-        ("Colegiatura hijo 2", 2400.00, "2026-09-15"),
+    for concepto, monto, dias_offset in [
+        ("Agua", 320.00, 3),
+        ("Luz", 450.00, 3),
+        ("Colegiatura hijo 1", 2400.00, 4),
+        ("Colegiatura hijo 2", 2400.00, 4),
     ]:
         conn.execute(
             """
             INSERT INTO gastos_fijos (account_id, concepto, monto, frecuencia, proxima_fecha)
             VALUES (?, ?, ?, 'mensual', ?)
             """,
-            ("ana", concepto, monto, fecha),
+            ("ana", concepto, monto, (hoy + timedelta(days=dias_offset)).isoformat()),
         )
     conn.execute(
         """
         INSERT INTO metas (account_id, descripcion, monto_objetivo, fecha_objetivo)
         VALUES (?, ?, ?, ?)
         """,
-        ("ana", "Concierto (boletos + viaje)", 8000.00, "2026-10-13"),
+        ("ana", "Concierto (boletos + viaje)", 8000.00, (hoy + timedelta(days=32)).isoformat()),
     )
     for nombre, alias, cuenta_destino, relacion in [
         ("José Ramírez", "Pepe", "9988776655", "hermano"),

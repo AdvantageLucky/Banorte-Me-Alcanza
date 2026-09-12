@@ -34,28 +34,32 @@ def simular_flujo_de_caja(
     eventos.sort(key=lambda e: (e.fecha, 0 if e.monto >= 0 else 1))
 
     running = saldo_actual
-    minimo = saldo_actual
-    fecha_critica: date | None = None
+    minimo_historico = saldo_actual
+    fecha_minimo_historico: date | None = None
 
     for evento in eventos:
         running += evento.monto
-        if running < minimo:
-            minimo = running
-            fecha_critica = evento.fecha
+        if running < minimo_historico:
+            minimo_historico = running
+            fecha_minimo_historico = evento.fecha
 
-    running -= monto_objetivo
-    if running < minimo:
-        minimo = running
+    running_final = running - monto_objetivo
+    if running_final < minimo_historico:
+        margen = running_final
         fecha_critica = objetivo
+    else:
+        margen = minimo_historico
+        fecha_critica = fecha_minimo_historico
 
-    alcanza = minimo >= 0
-    margen = round(minimo, 2)
+    alcanza = margen >= 0
+    saldo_minimo_proyectado = round(minimo_historico, 2)
+    margen = round(margen, 2)
 
     apartado_sugerido = None
     if not alcanza:
         dias = max((objetivo - hoy_fecha).days, 1)
         num_periodos = max(dias // 7, 1)
-        deficit = -minimo
+        deficit = -margen
         monto_por_periodo = round(deficit / num_periodos, 2)
         apartado_sugerido = {
             "monto_por_periodo": monto_por_periodo,
@@ -65,7 +69,7 @@ def simular_flujo_de_caja(
 
     return {
         "alcanza": alcanza,
-        "saldo_minimo_proyectado": margen,
+        "saldo_minimo_proyectado": saldo_minimo_proyectado,
         "fecha_critica": fecha_critica.isoformat() if fecha_critica else None,
         "margen": margen,
         "apartado_sugerido": apartado_sugerido,
