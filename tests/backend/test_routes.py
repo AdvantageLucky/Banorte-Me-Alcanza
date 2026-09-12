@@ -131,3 +131,11 @@ def test_get_movimientos_respeta_limit(app):
         token = _login(client)
         response = client.get("/api/movimientos?limit=3", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
+
+
+def test_get_movimientos_falla_del_mcp_devuelve_400(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        app.state.mcp_client.call = AsyncMock(side_effect=RuntimeError("mcp caído"))
+        response = client.get("/api/movimientos", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 400
