@@ -719,6 +719,11 @@ def cancelar_apartado(conn: sqlite3.Connection, account_id: str, apartado_id: in
 def get_resumen_movimientos(
     conn: sqlite3.Connection, account_id: str, fecha_inicio: str, fecha_fin: str
 ) -> list[dict]:
+    for nombre, valor in (("fecha_inicio", fecha_inicio), ("fecha_fin", fecha_fin)):
+        try:
+            date.fromisoformat(valor)
+        except ValueError as exc:
+            raise ValueError(f"{nombre} debe tener formato YYYY-MM-DD, recibido: {valor!r}") from exc
     rows = conn.execute(
         """
         SELECT categoria, SUM(monto) AS total, COUNT(*) AS count

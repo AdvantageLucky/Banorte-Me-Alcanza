@@ -442,8 +442,17 @@ def test_get_resumen_movimientos_agrupa_por_categoria(conn):
 
 
 def test_get_resumen_movimientos_respeta_rango_de_fechas(conn):
-    resumen = db.get_resumen_movimientos(conn, "luis", "2020-01-01", "2020-01-02")
-    assert resumen == []
+    from datetime import date
+
+    db.ejecutar_transferencia(conn, origen_id="luis", destino_cuenta="999999", monto=50.0, concepto="x")
+    assert db.get_resumen_movimientos(conn, "luis", "2020-01-01", "2020-01-02") == []
+    hoy = date.today().isoformat()
+    assert len(db.get_resumen_movimientos(conn, "luis", hoy, hoy)) == 1
+
+
+def test_get_resumen_movimientos_rechaza_fecha_con_formato_invalido(conn):
+    with pytest.raises(ValueError):
+        db.get_resumen_movimientos(conn, "luis", "not-a-date", "2026-01-01")
 
 
 def test_get_resumen_movimientos_no_mezcla_cuentas(conn):
