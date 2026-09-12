@@ -139,3 +139,57 @@ def test_get_movimientos_falla_del_mcp_devuelve_400(app):
         app.state.mcp_client.call = AsyncMock(side_effect=RuntimeError("mcp caído"))
         response = client.get("/api/movimientos", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 400
+
+
+def test_list_contactos(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/contactos", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert len(response.json()) == 2
+
+
+def test_create_contacto(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post(
+            "/api/contactos",
+            json={"nombre": "Sofía López", "alias": "Sofi", "cuenta_destino": "5566778899", "relacion": "amiga"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["nombre"] == "Sofía López"
+
+
+def test_update_contacto(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        contacto_id = client.get("/api/contactos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.patch(
+            f"/api/contactos/{contacto_id}",
+            json={"alias": "Nuevo alias"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["alias"] == "Nuevo alias"
+
+
+def test_update_contacto_inexistente_devuelve_400(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.patch(
+            "/api/contactos/999999",
+            json={"alias": "x"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 400
+
+
+def test_delete_contacto(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        contacto_id = client.get("/api/contactos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.delete(
+            f"/api/contactos/{contacto_id}", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 204

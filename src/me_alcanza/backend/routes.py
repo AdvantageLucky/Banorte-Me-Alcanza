@@ -6,6 +6,9 @@ from .dtos import (
     ChatResponse,
     ConfirmActionRequest,
     ConfirmActionResponse,
+    ContactoCreate,
+    ContactoResponse,
+    ContactoUpdate,
     CuentaResponse,
     LoginRequest,
     LoginResponse,
@@ -82,3 +85,84 @@ async def get_movimientos_route(
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return [MovimientoResponse(**m) for m in movimientos]
+
+
+@router.get("/contactos", response_model=list[ContactoResponse])
+async def list_contactos(
+    request: Request, account_id: str = Depends(auth.get_current_account_id)
+) -> list[ContactoResponse]:
+    try:
+        contactos = await request.app.state.mcp_client.call(
+            "buscar_contacto", {"account_id": account_id, "query": ""}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [ContactoResponse(**c) for c in contactos]
+
+
+@router.post("/contactos", response_model=ContactoResponse, status_code=201)
+async def create_contacto(
+    payload: ContactoCreate,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> ContactoResponse:
+    try:
+        contacto = await request.app.state.mcp_client.call(
+            "crear_contacto",
+            {
+                "account_id": account_id,
+                "nombre": payload.nombre,
+                "alias": payload.alias,
+                "cuenta_destino": payload.cuenta_destino,
+                "relacion": payload.relacion,
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ContactoResponse(**contacto)
+
+
+@router.patch("/contactos/{contacto_id}", response_model=ContactoResponse)
+async def update_contacto(
+    contacto_id: int,
+    payload: ContactoUpdate,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> ContactoResponse:
+    try:
+        actual = await request.app.state.mcp_client.call(
+            "get_contacto", {"account_id": account_id, "contacto_id": contacto_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    merged = {**actual, **payload.model_dump(exclude_unset=True)}
+    try:
+        actualizado = await request.app.state.mcp_client.call(
+            "actualizar_contacto",
+            {
+                "account_id": account_id,
+                "contacto_id": contacto_id,
+                "nombre": merged["nombre"],
+                "alias": merged["alias"],
+                "cuenta_destino": merged["cuenta_destino"],
+                "relacion": merged["relacion"],
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ContactoResponse(**actualizado)
+
+
+@router.delete("/contactos/{contacto_id}", status_code=204)
+async def delete_contacto(
+    contacto_id: int,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> None:
+    try:
+        await request.app.state.mcp_client.call(
+            "eliminar_contacto", {"account_id": account_id, "contacto_id": contacto_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
