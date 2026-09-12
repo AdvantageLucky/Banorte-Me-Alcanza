@@ -1,4 +1,5 @@
 // flutter_app/lib/chat/chat_screen.dart
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:a2ui_core/a2ui_core.dart' as core;
@@ -46,12 +47,14 @@ class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final List<ChatTurn> _turns = [];
   bool _sending = false;
+  bool _confirmingAction = false;
   String? _errorMessage;
   int _turnCounter = 0;
 
   late final SurfaceController _surfaceController;
   late final A2uiTransportAdapter _transport;
   late final Conversation _conversation;
+  late final StreamSubscription<ConversationEvent> _eventsSubscription;
 
   @override
   void initState() {
@@ -68,7 +71,7 @@ class _ChatScreenState extends State<ChatScreen> {
       transport: _transport,
     );
 
-    _conversation.events.listen((event) {
+    _eventsSubscription = _conversation.events.listen((event) {
       if (event is ConversationSurfaceAdded) {
         setState(() {
           _turns.add(AgentTurn('turn-${_turnCounter++}', event.surfaceId));
@@ -82,6 +85,7 @@ class _ChatScreenState extends State<ChatScreen> {
         // _handleSend (ver más abajo), y Conversation.sendRequest
         // convierte esa excepción en este evento en vez de dejarla
         // propagar sin control.
+        debugPrint('ConversationError: ${event.error}');
         setState(() {
           _errorMessage = 'Ocurrió un error inesperado. Intenta de nuevo.';
         });
@@ -97,6 +101,9 @@ class _ChatScreenState extends State<ChatScreen> {
   );
 
   void _feedMessagesToConversation(List<dynamic> messages) {
+    if (_errorMessage != null) {
+      setState(() => _errorMessage = null);
+    }
     for (final message in messages) {
       _transport.addMessage(core.A2uiMessage.fromJson(message as Map<String, dynamic>));
     }
@@ -138,7 +145,12 @@ class _ChatScreenState extends State<ChatScreen> {
     if (action == null) {
       return;
     }
-    await _actionRouter.handle(action);
+    if (mounted) setState(() => _confirmingAction = true);
+    try {
+      await _actionRouter.handle(action);
+    } finally {
+      if (mounted) setState(() => _confirmingAction = false);
+    }
   }
 
   void _handleError(Object err, String fallback) {
@@ -177,6 +189,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _eventsSubscription.cancel();
+    _conversation.dispose();
+    _surfaceController.dispose();
     _messageController.dispose();
     _transport.dispose();
     super.dispose();
@@ -231,6 +246,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     },
                   ),
           ),
+          if (_confirmingAction) const LinearProgressIndicator(),
           if (_errorMessage != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

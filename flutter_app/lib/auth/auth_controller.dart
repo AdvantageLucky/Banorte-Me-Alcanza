@@ -29,8 +29,8 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void logout() {
-    _authRepository.clearToken();
+  Future<void> logout() async {
+    await _authRepository.clearToken();
     _token = null;
     notifyListeners();
   }
