@@ -159,25 +159,69 @@ body {
 
 .login-video-wrap {
   width: 100%;
-  aspect-ratio: 16 / 10;
   min-height: 220px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--a2ui-spacing-l);
+  padding: var(--a2ui-spacing-l);
+  background: var(--color-background);
+  overflow: hidden;
+}
+
+/* El video (770x848, retrato) ya no llena el contenedor: se le da un ancho
+   propio y el texto vive a su derecha, en vez de superpuesto arriba. */
+.login-animation {
+  flex: 1;
+  min-width: 0;
+  aspect-ratio: 770 / 848;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--a2ui-spacing-l);
-  background: linear-gradient(
-    135deg,
-    var(--color-accent-yellow),
-    var(--color-accent-blue)
-  );
 }
 
 .login-video {
-  width: 64%;
-  max-width: 360px;
-  height: auto;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   display: block;
+}
+
+.login-video-text {
+  flex: 1;
+  min-width: 0;
+  /*text-align: center;*/
+}
+
+.login-video-text h2 {
+  margin: 0 0 var(--a2ui-spacing-xs);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: var(--a2ui-font-size-2xl);
+  color: var(--color-primary);
+}
+
+.login-video-text p {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--a2ui-font-size-m);
+  color: var(--color-secondary);
+}
+
+@media (max-width: 480px) {
+  .login-video-wrap {
+    flex-direction: column;
+  }
+
+  .login-animation {
+    width: 50%;
+  }
+
+  .login-video-text {
+    text-align: center;
+  }
 }
 
 @media (min-width: 960px) {
@@ -189,8 +233,6 @@ body {
   .login-video-wrap {
     order: -1;
     flex: 1;
-    aspect-ratio: auto;
-    min-height: 0;
   }
 
   .login-panel {
