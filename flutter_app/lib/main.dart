@@ -35,7 +35,20 @@ class _MeAlcanzaAppState extends State<MeAlcanzaApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'me-alcanza',
-      theme: ThemeData(useMaterial3: true),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFEC0029),
+          primary: const Color(0xFFEC0029),
+          onPrimary: Colors.white,
+          secondary: const Color(0xFF6A6867),
+          onSecondary: Colors.white,
+          surface: Colors.white,
+          onSurface: const Color(0xFF1F1F1F),
+          error: const Color(0xFFC5221F),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+      ),
       home: ListenableBuilder(
         listenable: _authController,
         builder: (context, _) => AppShell(
