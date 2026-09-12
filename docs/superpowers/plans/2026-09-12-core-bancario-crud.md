@@ -1284,11 +1284,20 @@ async def get_movimientos_route(
     account_id: str = Depends(auth.get_current_account_id),
     limit: int = 10,
 ) -> list[MovimientoResponse]:
-    movimientos = await request.app.state.mcp_client.call(
-        "get_movimientos", {"account_id": account_id, "limit": limit}
-    )
+    try:
+        movimientos = await request.app.state.mcp_client.call(
+            "get_movimientos", {"account_id": account_id, "limit": limit}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return [MovimientoResponse(**m) for m in movimientos]
 ```
+
+**Nota post-revisión de la Task 8:** el borrador original de este step omitía el
+`try/except` en `get_movimientos_route`, contradiciendo el Global Constraint
+del plan ("cualquier RuntimeError... se traduce a HTTPException(400,...)" en
+TODAS las rutas nuevas). Corregido en un fix round tras la revisión — el
+código de arriba ya refleja la versión correcta.
 
 - [ ] **Step 4: Correr y verificar que pasan**
 
