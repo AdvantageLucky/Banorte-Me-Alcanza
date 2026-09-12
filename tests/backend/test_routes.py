@@ -241,3 +241,44 @@ def test_delete_ingreso_programado(app):
             f"/api/ingresos-programados/{ingreso_id}", headers={"Authorization": f"Bearer {token}"}
         )
         assert response.status_code == 204
+
+
+def test_list_gastos_fijos(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert len(response.json()) == 4
+
+
+def test_create_gasto_fijo(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post(
+            "/api/gastos-fijos",
+            json={"concepto": "Internet", "monto": 600.0, "frecuencia": "mensual", "proxima_fecha": "2026-10-05"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["concepto"] == "Internet"
+
+
+def test_update_gasto_fijo_parcial(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        gasto_id = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.patch(
+            f"/api/gastos-fijos/{gasto_id}",
+            json={"monto": 350.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["monto"] == 350.0
+
+
+def test_delete_gasto_fijo(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        gasto_id = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.delete(f"/api/gastos-fijos/{gasto_id}", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 204

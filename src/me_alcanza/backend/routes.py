@@ -10,6 +10,9 @@ from .dtos import (
     ContactoResponse,
     ContactoUpdate,
     CuentaResponse,
+    GastoFijoCreate,
+    GastoFijoResponse,
+    GastoFijoUpdate,
     IngresoProgramadoCreate,
     IngresoProgramadoResponse,
     IngresoProgramadoUpdate,
@@ -250,6 +253,86 @@ async def delete_ingreso_programado(
     try:
         await request.app.state.mcp_client.call(
             "eliminar_ingreso_programado", {"account_id": account_id, "ingreso_id": ingreso_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/gastos-fijos", response_model=list[GastoFijoResponse])
+async def list_gastos_fijos(
+    request: Request, account_id: str = Depends(auth.get_current_account_id)
+) -> list[GastoFijoResponse]:
+    try:
+        gastos = await request.app.state.mcp_client.call("get_gastos_fijos", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [GastoFijoResponse(**g) for g in gastos]
+
+
+@router.post("/gastos-fijos", response_model=GastoFijoResponse, status_code=201)
+async def create_gasto_fijo(
+    payload: GastoFijoCreate,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> GastoFijoResponse:
+    try:
+        gasto = await request.app.state.mcp_client.call(
+            "crear_gasto_fijo",
+            {
+                "account_id": account_id,
+                "concepto": payload.concepto,
+                "monto": payload.monto,
+                "frecuencia": payload.frecuencia,
+                "proxima_fecha": str(payload.proxima_fecha),
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return GastoFijoResponse(**gasto)
+
+
+@router.patch("/gastos-fijos/{gasto_id}", response_model=GastoFijoResponse)
+async def update_gasto_fijo(
+    gasto_id: int,
+    payload: GastoFijoUpdate,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> GastoFijoResponse:
+    try:
+        gastos = await request.app.state.mcp_client.call("get_gastos_fijos", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    actual = next((g for g in gastos if g["id"] == gasto_id), None)
+    if actual is None:
+        raise HTTPException(status_code=400, detail=f"Gasto fijo no encontrado para esta cuenta: {gasto_id}")
+
+    merged = {**actual, **payload.model_dump(exclude_unset=True)}
+    try:
+        actualizado = await request.app.state.mcp_client.call(
+            "actualizar_gasto_fijo",
+            {
+                "account_id": account_id,
+                "gasto_id": gasto_id,
+                "concepto": merged["concepto"],
+                "monto": merged["monto"],
+                "frecuencia": merged["frecuencia"],
+                "proxima_fecha": str(merged["proxima_fecha"]),
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return GastoFijoResponse(**actualizado)
+
+
+@router.delete("/gastos-fijos/{gasto_id}", status_code=204)
+async def delete_gasto_fijo(
+    gasto_id: int,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> None:
+    try:
+        await request.app.state.mcp_client.call(
+            "eliminar_gasto_fijo", {"account_id": account_id, "gasto_id": gasto_id}
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
