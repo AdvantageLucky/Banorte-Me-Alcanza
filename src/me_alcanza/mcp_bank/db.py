@@ -76,6 +76,20 @@ CREATE TABLE IF NOT EXISTS sugerencias (
     created_at TEXT NOT NULL,
     resuelta_at TEXT
 );
+CREATE TABLE IF NOT EXISTS conversaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id TEXT NOT NULL REFERENCES usuarios(account_id),
+    titulo TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS mensajes_conversacion (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversacion_id INTEGER NOT NULL REFERENCES conversaciones(id),
+    rol TEXT NOT NULL,
+    contenido TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 _PBKDF2_ITERATIONS = 100_000
@@ -821,3 +835,64 @@ def marcar_sugerencia(conn: sqlite3.Connection, account_id: str, sugerencia_id: 
     resultado = dict(actualizada)
     resultado["detalle"] = json.loads(resultado["detalle"])
     return resultado
+
+
+def crear_conversacion(conn: sqlite3.Connection, account_id: str, titulo: str) -> dict:
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor = conn.execute(
+        "INSERT INTO conversaciones (account_id, titulo, created_at, updated_at) VALUES (?, ?, ?, ?)",
+        (account_id, titulo, ahora, ahora),
+    )
+    conn.commit()
+    return {"id": cursor.lastrowid, "titulo": titulo, "created_at": ahora, "updated_at": ahora}
+
+
+def listar_conversaciones(conn: sqlite3.Connection, account_id: str) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT id, titulo, created_at, updated_at FROM conversaciones
+        WHERE account_id = ? ORDER BY updated_at DESC
+        """,
+        (account_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def _verificar_conversacion(conn: sqlite3.Connection, account_id: str, conversacion_id: int) -> None:
+    row = conn.execute(
+        "SELECT id FROM conversaciones WHERE id = ? AND account_id = ?", (conversacion_id, account_id)
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"Conversación no encontrada para esta cuenta: {conversacion_id}")
+
+
+def obtener_mensajes_conversacion(conn: sqlite3.Connection, account_id: str, conversacion_id: int) -> list[dict]:
+    _verificar_conversacion(conn, account_id, conversacion_id)
+    rows = conn.execute(
+        """
+        SELECT rol, contenido, created_at FROM mensajes_conversacion
+        WHERE conversacion_id = ? ORDER BY id ASC
+        """,
+        (conversacion_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def agregar_mensaje_conversacion(
+    conn: sqlite3.Connection, account_id: str, conversacion_id: int, rol: str, contenido: str
+) -> None:
+    _verificar_conversacion(conn, account_id, conversacion_id)
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        "INSERT INTO mensajes_conversacion (conversacion_id, rol, contenido, created_at) VALUES (?, ?, ?, ?)",
+        (conversacion_id, rol, contenido, ahora),
+    )
+    conn.execute("UPDATE conversaciones SET updated_at = ? WHERE id = ?", (ahora, conversacion_id))
+    conn.commit()
+
+
+def eliminar_conversacion(conn: sqlite3.Connection, account_id: str, conversacion_id: int) -> None:
+    _verificar_conversacion(conn, account_id, conversacion_id)
+    conn.execute("DELETE FROM mensajes_conversacion WHERE conversacion_id = ?", (conversacion_id,))
+    conn.execute("DELETE FROM conversaciones WHERE id = ? AND account_id = ?", (conversacion_id, account_id))
+    conn.commit()

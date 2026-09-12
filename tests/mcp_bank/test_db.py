@@ -512,3 +512,51 @@ def test_marcar_sugerencia_estado_invalido_falla(conn):
     s = db.crear_sugerencia(conn, "ana", "meta_en_riesgo", "7", {"x": 1})
     with pytest.raises(ValueError):
         db.marcar_sugerencia(conn, "ana", s["id"], "estado_invalido")
+
+
+def test_crear_conversacion_y_listar(conn):
+    conversacion = db.crear_conversacion(conn, "ana", "Mi primera conversación")
+    assert conversacion["titulo"] == "Mi primera conversación"
+    listado = db.listar_conversaciones(conn, "ana")
+    assert len(listado) == 1
+    assert listado[0]["id"] == conversacion["id"]
+
+
+def test_listar_conversaciones_no_mezcla_cuentas(conn):
+    db.crear_conversacion(conn, "ana", "x")
+    assert db.listar_conversaciones(conn, "luis") == []
+
+
+def test_agregar_y_obtener_mensajes_en_orden(conn):
+    conversacion = db.crear_conversacion(conn, "ana", "x")
+    db.agregar_mensaje_conversacion(conn, "ana", conversacion["id"], "user", "hola")
+    db.agregar_mensaje_conversacion(conn, "ana", conversacion["id"], "model", "hola, ¿en qué te ayudo?")
+    mensajes = db.obtener_mensajes_conversacion(conn, "ana", conversacion["id"])
+    assert [m["rol"] for m in mensajes] == ["user", "model"]
+    assert mensajes[0]["contenido"] == "hola"
+
+
+def test_agregar_mensaje_a_conversacion_de_otra_cuenta_falla(conn):
+    conversacion = db.crear_conversacion(conn, "ana", "x")
+    with pytest.raises(ValueError):
+        db.agregar_mensaje_conversacion(conn, "luis", conversacion["id"], "user", "hola")
+
+
+def test_obtener_mensajes_de_conversacion_inexistente_falla(conn):
+    with pytest.raises(ValueError):
+        db.obtener_mensajes_conversacion(conn, "ana", 999999)
+
+
+def test_eliminar_conversacion_borra_sus_mensajes(conn):
+    conversacion = db.crear_conversacion(conn, "ana", "x")
+    db.agregar_mensaje_conversacion(conn, "ana", conversacion["id"], "user", "hola")
+    db.eliminar_conversacion(conn, "ana", conversacion["id"])
+    assert db.listar_conversaciones(conn, "ana") == []
+    with pytest.raises(ValueError):
+        db.obtener_mensajes_conversacion(conn, "ana", conversacion["id"])
+
+
+def test_eliminar_conversacion_de_otra_cuenta_falla(conn):
+    conversacion = db.crear_conversacion(conn, "ana", "x")
+    with pytest.raises(ValueError):
+        db.eliminar_conversacion(conn, "luis", conversacion["id"])
