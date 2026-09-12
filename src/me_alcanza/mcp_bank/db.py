@@ -389,6 +389,85 @@ def get_metas(conn: sqlite3.Connection, account_id: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def crear_meta(
+    conn: sqlite3.Connection,
+    account_id: str,
+    descripcion: str,
+    monto_objetivo: float,
+    fecha_objetivo: str,
+) -> dict:
+    if monto_objetivo <= 0:
+        raise ValueError("monto_objetivo debe ser mayor a cero")
+    cursor = conn.execute(
+        """
+        INSERT INTO metas (account_id, descripcion, monto_objetivo, fecha_objetivo)
+        VALUES (?, ?, ?, ?)
+        """,
+        (account_id, descripcion, monto_objetivo, fecha_objetivo),
+    )
+    conn.commit()
+    return {
+        "id": cursor.lastrowid,
+        "descripcion": descripcion,
+        "monto_objetivo": monto_objetivo,
+        "fecha_objetivo": fecha_objetivo,
+        "monto_ahorrado": 0,
+    }
+
+
+def _get_meta(conn: sqlite3.Connection, account_id: str, meta_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, descripcion, monto_objetivo, fecha_objetivo, monto_ahorrado
+        FROM metas WHERE id = ? AND account_id = ?
+        """,
+        (meta_id, account_id),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def actualizar_meta(
+    conn: sqlite3.Connection,
+    account_id: str,
+    meta_id: int,
+    descripcion: str,
+    monto_objetivo: float,
+    fecha_objetivo: str,
+) -> dict:
+    if monto_objetivo <= 0:
+        raise ValueError("monto_objetivo debe ser mayor a cero")
+    existente = _get_meta(conn, account_id, meta_id)
+    if existente is None:
+        raise ValueError(f"Meta no encontrada para esta cuenta: {meta_id}")
+    conn.execute(
+        "UPDATE metas SET descripcion = ?, monto_objetivo = ?, fecha_objetivo = ? WHERE id = ? AND account_id = ?",
+        (descripcion, monto_objetivo, fecha_objetivo, meta_id, account_id),
+    )
+    conn.commit()
+    return {
+        "id": meta_id,
+        "descripcion": descripcion,
+        "monto_objetivo": monto_objetivo,
+        "fecha_objetivo": fecha_objetivo,
+        "monto_ahorrado": existente["monto_ahorrado"],
+    }
+
+
+def eliminar_meta(conn: sqlite3.Connection, account_id: str, meta_id: int) -> None:
+    if _get_meta(conn, account_id, meta_id) is None:
+        raise ValueError(f"Meta no encontrada para esta cuenta: {meta_id}")
+    activos = conn.execute(
+        "SELECT COUNT(*) FROM apartados WHERE meta_id = ? AND estado = 'activo'",
+        (meta_id,),
+    ).fetchone()[0]
+    if activos > 0:
+        raise ValueError(
+            "No puedes borrar una meta con apartados activos; cancela los apartados primero"
+        )
+    conn.execute("DELETE FROM metas WHERE id = ? AND account_id = ?", (meta_id, account_id))
+    conn.commit()
+
+
 def buscar_contacto(conn: sqlite3.Connection, account_id: str, query: str) -> list[dict]:
     like = f"%{query.lower()}%"
     rows = conn.execute(

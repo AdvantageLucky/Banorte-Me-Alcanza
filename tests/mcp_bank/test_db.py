@@ -297,3 +297,53 @@ def test_eliminar_gasto_fijo_de_otra_cuenta(conn):
     gasto_id = db.get_gastos_fijos(conn, "ana")[0]["id"]
     with pytest.raises(ValueError):
         db.eliminar_gasto_fijo(conn, "luis", gasto_id)
+
+
+def test_crear_meta(conn):
+    meta = db.crear_meta(conn, "ana", "Viaje", 20000.0, "2027-01-01")
+    assert meta["id"] is not None
+    assert meta["monto_ahorrado"] == 0
+    assert len(db.get_metas(conn, "ana")) == 2
+
+
+def test_crear_meta_rechaza_monto_no_positivo(conn):
+    with pytest.raises(ValueError):
+        db.crear_meta(conn, "ana", "x", 0, "2027-01-01")
+
+
+def test_actualizar_meta(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    actualizada = db.actualizar_meta(conn, "ana", meta_id, "Concierto actualizado", 9000.0, "2027-02-01")
+    assert actualizada["monto_objetivo"] == 9000.0
+    # monto_ahorrado no se toca por un update
+    assert actualizada["monto_ahorrado"] == 0
+
+
+def test_actualizar_meta_inexistente(conn):
+    with pytest.raises(ValueError):
+        db.actualizar_meta(conn, "ana", 999999, "x", 100.0, "2027-01-01")
+
+
+def test_actualizar_meta_de_otra_cuenta(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.actualizar_meta(conn, "luis", meta_id, "x", 100.0, "2027-01-01")
+
+
+def test_eliminar_meta_sin_apartados(conn):
+    meta_id = db.crear_meta(conn, "ana", "Meta borrable", 1000.0, "2027-01-01")["id"]
+    db.eliminar_meta(conn, "ana", meta_id)
+    assert all(m["id"] != meta_id for m in db.get_metas(conn, "ana"))
+
+
+def test_eliminar_meta_con_apartado_activo_se_bloquea(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    db.crear_apartado(conn, account_id="ana", meta_id=meta_id, monto_por_periodo=50.0, periodicidad="semanal")
+    with pytest.raises(ValueError):
+        db.eliminar_meta(conn, "ana", meta_id)
+
+
+def test_eliminar_meta_de_otra_cuenta(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.eliminar_meta(conn, "luis", meta_id)
