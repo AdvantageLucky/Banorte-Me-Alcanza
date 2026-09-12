@@ -10,9 +10,11 @@ import { injectStyles, removeStyles } from '@a2ui/react/styles';
 import '@a2ui/react/v0_9/index.css';
 import { apiClient } from '../api/client.js';
 import { createActionHandler } from '../chat/actionHandler.js';
+import { createConfirmActionWithModal } from '../chat/confirmWithModal.js';
 import { dropDuplicateCreateSurface } from '../chat/messageFilter.js';
 import { extractSurfaceId } from '../chat/extractSurfaceId.js';
 import Typewriter from '../components/typewritter.jsx';
+import ConfirmActionModal from '../components/ConfirmActionModal.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import logo from '../assets/images/logo.svg';
 
@@ -25,14 +27,31 @@ export default function ChatView() {
   // (nunca se sobrescribe uno anterior), en el orden real en que ocurrieron —
   // el backend le da a cada turno del agente su propio surfaceId único.
   const [turns, setTurns] = useState([]);
+  // Confirmación pendiente antes de ejecutar confirmar_accion (ver
+  // confirmActionWithModal más abajo): { resumen, onConfirm, onCancel }.
+  const [pendingConfirmation, setPendingConfirmation] = useState(null);
 
   function handleApiError(err, fallback) {
+    if (err?.silent) {
+      // Cancelado por el usuario en el modal de confirmación: no es un error.
+      return;
+    }
     if (err?.status === 401) {
       logout();
       return;
     }
     setErrorMessage(err?.detail || fallback);
   }
+
+  const confirmActionWithModal = useMemo(
+    () =>
+      createConfirmActionWithModal({
+        getPropuesta: (proposalId) => apiClient.getPropuesta(token, proposalId),
+        confirmAction: (proposalId) => apiClient.confirmAction(token, proposalId),
+        requestConfirmation: (payload) => setPendingConfirmation(payload),
+      }),
+    [token],
+  );
 
   function appendAgentTurn(messages) {
     const surfaceId = extractSurfaceId(messages);
@@ -44,7 +63,7 @@ export default function ChatView() {
   const processor = useMemo(() => {
     let proc;
     const handleAction = createActionHandler({
-      confirmAction: (proposalId) => apiClient.confirmAction(token, proposalId),
+      confirmAction: confirmActionWithModal,
       onMessages: (messages) => {
         setErrorMessage(null);
         proc.processMessages(
@@ -126,6 +145,19 @@ export default function ChatView() {
           {sending ? 'Enviando...' : 'Enviar'}
         </button>
       </form>
+      {pendingConfirmation && (
+        <ConfirmActionModal
+          resumen={pendingConfirmation.resumen}
+          onConfirm={() => {
+            setPendingConfirmation(null);
+            pendingConfirmation.onConfirm();
+          }}
+          onCancel={() => {
+            setPendingConfirmation(null);
+            pendingConfirmation.onCancel();
+          }}
+        />
+      )}
     </div>
   );
 }

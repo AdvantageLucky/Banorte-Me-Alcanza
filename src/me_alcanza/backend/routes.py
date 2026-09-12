@@ -27,6 +27,7 @@ from .dtos import (
     MetaResponse,
     MetaUpdate,
     MovimientoResponse,
+    PropuestaResponse,
     ScoreSaludResponse,
     SugerenciaResponse,
 )
@@ -85,6 +86,18 @@ async def confirm_action(
         account_id, payload.proposal_id
     )
     return ConfirmActionResponse(a2ui_messages=messages)
+
+
+@router.get("/propuestas/{proposal_id}", response_model=PropuestaResponse)
+async def get_propuesta_route(
+    proposal_id: str,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> PropuestaResponse:
+    resumen = request.app.state.orchestrator.obtener_resumen_propuesta(account_id, proposal_id)
+    if resumen is None:
+        raise HTTPException(status_code=404, detail="La propuesta no existe, no te pertenece, o expiró")
+    return PropuestaResponse(**resumen)
 
 
 @router.get("/cuenta", response_model=CuentaResponse)

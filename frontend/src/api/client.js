@@ -50,6 +50,7 @@ export function createApiClient(baseUrl) {
     sendMessage: (token, mensaje) => post('/api/chat', { token, body: { mensaje } }),
     confirmAction: (token, proposalId) =>
       post('/api/confirm-action', { token, body: { proposal_id: proposalId } }),
+    getPropuesta: (token, proposalId) => get(`/api/propuestas/${proposalId}`, { token }),
     getCuenta: (token) => get('/api/cuenta', { token }),
     getMovimientos: (token) => get('/api/movimientos', { token }),
     getMetas: (token) => get('/api/metas', { token }),

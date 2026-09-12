@@ -92,6 +92,22 @@ describe('createApiClient', () => {
     await expect(client.login('ana', 'x')).rejects.toBeInstanceOf(ApiError);
   });
 
+  it('getPropuesta hace un GET autenticado a /api/propuestas/{id}', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ tipo: 'transferencia', resumen: 'Transferir $500.00 a José Ramírez' }),
+    });
+    const client = createApiClient('http://api.test');
+
+    const result = await client.getPropuesta('jwt-123', 'prop-1');
+
+    expect(result).toEqual({ tipo: 'transferencia', resumen: 'Transferir $500.00 a José Ramírez' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://api.test/api/propuestas/prop-1',
+      expect.objectContaining({ method: 'GET', headers: { Authorization: 'Bearer jwt-123' } }),
+    );
+  });
+
   describe('recursos de "Yo" (solo lectura)', () => {
     it.each([
       ['getCuenta', '/api/cuenta', { titular: 'Ana', numero_cuenta: '123', saldo: 100, moneda: 'MXN' }],

@@ -700,6 +700,19 @@ class Orchestrator:
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
+    def obtener_resumen_propuesta(self, account_id: str, proposal_id: str) -> dict | None:
+        # El frontend usa esto para mostrar un modal de confirmación nativo
+        # (no generado por A2UI) justo antes de ejecutar la acción: el
+        # 'resumen' que devolvemos aquí lo construyó este mismo backend con
+        # f-strings sobre datos ya validados (ver _proponer_transferencia y
+        # compañía), nunca texto que el LLM haya escrito — así el usuario
+        # siempre confirma contra el dato real, sin depender de que el modelo
+        # lo haya transcrito bien en la tarjeta.
+        proposal = proposals.obtener_propuesta_valida(proposal_id, account_id)
+        if proposal is None:
+            return None
+        return {"tipo": proposal.tipo, "resumen": proposal.resumen}
+
     async def confirm_action(self, account_id: str, proposal_id: str) -> list[dict]:
         proposal = proposals.obtener_propuesta_valida(proposal_id, account_id)
         if proposal is None:

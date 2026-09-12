@@ -751,3 +751,69 @@ body {
   border: var(--a2ui-border-width) solid var(--color-border) !important;
   color: var(--color-secondary) !important;
 }
+
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--a2ui-spacing-l);
+  z-index: 1000;
+}
+
+.confirm-modal-card {
+  background: var(--color-surface);
+  color: var(--color-on-surface);
+  border-radius: var(--a2ui-border-radius);
+  padding: var(--a2ui-spacing-xl);
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.confirm-modal-title {
+  margin: 0 0 var(--a2ui-spacing-m);
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-l);
+}
+
+.confirm-modal-resumen {
+  margin: 0 0 var(--a2ui-spacing-m);
+  font-size: var(--a2ui-font-size-l);
+  font-weight: 600;
+}
+
+.confirm-modal-note {
+  margin: 0 0 var(--a2ui-spacing-l);
+  font-size: var(--a2ui-font-size-xs);
+  color: var(--color-secondary);
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--a2ui-spacing-m);
+}
+
+.confirm-modal-actions button {
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-l);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-s);
+  font-weight: 600;
+}
+
+.confirm-modal-cancel {
+  background: none;
+  border: var(--a2ui-border-width) solid var(--color-border);
+  color: var(--color-on-surface);
+}
+
+.confirm-modal-confirm {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+}

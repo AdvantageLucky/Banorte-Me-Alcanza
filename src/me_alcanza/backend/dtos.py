@@ -32,6 +32,11 @@ class ConfirmActionResponse(BaseModel):
     a2ui_messages: list[dict]
 
 
+class PropuestaResponse(BaseModel):
+    tipo: str
+    resumen: str
+
+
 class CuentaResponse(BaseModel):
     titular: str
     numero_cuenta: str

@@ -117,6 +117,62 @@ def test_confirm_action_con_token_llama_al_orquestador(app):
         app.state.orchestrator.confirm_action.assert_awaited_once_with("ana", "prop-1")
 
 
+def test_get_propuesta_sin_token_devuelve_401(app):
+    with TestClient(app) as client:
+        response = client.get("/api/propuestas/prop-1")
+        assert response.status_code == 401
+
+
+def test_get_propuesta_inexistente_devuelve_404(app):
+    with TestClient(app) as client:
+        login = client.post("/api/login", json={"username": "ana", "password": "pass123"})
+        token = login.json()["token"]
+
+        response = client.get(
+            "/api/propuestas/no-existe", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 404
+
+
+def test_get_propuesta_devuelve_tipo_y_resumen_construidos_por_el_backend(app):
+    with TestClient(app) as client:
+        login = client.post("/api/login", json={"username": "ana", "password": "pass123"})
+        token = login.json()["token"]
+
+        propuesta = proposals.crear_propuesta(
+            account_id="ana",
+            tipo="transferencia",
+            payload={"contacto_id": 1, "destino_cuenta": "123", "monto": 500.0, "concepto": "x"},
+            resumen="Transferir $500.00 a José Ramírez",
+        )
+
+        response = client.get(
+            f"/api/propuestas/{propuesta.id}", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        assert response.json() == {
+            "tipo": "transferencia",
+            "resumen": "Transferir $500.00 a José Ramírez",
+        }
+
+
+def test_get_propuesta_de_otra_cuenta_devuelve_404(app):
+    with TestClient(app) as client:
+        token = _login_luis(client)
+
+        propuesta = proposals.crear_propuesta(
+            account_id="ana",
+            tipo="transferencia",
+            payload={},
+            resumen="Transferir $500.00 a José Ramírez",
+        )
+
+        response = client.get(
+            f"/api/propuestas/{propuesta.id}", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 404
+
+
 def _login(client) -> str:
     login = client.post("/api/login", json={"username": "ana", "password": "pass123"})
     return login.json()["token"]

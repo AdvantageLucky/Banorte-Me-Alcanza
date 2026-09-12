@@ -432,6 +432,35 @@ async def test_handle_message_proponer_apartado_monto_no_positivo_no_crea_propue
     assert len(proposals.PROPOSALS) == 0
 
 
+def test_obtener_resumen_propuesta_devuelve_tipo_y_resumen():
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", MagicMock())
+    proposal = proposals.crear_propuesta(
+        "ana", "transferencia", {"monto": 500.0}, "Transferir $500.00 a José Ramírez"
+    )
+
+    resumen = orchestrator.obtener_resumen_propuesta("ana", proposal.id)
+
+    assert resumen == {"tipo": "transferencia", "resumen": "Transferir $500.00 a José Ramírez"}
+    # Es de solo lectura: no debe descartar la propuesta como sí lo hace confirm_action.
+    assert proposal.id in proposals.PROPOSALS
+
+
+def test_obtener_resumen_propuesta_inexistente_devuelve_none():
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", MagicMock())
+
+    assert orchestrator.obtener_resumen_propuesta("ana", "no-existe") is None
+
+
+def test_obtener_resumen_propuesta_de_otra_cuenta_devuelve_none():
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", MagicMock())
+    proposal = proposals.crear_propuesta("ana", "transferencia", {}, "Transferir $500.00")
+
+    assert orchestrator.obtener_resumen_propuesta("luis", proposal.id) is None
+
+
 @pytest.mark.asyncio
 async def test_confirm_action_apartado_llama_crear_apartado_en_mcp():
     mcp_client = MagicMock()
