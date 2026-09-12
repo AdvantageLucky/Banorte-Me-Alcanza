@@ -79,7 +79,13 @@ def test_rewrite_surface_id_sobrescribe_los_tres_tipos_de_mensaje():
 @pytest.mark.asyncio
 async def test_handle_message_cada_turno_tiene_su_propia_superficie_unica():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock(return_value={"saldo": 500.0, "moneda": "MXN"})
+
+    async def fake_call(name, args=None):
+        if name == "obtener_mensajes_conversacion":
+            return []
+        return {"saldo": 500.0, "moneda": "MXN"}
+
+    mcp_client.call = AsyncMock(side_effect=fake_call)
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -92,8 +98,8 @@ async def test_handle_message_cada_turno_tiene_su_propia_superficie_unica():
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    primer_turno = await orchestrator.handle_message("ana", "¿cuánto tengo?")
-    segundo_turno = await orchestrator.handle_message("ana", "¿y ahora?")
+    primer_turno = await orchestrator.handle_message("ana", 1, "¿cuánto tengo?")
+    segundo_turno = await orchestrator.handle_message("ana", 1, "¿y ahora?")
 
     id_turno_1 = primer_turno[0]["createSurface"]["surfaceId"]
     id_turno_2 = segundo_turno[0]["createSurface"]["surfaceId"]
@@ -106,7 +112,7 @@ async def test_handle_message_cada_turno_tiene_su_propia_superficie_unica():
 @pytest.mark.asyncio
 async def test_handle_message_llama_mcp_con_account_id_inyectado():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock(return_value={"saldo": 500.0, "moneda": "MXN"})
+    mcp_client.call = AsyncMock(side_effect=[[], {"saldo": 500.0, "moneda": "MXN"}, None, None])
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -117,16 +123,16 @@ async def test_handle_message_llama_mcp_con_account_id_inyectado():
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    messages = await orchestrator.handle_message("ana", "¿cuánto tengo?")
+    messages = await orchestrator.handle_message("ana", 1, "¿cuánto tengo?")
 
-    mcp_client.call.assert_awaited_once_with("get_saldo", {"account_id": "ana"})
+    mcp_client.call.assert_any_await("get_saldo", {"account_id": "ana"})
     assert messages[0]["createSurface"]["surfaceId"].startswith("turno-")
 
 
 @pytest.mark.asyncio
 async def test_handle_message_ignora_account_id_que_intente_inyectar_el_llm():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock(return_value={"saldo": 500.0, "moneda": "MXN"})
+    mcp_client.call = AsyncMock(side_effect=[[], {"saldo": 500.0, "moneda": "MXN"}, None, None])
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -137,22 +143,27 @@ async def test_handle_message_ignora_account_id_que_intente_inyectar_el_llm():
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "¿cuánto tengo?")
+    await orchestrator.handle_message("ana", 1, "¿cuánto tengo?")
 
-    mcp_client.call.assert_awaited_once_with("get_saldo", {"account_id": "ana"})
+    mcp_client.call.assert_any_await("get_saldo", {"account_id": "ana"})
 
 
 @pytest.mark.asyncio
 async def test_handle_message_simular_flujo_de_caja_reenvia_argumentos():
     mcp_client = MagicMock()
     mcp_client.call = AsyncMock(
-        return_value={
-            "alcanza": False,
-            "saldo_minimo_proyectado": 500.0,
-            "fecha_critica": "2026-10-13",
-            "margen": -570.0,
-            "apartado_sugerido": {"monto_por_periodo": 142.5, "periodicidad": "semanal", "num_periodos": 4},
-        }
+        side_effect=[
+            [],
+            {
+                "alcanza": False,
+                "saldo_minimo_proyectado": 500.0,
+                "fecha_critica": "2026-10-13",
+                "margen": -570.0,
+                "apartado_sugerido": {"monto_por_periodo": 142.5, "periodicidad": "semanal", "num_periodos": 4},
+            },
+            None,
+            None,
+        ]
     )
 
     genai_client = MagicMock()
@@ -166,9 +177,9 @@ async def test_handle_message_simular_flujo_de_caja_reenvia_argumentos():
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "¿me alcanza para el concierto?")
+    await orchestrator.handle_message("ana", 1, "¿me alcanza para el concierto?")
 
-    mcp_client.call.assert_awaited_once_with(
+    mcp_client.call.assert_any_await(
         "simular_flujo_de_caja",
         {"account_id": "ana", "fecha_objetivo": "2026-10-13", "monto_objetivo": 8000.0},
     )
@@ -177,7 +188,9 @@ async def test_handle_message_simular_flujo_de_caja_reenvia_argumentos():
 @pytest.mark.asyncio
 async def test_handle_message_buscar_contacto_reenvia_query():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock(return_value=[{"id": 1, "nombre": "José Ramírez", "alias": "Pepe"}])
+    mcp_client.call = AsyncMock(
+        side_effect=[[], [{"id": 1, "nombre": "José Ramírez", "alias": "Pepe"}], None, None]
+    )
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -188,14 +201,15 @@ async def test_handle_message_buscar_contacto_reenvia_query():
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "deposítale a pepe")
+    await orchestrator.handle_message("ana", 1, "deposítale a pepe")
 
-    mcp_client.call.assert_awaited_once_with("buscar_contacto", {"account_id": "ana", "query": "pepe"})
+    mcp_client.call.assert_any_await("buscar_contacto", {"account_id": "ana", "query": "pepe"})
 
 
 @pytest.mark.asyncio
 async def test_handle_message_respuesta_no_valida_cae_a_bloque_de_error():
     mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[]])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -205,7 +219,7 @@ async def test_handle_message_respuesta_no_valida_cae_a_bloque_de_error():
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    messages = await orchestrator.handle_message("ana", "hola")
+    messages = await orchestrator.handle_message("ana", 1, "hola")
 
     assert messages == error_a2ui_block(
         messages[2]["updateDataModel"]["value"]["mensaje"],
@@ -217,9 +231,11 @@ async def test_handle_message_respuesta_no_valida_cae_a_bloque_de_error():
 async def test_handle_message_excepcion_en_reintento_de_autocorreccion_cae_a_bloque_de_error():
     # Si la respuesta inicial no trae un bloque A2UI válido, handle_message pide
     # una auto-corrección al modelo; si esa segunda llamada a generate_content
-    # explota, tampoco debe propagar la excepción cruda: debe caer al bloque de
-    # error igual que cualquier otra falla inesperada.
+    # explota, tampoco debe propagar la excepción cruda: al ser una excepción
+    # inesperada más, activa el mismo fallback a modo offline que cualquier otra
+    # falla (en vez de propagarse cruda o cortar el turno sin respuesta).
     mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[]])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -229,12 +245,11 @@ async def test_handle_message_excepcion_en_reintento_de_autocorreccion_cae_a_blo
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    messages = await orchestrator.handle_message("ana", "hola")
+    messages = await orchestrator.handle_message("ana", 1, "hola")
 
-    assert messages == error_a2ui_block(
-        messages[2]["updateDataModel"]["value"]["mensaje"],
-        surface_id=messages[0]["createSurface"]["surfaceId"],
-    )
+    assert "createSurface" in messages[0]
+    valores = next(m for m in messages if "updateDataModel" in m)["updateDataModel"]["value"]
+    assert "offline" in str(valores).lower()
 
 
 @pytest.mark.asyncio
@@ -244,7 +259,9 @@ async def test_handle_message_error_esperado_del_mcp_se_devuelve_al_modelo_para_
     # fecha válida en el siguiente turno de la conversación), no cortar todo
     # el mensaje con un bloque de error genérico.
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock(side_effect=RuntimeError("fecha_objetivo no puede ser anterior a hoy"))
+    mcp_client.call = AsyncMock(
+        side_effect=[[], RuntimeError("fecha_objetivo no puede ser anterior a hoy"), None, None]
+    )
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -257,7 +274,7 @@ async def test_handle_message_error_esperado_del_mcp_se_devuelve_al_modelo_para_
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    messages = await orchestrator.handle_message("ana", "¿me alcanza para algo en 2020?")
+    messages = await orchestrator.handle_message("ana", 1, "¿me alcanza para algo en 2020?")
 
     assert genai_client.models.generate_content.call_count == 2
     assert messages[0]["createSurface"]["surfaceId"].startswith("turno-")
@@ -265,8 +282,11 @@ async def test_handle_message_error_esperado_del_mcp_se_devuelve_al_modelo_para_
 
 @pytest.mark.asyncio
 async def test_handle_message_excepcion_no_prevista_cae_a_bloque_de_error():
+    # Una excepción no prevista (ej. KeyError) durante el tool loop tampoco debe
+    # propagarse cruda: activa el fallback a modo offline igual que cualquier
+    # otra falla inesperada (quota, red, etc.).
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock(side_effect=KeyError("algo salió mal de forma inesperada"))
+    mcp_client.call = AsyncMock(side_effect=[[], KeyError("algo salió mal de forma inesperada")])
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -274,19 +294,23 @@ async def test_handle_message_excepcion_no_prevista_cae_a_bloque_de_error():
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    messages = await orchestrator.handle_message("ana", "¿cuánto tengo?")
+    messages = await orchestrator.handle_message("ana", 1, "¿cuánto tengo?")
 
-    assert messages == error_a2ui_block(
-        messages[2]["updateDataModel"]["value"]["mensaje"],
-        surface_id=messages[0]["createSurface"]["surfaceId"],
-    )
+    assert "createSurface" in messages[0]
+    valores = next(m for m in messages if "updateDataModel" in m)["updateDataModel"]["value"]
+    assert "offline" in str(valores).lower()
 
 
 @pytest.mark.asyncio
 async def test_handle_message_proponer_transferencia_resuelve_contacto_y_no_ejecuta_nada():
     mcp_client = MagicMock()
     mcp_client.call = AsyncMock(
-        return_value={"id": 1, "nombre": "José Ramírez", "alias": "Pepe", "cuenta_destino": "9988776655", "relacion": "hermano"}
+        side_effect=[
+            [],
+            {"id": 1, "nombre": "José Ramírez", "alias": "Pepe", "cuenta_destino": "9988776655", "relacion": "hermano"},
+            None,
+            None,
+        ]
     )
 
     genai_client = MagicMock()
@@ -300,9 +324,9 @@ async def test_handle_message_proponer_transferencia_resuelve_contacto_y_no_ejec
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "deposítale 500 a Pepe mi hermano")
+    await orchestrator.handle_message("ana", 1, "deposítale 500 a Pepe mi hermano")
 
-    mcp_client.call.assert_awaited_once_with("get_contacto", {"account_id": "ana", "contacto_id": 1})
+    mcp_client.call.assert_any_await("get_contacto", {"account_id": "ana", "contacto_id": 1})
     assert len(proposals.PROPOSALS) == 1
     proposal = next(iter(proposals.PROPOSALS.values()))
     assert proposal.tipo == "transferencia"
@@ -318,7 +342,9 @@ async def test_handle_message_proponer_transferencia_resuelve_contacto_y_no_ejec
 @pytest.mark.asyncio
 async def test_handle_message_proponer_transferencia_contacto_inexistente_no_crea_propuesta():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock(side_effect=RuntimeError("Contacto no encontrado para esta cuenta: 999"))
+    mcp_client.call = AsyncMock(
+        side_effect=[[], RuntimeError("Contacto no encontrado para esta cuenta: 999"), None, None]
+    )
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -331,7 +357,7 @@ async def test_handle_message_proponer_transferencia_contacto_inexistente_no_cre
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "deposítale a alguien que no existe")
+    await orchestrator.handle_message("ana", 1, "deposítale a alguien que no existe")
 
     assert len(proposals.PROPOSALS) == 0
 
@@ -339,7 +365,7 @@ async def test_handle_message_proponer_transferencia_contacto_inexistente_no_cre
 @pytest.mark.asyncio
 async def test_handle_message_proponer_transferencia_monto_no_positivo_no_crea_propuesta():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -352,16 +378,17 @@ async def test_handle_message_proponer_transferencia_monto_no_positivo_no_crea_p
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "transfiere -500")
+    await orchestrator.handle_message("ana", 1, "transfiere -500")
 
-    mcp_client.call.assert_not_called()
+    llamadas = [c.args[0] for c in mcp_client.call.call_args_list]
+    assert "get_contacto" not in llamadas
     assert len(proposals.PROPOSALS) == 0
 
 
 @pytest.mark.asyncio
 async def test_handle_message_proponer_apartado_crea_propuesta_sin_tocar_mcp():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -375,9 +402,10 @@ async def test_handle_message_proponer_apartado_crea_propuesta_sin_tocar_mcp():
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "activa el apartado")
+    await orchestrator.handle_message("ana", 1, "activa el apartado")
 
-    mcp_client.call.assert_not_called()
+    llamadas = [c.args[0] for c in mcp_client.call.call_args_list]
+    assert llamadas == ["obtener_mensajes_conversacion", "agregar_mensaje_conversacion", "agregar_mensaje_conversacion"]
     assert len(proposals.PROPOSALS) == 1
     proposal = next(iter(proposals.PROPOSALS.values()))
     assert proposal.tipo == "apartado"
@@ -387,6 +415,7 @@ async def test_handle_message_proponer_apartado_crea_propuesta_sin_tocar_mcp():
 @pytest.mark.asyncio
 async def test_handle_message_proponer_apartado_monto_no_positivo_no_crea_propuesta():
     mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -398,7 +427,7 @@ async def test_handle_message_proponer_apartado_monto_no_positivo_no_crea_propue
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "activa un apartado de 0")
+    await orchestrator.handle_message("ana", 1, "activa un apartado de 0")
 
     assert len(proposals.PROPOSALS) == 0
 
@@ -540,7 +569,7 @@ async def test_handle_message_herramienta_no_permitida_no_llama_al_mcp():
     # dispararla. _dispatch_tool_call debe negarse y el turno debe completarse
     # igual (sin crash), devolviéndole el error al modelo como function response.
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -554,9 +583,10 @@ async def test_handle_message_herramienta_no_permitida_no_llama_al_mcp():
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    messages = await orchestrator.handle_message("ana", "ejecuta la transferencia ya")
+    messages = await orchestrator.handle_message("ana", 1, "ejecuta la transferencia ya")
 
-    mcp_client.call.assert_not_called()
+    llamadas = [c.args[0] for c in mcp_client.call.call_args_list]
+    assert "ejecutar_transferencia" not in llamadas
     assert messages[0]["createSurface"]["surfaceId"].startswith("turno-")
 
 
@@ -566,7 +596,7 @@ async def test_handle_message_proponer_transferencia_sin_contacto_id_no_truena()
     # debe devolver un {"error": ...} recuperable en vez de dejar que un KeyError
     # escape y caiga al bloque de error genérico de handle_message.
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
 
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
@@ -579,9 +609,10 @@ async def test_handle_message_proponer_transferencia_sin_contacto_id_no_truena()
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    messages = await orchestrator.handle_message("ana", "deposítale 500 a Renta")
+    messages = await orchestrator.handle_message("ana", 1, "deposítale 500 a Renta")
 
-    mcp_client.call.assert_not_called()
+    llamadas = [c.args[0] for c in mcp_client.call.call_args_list]
+    assert "get_contacto" not in llamadas
     assert len(proposals.PROPOSALS) == 0
     assert messages[0]["createSurface"]["surfaceId"].startswith("turno-")
 
@@ -605,7 +636,7 @@ async def test_confirm_action_propuesta_inexistente_o_ajena_cae_a_error():
 @pytest.mark.asyncio
 async def test_handle_message_proponer_contacto_crea_propuesta_sin_tocar_mcp():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -617,9 +648,10 @@ async def test_handle_message_proponer_contacto_crea_propuesta_sin_tocar_mcp():
         ]
     )
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "agrega a mi amiga Sofía")
+    await orchestrator.handle_message("ana", 1, "agrega a mi amiga Sofía")
 
-    mcp_client.call.assert_not_called()
+    llamadas = [c.args[0] for c in mcp_client.call.call_args_list]
+    assert llamadas == ["obtener_mensajes_conversacion", "agregar_mensaje_conversacion", "agregar_mensaje_conversacion"]
     assert len(proposals.PROPOSALS) == 1
     proposal = next(iter(proposals.PROPOSALS.values()))
     assert proposal.tipo == "contacto"
@@ -629,6 +661,7 @@ async def test_handle_message_proponer_contacto_crea_propuesta_sin_tocar_mcp():
 @pytest.mark.asyncio
 async def test_handle_message_proponer_contacto_sin_nombre_no_crea_propuesta():
     mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -639,7 +672,7 @@ async def test_handle_message_proponer_contacto_sin_nombre_no_crea_propuesta():
         ]
     )
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "agrega un contacto")
+    await orchestrator.handle_message("ana", 1, "agrega un contacto")
     assert len(proposals.PROPOSALS) == 0
 
 
@@ -673,7 +706,7 @@ async def test_confirm_action_contacto_llama_crear_contacto_en_mcp():
 @pytest.mark.asyncio
 async def test_handle_message_proponer_gasto_fijo_crea_propuesta_sin_tocar_mcp():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -685,8 +718,9 @@ async def test_handle_message_proponer_gasto_fijo_crea_propuesta_sin_tocar_mcp()
         ]
     )
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "tengo un gasto fijo de internet de 600 mensual")
-    mcp_client.call.assert_not_called()
+    await orchestrator.handle_message("ana", 1, "tengo un gasto fijo de internet de 600 mensual")
+    llamadas = [c.args[0] for c in mcp_client.call.call_args_list]
+    assert "crear_gasto_fijo" not in llamadas
     proposal = next(iter(proposals.PROPOSALS.values()))
     assert proposal.tipo == "gasto_fijo"
 
@@ -694,6 +728,7 @@ async def test_handle_message_proponer_gasto_fijo_crea_propuesta_sin_tocar_mcp()
 @pytest.mark.asyncio
 async def test_handle_message_proponer_gasto_fijo_monto_no_positivo_no_crea_propuesta():
     mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -705,7 +740,7 @@ async def test_handle_message_proponer_gasto_fijo_monto_no_positivo_no_crea_prop
         ]
     )
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "gasto de 0")
+    await orchestrator.handle_message("ana", 1, "gasto de 0")
     assert len(proposals.PROPOSALS) == 0
 
 
@@ -738,7 +773,7 @@ async def test_confirm_action_gasto_fijo_llama_crear_gasto_fijo_en_mcp():
 @pytest.mark.asyncio
 async def test_handle_message_proponer_ingreso_programado_crea_propuesta_sin_tocar_mcp():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -750,8 +785,9 @@ async def test_handle_message_proponer_ingreso_programado_crea_propuesta_sin_toc
         ]
     )
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "voy a recibir un bono anual de 5000")
-    mcp_client.call.assert_not_called()
+    await orchestrator.handle_message("ana", 1, "voy a recibir un bono anual de 5000")
+    llamadas = [c.args[0] for c in mcp_client.call.call_args_list]
+    assert "crear_ingreso_programado" not in llamadas
     proposal = next(iter(proposals.PROPOSALS.values()))
     assert proposal.tipo == "ingreso_programado"
 
@@ -759,6 +795,7 @@ async def test_handle_message_proponer_ingreso_programado_crea_propuesta_sin_toc
 @pytest.mark.asyncio
 async def test_handle_message_proponer_ingreso_programado_monto_no_positivo_no_crea_propuesta():
     mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -770,7 +807,7 @@ async def test_handle_message_proponer_ingreso_programado_monto_no_positivo_no_c
         ]
     )
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "ingreso de 0")
+    await orchestrator.handle_message("ana", 1, "ingreso de 0")
     assert len(proposals.PROPOSALS) == 0
 
 
@@ -803,7 +840,7 @@ async def test_confirm_action_ingreso_programado_llama_crear_ingreso_programado_
 @pytest.mark.asyncio
 async def test_handle_message_proponer_meta_crea_propuesta_sin_tocar_mcp():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -815,8 +852,9 @@ async def test_handle_message_proponer_meta_crea_propuesta_sin_tocar_mcp():
         ]
     )
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "quiero ahorrar para un viaje")
-    mcp_client.call.assert_not_called()
+    await orchestrator.handle_message("ana", 1, "quiero ahorrar para un viaje")
+    llamadas = [c.args[0] for c in mcp_client.call.call_args_list]
+    assert "crear_meta" not in llamadas
     proposal = next(iter(proposals.PROPOSALS.values()))
     assert proposal.tipo == "meta"
 
@@ -824,6 +862,7 @@ async def test_handle_message_proponer_meta_crea_propuesta_sin_tocar_mcp():
 @pytest.mark.asyncio
 async def test_handle_message_proponer_meta_monto_no_positivo_no_crea_propuesta():
     mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -834,7 +873,7 @@ async def test_handle_message_proponer_meta_monto_no_positivo_no_crea_propuesta(
         ]
     )
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "meta de 0")
+    await orchestrator.handle_message("ana", 1, "meta de 0")
     assert len(proposals.PROPOSALS) == 0
 
 
@@ -868,7 +907,9 @@ def test_get_movimientos_ya_no_esta_en_read_only_tools():
 @pytest.mark.asyncio
 async def test_handle_message_get_resumen_movimientos_reenvia_fechas():
     mcp_client = MagicMock()
-    mcp_client.call = AsyncMock(return_value=[{"categoria": "ahorro", "total": -100.0, "count": 2}])
+    mcp_client.call = AsyncMock(
+        side_effect=[[], [{"categoria": "ahorro", "total": -100.0, "count": 2}], None, None]
+    )
     genai_client = MagicMock()
     genai_client.models.generate_content = MagicMock(
         side_effect=[
@@ -879,9 +920,9 @@ async def test_handle_message_get_resumen_movimientos_reenvia_fechas():
         ]
     )
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "¿en qué gasté este mes?")
+    await orchestrator.handle_message("ana", 1, "¿en qué gasté este mes?")
 
-    mcp_client.call.assert_awaited_once_with(
+    mcp_client.call.assert_any_await(
         "get_resumen_movimientos",
         {"account_id": "ana", "fecha_inicio": "2026-09-01", "fecha_fin": "2026-09-30"},
     )
@@ -897,3 +938,63 @@ def test_system_prompt_instruye_explicabilidad():
     prompt = build_system_prompt()
     assert "Modal" in prompt
     assert "Cómo se calculó" in prompt
+
+
+@pytest.mark.asyncio
+async def test_handle_message_carga_historial_y_construye_contents_con_roles():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(
+        side_effect=[
+            [{"rol": "user", "contenido": "hola"}, {"rol": "model", "contenido": "hola, ¿en qué te ayudo?"}],
+            None,  # agregar_mensaje_conversacion (mensaje del usuario)
+            None,  # agregar_mensaje_conversacion (respuesta del modelo)
+        ]
+    )
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(side_effect=[_mock_final_response(SALDO_A2UI_RESPONSE)])
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", 1, "¿cuánto tengo?")
+
+    mcp_client.call.assert_any_call("obtener_mensajes_conversacion", {"account_id": "ana", "conversacion_id": 1})
+    llamada_generate = genai_client.models.generate_content.call_args
+    contents_enviados = llamada_generate.kwargs["contents"]
+    # 2 mensajes de historial + 1 mensaje nuevo = 3 Content antes de correr el tool loop
+    assert len(contents_enviados) == 3
+    assert contents_enviados[0].role == "user"
+    assert contents_enviados[1].role == "model"
+    assert contents_enviados[2].role == "user"
+
+
+@pytest.mark.asyncio
+async def test_handle_message_persiste_el_turno_completo():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(side_effect=[_mock_final_response(SALDO_A2UI_RESPONSE)])
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", 5, "hola")
+
+    llamadas_guardado = [
+        c for c in mcp_client.call.call_args_list if c.args[0] == "agregar_mensaje_conversacion"
+    ]
+    assert len(llamadas_guardado) == 2
+    assert llamadas_guardado[0].args[1]["rol"] == "user"
+    assert llamadas_guardado[0].args[1]["contenido"] == "hola"
+    assert llamadas_guardado[1].args[1]["rol"] == "model"
+
+
+@pytest.mark.asyncio
+async def test_handle_message_hace_fallback_a_modo_offline_si_gemini_falla():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(side_effect=RuntimeError("429 cuota agotada"))
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    messages = await orchestrator.handle_message("ana", 1, "¿cuál es mi saldo?")
+
+    assert "createSurface" in messages[0]
+    valores = next(m for m in messages if "updateDataModel" in m)["updateDataModel"]["value"]
+    assert "offline" in str(valores).lower()

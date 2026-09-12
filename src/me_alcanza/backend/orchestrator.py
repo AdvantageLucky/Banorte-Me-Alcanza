@@ -6,7 +6,7 @@ from a2ui.basic_catalog.provider import BasicCatalog
 from a2ui.inference_formats.direct_json.format import DirectJsonFormat
 from google.genai import types
 
-from . import proposals
+from . import fake_provider, proposals
 from .mcp_client import BankMcpClient
 
 _logger = logging.getLogger(__name__)
@@ -411,10 +411,11 @@ def build_system_prompt() -> str:
 
 
 class Orchestrator:
-    def __init__(self, genai_client, model: str, mcp_client: BankMcpClient):
+    def __init__(self, genai_client, model: str, mcp_client: BankMcpClient, provider: str = "gemini"):
         self._client = genai_client
         self._model = model
         self._mcp = mcp_client
+        self._provider = provider
         self._fmt = DirectJsonFormat(
             version=_VERSION, catalogs=[BasicCatalog.get_config(version=_VERSION)]
         )
@@ -823,15 +824,25 @@ class Orchestrator:
                 "No se pudo completar la acción. Intenta de nuevo en unos momentos."
             )
 
-    async def handle_message(self, account_id: str, mensaje: str) -> list[dict]:
-        contents = [mensaje]
+    async def handle_message(self, account_id: str, conversacion_id: int, mensaje: str) -> list[dict]:
+        historial = await self._mcp.call(
+            "obtener_mensajes_conversacion", {"account_id": account_id, "conversacion_id": conversacion_id}
+        )
+        contents = [
+            types.Content(role=m["rol"], parts=[types.Part.from_text(text=m["contenido"])])
+            for m in historial
+        ]
+        contents.append(types.Content(role="user", parts=[types.Part.from_text(text=mensaje)]))
 
         # Todo el flujo (tool loop + el reintento de auto-corrección de abajo) vive
         # bajo un único try/except: una excepción en CUALQUIER punto -incluyendo la
         # llamada a generate_content del reintento- debe caer al bloque de error,
         # nunca propagarse cruda fuera de handle_message.
         try:
-            final_text = await self._run_tool_loop(account_id, contents)
+            if self._provider == "fake":
+                final_text = fake_provider.generar_respuesta_offline(mensaje)
+            else:
+                final_text = await self._run_tool_loop(account_id, contents)
 
             for attempt in range(2):
                 try:
@@ -851,15 +862,38 @@ class Orchestrator:
 
                 for part in parts:
                     if part.a2ui_json:
+                        await self._mcp.call(
+                            "agregar_mensaje_conversacion",
+                            {
+                                "account_id": account_id,
+                                "conversacion_id": conversacion_id,
+                                "rol": "user",
+                                "contenido": mensaje,
+                            },
+                        )
+                        await self._mcp.call(
+                            "agregar_mensaje_conversacion",
+                            {
+                                "account_id": account_id,
+                                "conversacion_id": conversacion_id,
+                                "rol": "model",
+                                "contenido": final_text,
+                            },
+                        )
                         return _rewrite_surface_id(part.a2ui_json, _new_surface_id())
 
                 break
-        except Exception:  # noqa: BLE001 - fallback controlado hacia UI de error
-            # Mismo motivo que en confirm_action: nunca mostrar el texto crudo
-            # de la excepción (puede traer el cuerpo de error de la API de
-            # Gemini, incluyendo detalles de cuota/rate-limit). Se loguea
-            # completo server-side y se muestra un mensaje genérico.
-            _logger.exception("handle_message falló de forma inesperada")
+        except Exception:  # noqa: BLE001 - intenta modo offline antes de rendirse
+            _logger.exception("handle_message falló de forma inesperada, intentando modo offline")
+            if self._provider != "fake":
+                try:
+                    final_text = fake_provider.generar_respuesta_offline(mensaje)
+                    parts = self._fmt.parser.parse_response(final_text)
+                    for part in parts:
+                        if part.a2ui_json:
+                            return _rewrite_surface_id(part.a2ui_json, _new_surface_id())
+                except Exception:  # noqa: BLE001
+                    _logger.exception("el fallback a modo offline también falló")
             return error_a2ui_block(
                 "Ocurrió un error al procesar tu solicitud. Intenta de nuevo en unos momentos."
             )
