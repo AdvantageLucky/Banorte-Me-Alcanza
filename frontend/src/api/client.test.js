@@ -91,4 +91,46 @@ describe('createApiClient', () => {
 
     await expect(client.login('ana', 'x')).rejects.toBeInstanceOf(ApiError);
   });
+
+  describe('recursos de "Yo" (solo lectura)', () => {
+    it.each([
+      ['getCuenta', '/api/cuenta', { titular: 'Ana', numero_cuenta: '123', saldo: 100, moneda: 'MXN' }],
+      ['getMovimientos', '/api/movimientos', [{ fecha: '2026-01-01', concepto: 'Café', monto: -50 }]],
+      ['getMetas', '/api/metas', [{ id: 1, descripcion: 'Viaje', monto_objetivo: 1000, fecha_objetivo: '2026-12-01', monto_ahorrado: 200 }]],
+      ['getApartados', '/api/apartados', [{ id: 1, meta_id: 1, monto_por_periodo: 100, periodicidad: 'mensual', fecha_inicio: '2026-01-01', estado: 'activo' }]],
+      ['getGastosFijos', '/api/gastos-fijos', [{ id: 1, concepto: 'Renta', monto: 5000, frecuencia: 'mensual', proxima_fecha: '2026-10-01' }]],
+      ['getIngresosProgramados', '/api/ingresos-programados', [{ id: 1, descripcion: 'Nómina', monto: 15000, frecuencia: 'quincenal', proxima_fecha: '2026-09-30' }]],
+    ])('%s hace un GET autenticado a %s', async (method, path, responseBody) => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => responseBody,
+      });
+      const client = createApiClient('http://api.test');
+
+      const result = await client[method]('jwt-123');
+
+      expect(result).toEqual(responseBody);
+      expect(fetchMock).toHaveBeenCalledWith(
+        `http://api.test${path}`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: { Authorization: 'Bearer jwt-123' },
+        }),
+      );
+    });
+
+    it('propaga un ApiException cuando el GET responde con error', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ detail: 'Token inválido' }),
+      });
+      const client = createApiClient('http://api.test');
+
+      await expect(client.getCuenta('jwt-expired')).rejects.toMatchObject({
+        status: 401,
+        detail: 'Token inválido',
+      });
+    });
+  });
 });

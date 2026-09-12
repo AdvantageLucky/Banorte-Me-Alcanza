@@ -83,15 +83,6 @@ export default function ChatView() {
 
   return (
     <div className="chat-view">
-      <header className="chat-header">
-        <span>
-          <span>Banorte</span>
-          <span className="chat-header-subtitle"> — ¿Me Alcanza?</span>
-        </span>
-        <button type="button" onClick={logout}>
-          Salir
-        </button>
-      </header>
       <main className="chat-surfaces">
         {turns.length === 0 && (
           <Typewriter />
