@@ -70,7 +70,10 @@ def test_chat_con_token_llama_al_orquestador(app):
         )
         assert response.status_code == 200
         assert response.json() == {"a2ui_messages": fake_messages}
-        app.state.orchestrator.handle_message.assert_awaited_once_with("ana", "¿me alcanza para el concierto?")
+        app.state.orchestrator.handle_message.assert_awaited_once()
+        args = app.state.orchestrator.handle_message.await_args.args
+        assert args[0] == "ana"
+        assert args[2] == "¿me alcanza para el concierto?"
 
 
 def test_confirm_action_sin_token_devuelve_401(app):
@@ -447,3 +450,79 @@ def test_get_score_salud_financiera(app):
         body = response.json()
         assert 0 <= body["score"] <= 100
         assert body["categoria"] in {"Saludable", "Atención", "Riesgo"}
+
+
+def test_chat_sin_conversacion_id_crea_una_automaticamente(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        fake_messages = [{"version": "v0.9", "createSurface": {"surfaceId": "x", "catalogId": "y"}}]
+        app.state.orchestrator.handle_message = AsyncMock(return_value=fake_messages)
+        response = client.post(
+            "/api/chat", json={"mensaje": "hola"}, headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        app.state.orchestrator.handle_message.assert_awaited_once()
+        args = app.state.orchestrator.handle_message.await_args.args
+        assert args[0] == "ana"
+        assert isinstance(args[1], int)  # se autogeneró un conversacion_id real
+        assert args[2] == "hola"
+
+
+def test_chat_con_conversacion_id_lo_reenvia_tal_cual(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        fake_messages = [{"version": "v0.9", "createSurface": {"surfaceId": "x", "catalogId": "y"}}]
+        app.state.orchestrator.handle_message = AsyncMock(return_value=fake_messages)
+        creada = client.post(
+            "/api/conversaciones", json={}, headers={"Authorization": f"Bearer {token}"}
+        ).json()
+        response = client.post(
+            "/api/chat",
+            json={"mensaje": "hola", "conversacion_id": creada["id"]},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        args = app.state.orchestrator.handle_message.await_args.args
+        assert args[1] == creada["id"]
+
+
+def test_crear_conversacion_titulo_por_defecto(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post("/api/conversaciones", json={}, headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 201
+        assert response.json()["titulo"] == "Nueva conversación"
+
+
+def test_listar_conversaciones(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        client.post("/api/conversaciones", json={"titulo": "Uno"}, headers={"Authorization": f"Bearer {token}"})
+        response = client.get("/api/conversaciones", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+
+def test_obtener_mensajes_de_conversacion(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        creada = client.post(
+            "/api/conversaciones", json={}, headers={"Authorization": f"Bearer {token}"}
+        ).json()
+        response = client.get(
+            f"/api/conversaciones/{creada['id']}/mensajes", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        assert response.json() == []
+
+
+def test_eliminar_conversacion(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        creada = client.post(
+            "/api/conversaciones", json={}, headers={"Authorization": f"Bearer {token}"}
+        ).json()
+        response = client.delete(
+            f"/api/conversaciones/{creada['id']}", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 204

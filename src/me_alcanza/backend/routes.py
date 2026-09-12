@@ -11,6 +11,8 @@ from .dtos import (
     ContactoCreate,
     ContactoResponse,
     ContactoUpdate,
+    ConversacionResponse,
+    CrearConversacionRequest,
     CuentaResponse,
     GastoFijoCreate,
     GastoFijoResponse,
@@ -20,6 +22,7 @@ from .dtos import (
     IngresoProgramadoUpdate,
     LoginRequest,
     LoginResponse,
+    MensajeResponse,
     MetaCreate,
     MetaResponse,
     MetaUpdate,
@@ -56,8 +59,15 @@ async def chat(
     request: Request,
     account_id: str = Depends(auth.get_current_account_id),
 ) -> ChatResponse:
+    conversacion_id = payload.conversacion_id
+    if conversacion_id is None:
+        nueva = await request.app.state.mcp_client.call(
+            "crear_conversacion", {"account_id": account_id, "titulo": payload.mensaje[:60]}
+        )
+        conversacion_id = nueva["id"]
+
     messages = await request.app.state.orchestrator.handle_message(
-        account_id, payload.mensaje
+        account_id, conversacion_id, payload.mensaje
     )
     return ChatResponse(a2ui_messages=messages)
 
@@ -524,3 +534,61 @@ async def get_score_salud_financiera(
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ScoreSaludResponse(**resultado)
+
+
+@router.get("/conversaciones", response_model=list[ConversacionResponse])
+async def list_conversaciones(
+    request: Request, account_id: str = Depends(auth.get_current_account_id)
+) -> list[ConversacionResponse]:
+    try:
+        conversaciones = await request.app.state.mcp_client.call(
+            "listar_conversaciones", {"account_id": account_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [ConversacionResponse(**c) for c in conversaciones]
+
+
+@router.post("/conversaciones", response_model=ConversacionResponse, status_code=201)
+async def create_conversacion(
+    payload: CrearConversacionRequest,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> ConversacionResponse:
+    titulo = payload.titulo or "Nueva conversación"
+    try:
+        conversacion = await request.app.state.mcp_client.call(
+            "crear_conversacion", {"account_id": account_id, "titulo": titulo}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ConversacionResponse(**conversacion)
+
+
+@router.get("/conversaciones/{conversacion_id}/mensajes", response_model=list[MensajeResponse])
+async def get_mensajes_conversacion(
+    conversacion_id: int,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> list[MensajeResponse]:
+    try:
+        mensajes = await request.app.state.mcp_client.call(
+            "obtener_mensajes_conversacion", {"account_id": account_id, "conversacion_id": conversacion_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [MensajeResponse(**m) for m in mensajes]
+
+
+@router.delete("/conversaciones/{conversacion_id}", status_code=204)
+async def delete_conversacion(
+    conversacion_id: int,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> None:
+    try:
+        await request.app.state.mcp_client.call(
+            "eliminar_conversacion", {"account_id": account_id, "conversacion_id": conversacion_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
