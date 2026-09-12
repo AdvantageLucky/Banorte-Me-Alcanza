@@ -1,3 +1,26 @@
+@font-face {
+  font-family: "GRegular";
+  src: url("../assets/fonts/BankGothicLightRegular.otf");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "GMedium";
+  src: url("../assets/fonts/BankGothicMedium.ttf");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "GBold";
+  src: url("../assets/fonts/BankGothicBold.ttf");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 html:root {
   --a2ui-color-primary: #0f6e5c;
   --a2ui-color-secondary: #f2a541;
@@ -12,8 +35,9 @@ html:root {
   --a2ui-color-on-input: #1f2421;
   --a2ui-border-radius: 12px;
   --a2ui-border-width: 1px;
-  --a2ui-font-family-title: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --a2ui-font-family-monospace: 'SFMono-Regular', Consolas, monospace;
+  --a2ui-font-family-title:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --a2ui-font-family-monospace: "SFMono-Regular", Consolas, monospace;
   --a2ui-font-size-xs: 12px;
   --a2ui-font-size-s: 14px;
   --a2ui-font-size-m: 16px;
@@ -91,7 +115,7 @@ body {
   padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
   border: none;
   border-radius: calc(var(--a2ui-border-radius) / 2);
-  background: var(--a2ui-color-primary);
+  background: var(--color-primary);
   color: var(--a2ui-color-on-primary);
   font-size: var(--a2ui-font-size-m);
   cursor: pointer;
@@ -131,9 +155,11 @@ body {
   background: none;
   border: var(--a2ui-border-width) solid var(--a2ui-color-border);
   border-radius: calc(var(--a2ui-border-radius) / 2);
-  padding: var(--a2ui-spacing-xs) var(--a2ui-spacing-m);
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
   cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
+  color: var(--color-on-primary);
 }
 
 .chat-surfaces {
@@ -176,5 +202,18 @@ body {
   padding: var(--a2ui-spacing-s);
   border: var(--a2ui-border-width) solid var(--a2ui-color-border);
   border-radius: calc(var(--a2ui-border-radius) / 2);
+  font-size: var(--a2ui-font-size-m);
+  font-family: var(--a2ui-font-family-title);
+}
+
+.chat-header {
+  background-color: var(--color-primary);
+}
+.chat-header span:first-of-type {
+  font-family: "GBold";
+  color: var(--color-on-primary);
+}
+.chat-header-subtitle {
+  font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-m);
 }

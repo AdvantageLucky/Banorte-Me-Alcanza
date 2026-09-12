@@ -82,7 +82,10 @@ export default function ChatView() {
   return (
     <div className="chat-view">
       <header className="chat-header">
-        <span>me-alcanza</span>
+        <span>
+          <span>Banorte</span>
+          <span className="chat-header-subtitle"> — ¿Me Alcanza?</span>
+        </span>
         <button type="button" onClick={logout}>
           Salir
         </button>
