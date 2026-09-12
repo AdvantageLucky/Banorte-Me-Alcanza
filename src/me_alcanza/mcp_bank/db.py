@@ -300,6 +300,84 @@ def get_gastos_fijos(conn: sqlite3.Connection, account_id: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def crear_gasto_fijo(
+    conn: sqlite3.Connection,
+    account_id: str,
+    concepto: str,
+    monto: float,
+    frecuencia: str,
+    proxima_fecha: str,
+) -> dict:
+    if monto <= 0:
+        raise ValueError("monto debe ser mayor a cero")
+    cursor = conn.execute(
+        """
+        INSERT INTO gastos_fijos (account_id, concepto, monto, frecuencia, proxima_fecha)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (account_id, concepto, monto, frecuencia, proxima_fecha),
+    )
+    conn.commit()
+    return {
+        "id": cursor.lastrowid,
+        "concepto": concepto,
+        "monto": monto,
+        "frecuencia": frecuencia,
+        "proxima_fecha": proxima_fecha,
+    }
+
+
+def _get_gasto_fijo(conn: sqlite3.Connection, account_id: str, gasto_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, concepto, monto, frecuencia, proxima_fecha
+        FROM gastos_fijos WHERE id = ? AND account_id = ?
+        """,
+        (gasto_id, account_id),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def actualizar_gasto_fijo(
+    conn: sqlite3.Connection,
+    account_id: str,
+    gasto_id: int,
+    concepto: str,
+    monto: float,
+    frecuencia: str,
+    proxima_fecha: str,
+) -> dict:
+    if monto <= 0:
+        raise ValueError("monto debe ser mayor a cero")
+    if _get_gasto_fijo(conn, account_id, gasto_id) is None:
+        raise ValueError(f"Gasto fijo no encontrado para esta cuenta: {gasto_id}")
+    conn.execute(
+        """
+        UPDATE gastos_fijos SET concepto = ?, monto = ?, frecuencia = ?, proxima_fecha = ?
+        WHERE id = ? AND account_id = ?
+        """,
+        (concepto, monto, frecuencia, proxima_fecha, gasto_id, account_id),
+    )
+    conn.commit()
+    return {
+        "id": gasto_id,
+        "concepto": concepto,
+        "monto": monto,
+        "frecuencia": frecuencia,
+        "proxima_fecha": proxima_fecha,
+    }
+
+
+def eliminar_gasto_fijo(conn: sqlite3.Connection, account_id: str, gasto_id: int) -> None:
+    if _get_gasto_fijo(conn, account_id, gasto_id) is None:
+        raise ValueError(f"Gasto fijo no encontrado para esta cuenta: {gasto_id}")
+    conn.execute(
+        "DELETE FROM gastos_fijos WHERE id = ? AND account_id = ?",
+        (gasto_id, account_id),
+    )
+    conn.commit()
+
+
 def get_metas(conn: sqlite3.Connection, account_id: str) -> list[dict]:
     rows = conn.execute(
         """

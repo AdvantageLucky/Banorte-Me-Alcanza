@@ -254,3 +254,46 @@ def test_eliminar_ingreso_programado_de_otra_cuenta(conn):
     ingreso_id = db.get_ingresos_programados(conn, "ana")[0]["id"]
     with pytest.raises(ValueError):
         db.eliminar_ingreso_programado(conn, "luis", ingreso_id)
+
+
+def test_crear_gasto_fijo(conn):
+    gasto = db.crear_gasto_fijo(conn, "ana", "Internet", 600.0, "mensual", "2026-10-05")
+    assert gasto["id"] is not None
+    assert gasto["concepto"] == "Internet"
+    assert len(db.get_gastos_fijos(conn, "ana")) == 5
+
+
+def test_crear_gasto_fijo_rechaza_monto_no_positivo(conn):
+    with pytest.raises(ValueError):
+        db.crear_gasto_fijo(conn, "ana", "x", 0, "mensual", "2026-10-05")
+
+
+def test_actualizar_gasto_fijo(conn):
+    gasto_id = db.get_gastos_fijos(conn, "ana")[0]["id"]
+    actualizado = db.actualizar_gasto_fijo(
+        conn, "ana", gasto_id, "Agua actualizada", 350.0, "mensual", "2026-10-10"
+    )
+    assert actualizado["monto"] == 350.0
+
+
+def test_actualizar_gasto_fijo_inexistente(conn):
+    with pytest.raises(ValueError):
+        db.actualizar_gasto_fijo(conn, "ana", 999999, "x", 100.0, "mensual", "2026-10-05")
+
+
+def test_actualizar_gasto_fijo_de_otra_cuenta(conn):
+    gasto_id = db.get_gastos_fijos(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.actualizar_gasto_fijo(conn, "luis", gasto_id, "x", 100.0, "mensual", "2026-10-05")
+
+
+def test_eliminar_gasto_fijo(conn):
+    gasto_id = db.get_gastos_fijos(conn, "ana")[0]["id"]
+    db.eliminar_gasto_fijo(conn, "ana", gasto_id)
+    assert len(db.get_gastos_fijos(conn, "ana")) == 3
+
+
+def test_eliminar_gasto_fijo_de_otra_cuenta(conn):
+    gasto_id = db.get_gastos_fijos(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.eliminar_gasto_fijo(conn, "luis", gasto_id)
