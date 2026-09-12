@@ -1,11 +1,11 @@
 {
-    "name": "me_alcanza",
-    "short_name": "me_alcanza",
+    "name": "Me Alcanza",
+    "short_name": "Me Alcanza",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#863BFF",
+    "description": "Asistente financiero conversacional de Banorte.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
