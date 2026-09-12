@@ -378,5 +378,17 @@ def cancelar_apartado(account_id: str, apartado_id: int) -> dict:
         conn.close()
 
 
+@mcp.tool()
+def get_resumen_movimientos(account_id: str, fecha_inicio: str, fecha_fin: str) -> list[dict]:
+    """Devuelve el total y conteo de movimientos agrupados por categoría dentro de un rango de fechas."""
+    conn = _connection()
+    try:
+        return db.get_resumen_movimientos(conn, account_id, fecha_inicio, fecha_fin)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     mcp.run()

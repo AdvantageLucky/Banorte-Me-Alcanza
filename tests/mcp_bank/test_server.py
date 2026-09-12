@@ -70,6 +70,7 @@ async def test_mcp_server_expone_las_tools_esperadas(tmp_path):
                 "eliminar_meta",
                 "listar_apartados",
                 "cancelar_apartado",
+                "get_resumen_movimientos",
             }
 
 
@@ -198,3 +199,23 @@ async def test_mcp_server_eliminar_meta_con_apartado_activo_reporta_error(tmp_pa
             result = await session.call_tool("eliminar_meta", {"account_id": "ana", "meta_id": meta_id})
             assert result.is_error is True
             assert "apartados activos" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_get_resumen_movimientos(tmp_path):
+    from datetime import date
+
+    db_path = tmp_path / "test_banco.db"
+    async with stdio_client(_params(db_path)) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            await _call(
+                session,
+                "ejecutar_transferencia",
+                {"origen_id": "luis", "destino_cuenta": "999999", "monto": 50.0, "concepto": "x"},
+            )
+            hoy = date.today().isoformat()
+            resumen = await _call(
+                session, "get_resumen_movimientos", {"account_id": "luis", "fecha_inicio": hoy, "fecha_fin": hoy}
+            )
+            assert resumen == [{"categoria": "transferencia_enviada", "total": -50.0, "count": 1}]
