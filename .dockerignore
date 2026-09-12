@@ -1,0 +1,15 @@
+.git
+.venv
+frontend
+flutter_app
+prueba-ui-generativa
+.claude
+.superpowers
+docs
+*.db
+.env
+.env.*
+__pycache__
+*.pyc
+.pytest_cache
+node_modules
