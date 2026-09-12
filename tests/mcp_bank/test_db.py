@@ -38,3 +38,57 @@ def test_seed_es_idempotente(conn):
     db.seed(conn)  # segunda llamada no debe duplicar ni fallar
     total = conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
     assert total == 2
+
+
+def test_get_saldo(conn):
+    assert db.get_saldo(conn, "ana") == {"saldo": 500.00, "moneda": "MXN"}
+
+
+def test_get_saldo_cuenta_inexistente(conn):
+    assert db.get_saldo(conn, "fantasma") is None
+
+
+def test_get_cuenta(conn):
+    cuenta = db.get_cuenta(conn, "luis")
+    assert cuenta["numero_cuenta"] == "003344"
+    assert cuenta["titular"] == "Luis Peña"
+    assert cuenta["saldo"] == 8200.00
+
+
+def test_get_movimientos_cuenta_nueva_esta_vacia(conn):
+    assert db.get_movimientos(conn, "ana") == []
+
+
+def test_get_ingresos_programados(conn):
+    ingresos = db.get_ingresos_programados(conn, "ana")
+    assert len(ingresos) == 1
+    assert ingresos[0]["descripcion"] == "Nómina"
+    assert ingresos[0]["monto"] == 12500.00
+    assert ingresos[0]["frecuencia"] == "quincenal"
+    assert ingresos[0]["proxima_fecha"] == "2026-09-12"
+
+
+def test_get_gastos_fijos(conn):
+    gastos = db.get_gastos_fijos(conn, "ana")
+    assert len(gastos) == 4
+    conceptos = {g["concepto"] for g in gastos}
+    assert conceptos == {"Agua", "Luz", "Colegiatura hijo 1", "Colegiatura hijo 2"}
+
+
+def test_get_metas(conn):
+    metas = db.get_metas(conn, "ana")
+    assert len(metas) == 1
+    assert metas[0]["monto_objetivo"] == 8000.00
+    assert metas[0]["fecha_objetivo"] == "2026-10-13"
+    assert metas[0]["monto_ahorrado"] == 0
+
+
+def test_buscar_contacto_por_alias_ambiguo(conn):
+    resultados = db.buscar_contacto(conn, "ana", "pepe")
+    assert len(resultados) == 2
+    relaciones = {r["relacion"] for r in resultados}
+    assert relaciones == {"hermano", "primo"}
+
+
+def test_buscar_contacto_sin_resultados(conn):
+    assert db.buscar_contacto(conn, "ana", "nadie-existe") == []

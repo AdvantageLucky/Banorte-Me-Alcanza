@@ -165,3 +165,81 @@ def autenticar(conn: sqlite3.Connection, username: str, password: str) -> str | 
     if not verify_password(password, row["password_hash"]):
         return None
     return row["account_id"]
+
+
+def get_saldo(conn: sqlite3.Connection, account_id: str) -> dict | None:
+    row = conn.execute(
+        "SELECT saldo, moneda FROM cuentas WHERE account_id = ?", (account_id,)
+    ).fetchone()
+    if row is None:
+        return None
+    return {"saldo": row["saldo"], "moneda": row["moneda"]}
+
+
+def get_cuenta(conn: sqlite3.Connection, account_id: str) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT u.nombre AS titular, c.numero_cuenta, c.saldo, c.moneda
+        FROM cuentas c JOIN usuarios u ON u.account_id = c.account_id
+        WHERE c.account_id = ?
+        """,
+        (account_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return dict(row)
+
+
+def get_movimientos(conn: sqlite3.Connection, account_id: str, limit: int = 10) -> list[dict]:
+    rows = conn.execute(
+        "SELECT fecha, concepto, monto FROM movimientos WHERE account_id = ? ORDER BY fecha DESC LIMIT ?",
+        (account_id, limit),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_ingresos_programados(conn: sqlite3.Connection, account_id: str) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT id, descripcion, monto, frecuencia, proxima_fecha
+        FROM ingresos_programados WHERE account_id = ?
+        """,
+        (account_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_gastos_fijos(conn: sqlite3.Connection, account_id: str) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT id, concepto, monto, frecuencia, proxima_fecha
+        FROM gastos_fijos WHERE account_id = ?
+        """,
+        (account_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_metas(conn: sqlite3.Connection, account_id: str) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT id, descripcion, monto_objetivo, fecha_objetivo, monto_ahorrado
+        FROM metas WHERE account_id = ?
+        """,
+        (account_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def buscar_contacto(conn: sqlite3.Connection, account_id: str, query: str) -> list[dict]:
+    like = f"%{query.lower()}%"
+    rows = conn.execute(
+        """
+        SELECT id, nombre, alias, cuenta_destino, relacion
+        FROM contactos
+        WHERE account_id_titular = ?
+          AND (LOWER(nombre) LIKE ? OR LOWER(alias) LIKE ?)
+        """,
+        (account_id, like, like),
+    ).fetchall()
+    return [dict(r) for r in rows]
