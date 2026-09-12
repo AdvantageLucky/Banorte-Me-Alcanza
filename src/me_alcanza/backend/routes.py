@@ -24,6 +24,7 @@ from .dtos import (
     MetaResponse,
     MetaUpdate,
     MovimientoResponse,
+    ScoreSaludResponse,
     SugerenciaResponse,
 )
 
@@ -510,3 +511,16 @@ async def descartar_sugerencia(
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return SugerenciaResponse(**actualizada)
+
+
+@router.get("/score-salud-financiera", response_model=ScoreSaludResponse)
+async def get_score_salud_financiera(
+    request: Request, account_id: str = Depends(auth.get_current_account_id)
+) -> ScoreSaludResponse:
+    try:
+        resultado = await request.app.state.mcp_client.call(
+            "calcular_score_salud_financiera", {"account_id": account_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ScoreSaludResponse(**resultado)

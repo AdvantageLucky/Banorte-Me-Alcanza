@@ -437,3 +437,13 @@ def test_descartar_sugerencia_inexistente_devuelve_400(app):
             "/api/sugerencias/999999/descartar", headers={"Authorization": f"Bearer {token}"}
         )
         assert response.status_code == 400
+
+
+def test_get_score_salud_financiera(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/score-salud-financiera", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        body = response.json()
+        assert 0 <= body["score"] <= 100
+        assert body["categoria"] in {"Saludable", "Atención", "Riesgo"}
