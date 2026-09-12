@@ -433,5 +433,33 @@ def marcar_sugerencia(account_id: str, sugerencia_id: int, nuevo_estado: str) ->
         conn.close()
 
 
+@mcp.tool()
+def calcular_score_salud_financiera(account_id: str) -> dict:
+    """Calcula un score 0-100 de salud financiera de la cuenta, con los factores que lo explican."""
+    conn = _connection()
+    try:
+        saldo = db.get_saldo(conn, account_id)
+        if saldo is None:
+            raise ValueError(f"Cuenta no encontrada: {account_id}")
+        ingresos = db.get_ingresos_programados(conn, account_id)
+        gastos = db.get_gastos_fijos(conn, account_id)
+        metas = db.get_metas(conn, account_id)
+        apartados = db.listar_apartados(conn, account_id)
+        apartados_activos = sum(1 for a in apartados if a["estado"] == "activo")
+
+        return sugerencias_engine.calcular_score_salud_financiera(
+            saldo_actual=saldo["saldo"],
+            ingresos=ingresos,
+            gastos=gastos,
+            metas=metas,
+            apartados_activos=apartados_activos,
+            hoy=date.today().isoformat(),
+        )
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     mcp.run()

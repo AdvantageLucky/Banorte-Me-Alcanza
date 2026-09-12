@@ -73,6 +73,7 @@ async def test_mcp_server_expone_las_tools_esperadas(tmp_path):
                 "get_resumen_movimientos",
                 "generar_y_listar_sugerencias",
                 "marcar_sugerencia",
+                "calcular_score_salud_financiera",
             }
 
 
@@ -259,3 +260,15 @@ async def test_mcp_server_marcar_sugerencia(tmp_path):
                 session, "marcar_sugerencia", {"account_id": "ana", "sugerencia_id": sugerencia_id, "nuevo_estado": "atendida"}
             )
             assert actualizada["estado"] == "atendida"
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_calcular_score_salud_financiera(tmp_path):
+    db_path = tmp_path / "test_banco.db"
+    async with stdio_client(_params(db_path)) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            resultado = await _call(session, "calcular_score_salud_financiera", {"account_id": "ana"})
+            assert 0 <= resultado["score"] <= 100
+            assert resultado["categoria"] in {"Saludable", "Atención", "Riesgo"}
+            assert isinstance(resultado["factores"], list)
