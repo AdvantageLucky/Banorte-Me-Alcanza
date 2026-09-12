@@ -102,6 +102,19 @@ def buscar_contacto(account_id: str, query: str) -> list[dict]:
 
 
 @mcp.tool()
+def get_contacto(account_id: str, contacto_id: int) -> dict:
+    """Obtiene un contacto/beneficiario por id, verificando que pertenezca a la cuenta. Uso interno del backend, nunca se expone al LLM."""
+    conn = _connection()
+    try:
+        resultado = db.get_contacto(conn, account_id, contacto_id)
+        if resultado is None:
+            raise ValueError(f"Contacto no encontrado para esta cuenta: {contacto_id}")
+        return resultado
+    finally:
+        conn.close()
+
+
+@mcp.tool()
 def simular_flujo_de_caja(
     account_id: str, fecha_objetivo: str, monto_objetivo: float
 ) -> dict:

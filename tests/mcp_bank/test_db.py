@@ -152,3 +152,18 @@ def test_crear_apartado_rechaza_saldo_insuficiente(conn):
         db.crear_apartado(
             conn, account_id="ana", meta_id=meta_id, monto_por_periodo=999999.0, periodicidad="semanal"
         )
+
+
+def test_get_contacto_por_id(conn):
+    contactos = db.buscar_contacto(conn, "ana", "pepe")
+    contacto = db.get_contacto(conn, "ana", contactos[0]["id"])
+    assert contacto == contactos[0]
+
+
+def test_get_contacto_inexistente_devuelve_none(conn):
+    assert db.get_contacto(conn, "ana", 999999) is None
+
+
+def test_get_contacto_de_otra_cuenta_devuelve_none(conn):
+    contactos = db.buscar_contacto(conn, "ana", "pepe")
+    assert db.get_contacto(conn, "luis", contactos[0]["id"]) is None

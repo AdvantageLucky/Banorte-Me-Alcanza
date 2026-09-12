@@ -247,6 +247,20 @@ def buscar_contacto(conn: sqlite3.Connection, account_id: str, query: str) -> li
     return [dict(r) for r in rows]
 
 
+def get_contacto(conn: sqlite3.Connection, account_id: str, contacto_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, nombre, alias, cuenta_destino, relacion
+        FROM contactos
+        WHERE id = ? AND account_id_titular = ?
+        """,
+        (contacto_id, account_id),
+    ).fetchone()
+    if row is None:
+        return None
+    return dict(row)
+
+
 def ejecutar_transferencia(
     conn: sqlite3.Connection,
     origen_id: str,

@@ -52,6 +52,7 @@ async def test_mcp_server_expone_las_tools_esperadas(tmp_path):
                 "get_gastos_fijos",
                 "get_metas",
                 "buscar_contacto",
+                "get_contacto",
                 "simular_flujo_de_caja",
                 "ejecutar_transferencia",
                 "crear_apartado",
@@ -112,6 +113,24 @@ async def test_mcp_server_desambiguacion_de_contacto(tmp_path):
             await session.initialize()
             contactos = await _call(session, "buscar_contacto", {"account_id": "ana", "query": "pepe"})
             assert len(contactos) == 2
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_get_contacto_por_id_y_error_si_no_pertenece(tmp_path):
+    db_path = tmp_path / "test_banco.db"
+    async with stdio_client(_params(db_path)) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            contactos = await _call(session, "buscar_contacto", {"account_id": "ana", "query": "pepe"})
+            contacto = await _call(
+                session, "get_contacto", {"account_id": "ana", "contacto_id": contactos[0]["id"]}
+            )
+            assert contacto == contactos[0]
+
+            result = await session.call_tool(
+                "get_contacto", {"account_id": "luis", "contacto_id": contactos[0]["id"]}
+            )
+            assert result.is_error is True
 
 
 @pytest.mark.asyncio
