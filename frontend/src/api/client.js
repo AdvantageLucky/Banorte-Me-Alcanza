@@ -56,6 +56,11 @@ export function createApiClient(baseUrl) {
     getApartados: (token) => get('/api/apartados', { token }),
     getGastosFijos: (token) => get('/api/gastos-fijos', { token }),
     getIngresosProgramados: (token) => get('/api/ingresos-programados', { token }),
+    getSugerencias: (token) => get('/api/sugerencias', { token }),
+    atenderSugerencia: (token, sugerenciaId) =>
+      post(`/api/sugerencias/${sugerenciaId}/atender`, { token }),
+    descartarSugerencia: (token, sugerenciaId) =>
+      post(`/api/sugerencias/${sugerenciaId}/descartar`, { token }),
   };
 }
 
