@@ -92,3 +92,61 @@ def test_buscar_contacto_por_alias_ambiguo(conn):
 
 def test_buscar_contacto_sin_resultados(conn):
     assert db.buscar_contacto(conn, "ana", "nadie-existe") == []
+
+
+def test_ejecutar_transferencia_interna_mueve_saldo(conn):
+    resultado = db.ejecutar_transferencia(
+        conn, origen_id="luis", destino_cuenta="001122", monto=100.0, concepto="Pago"
+    )
+    assert resultado["ok"] is True
+    assert resultado["nuevo_saldo"] == 8100.00
+    assert db.get_saldo(conn, "ana")["saldo"] == 600.00
+
+
+def test_ejecutar_transferencia_externa_solo_descuenta_origen(conn):
+    resultado = db.ejecutar_transferencia(
+        conn, origen_id="luis", destino_cuenta="999999", monto=50.0, concepto="Externo"
+    )
+    assert resultado["ok"] is True
+    assert resultado["nuevo_saldo"] == 8150.00
+
+
+def test_ejecutar_transferencia_rechaza_saldo_insuficiente(conn):
+    with pytest.raises(ValueError):
+        db.ejecutar_transferencia(
+            conn, origen_id="ana", destino_cuenta="003344", monto=999999.0, concepto="x"
+        )
+
+
+def test_ejecutar_transferencia_rechaza_monto_no_positivo(conn):
+    with pytest.raises(ValueError):
+        db.ejecutar_transferencia(
+            conn, origen_id="ana", destino_cuenta="003344", monto=0, concepto="x"
+        )
+
+
+def test_crear_apartado_descuenta_saldo_y_registra_meta(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    resultado = db.crear_apartado(
+        conn, account_id="ana", meta_id=meta_id, monto_por_periodo=100.0, periodicidad="semanal"
+    )
+    assert resultado["ok"] is True
+    assert resultado["apartado"]["estado"] == "activo"
+    assert db.get_saldo(conn, "ana")["saldo"] == 400.00
+    assert db.get_metas(conn, "ana")[0]["monto_ahorrado"] == 100.0
+
+
+def test_crear_apartado_rechaza_meta_de_otra_cuenta(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.crear_apartado(
+            conn, account_id="luis", meta_id=meta_id, monto_por_periodo=50.0, periodicidad="semanal"
+        )
+
+
+def test_crear_apartado_rechaza_saldo_insuficiente(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.crear_apartado(
+            conn, account_id="ana", meta_id=meta_id, monto_por_periodo=999999.0, periodicidad="semanal"
+        )

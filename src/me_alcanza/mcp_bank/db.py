@@ -243,3 +243,114 @@ def buscar_contacto(conn: sqlite3.Connection, account_id: str, query: str) -> li
         (account_id, like, like),
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def ejecutar_transferencia(
+    conn: sqlite3.Connection,
+    origen_id: str,
+    destino_cuenta: str,
+    monto: float,
+    concepto: str,
+) -> dict:
+    if monto <= 0:
+        raise ValueError("El monto debe ser mayor a cero")
+
+    origen = conn.execute(
+        "SELECT saldo FROM cuentas WHERE account_id = ?", (origen_id,)
+    ).fetchone()
+    if origen is None:
+        raise ValueError(f"Cuenta origen no encontrada: {origen_id}")
+    if origen["saldo"] < monto:
+        raise ValueError("Saldo insuficiente")
+
+    nuevo_saldo_origen = origen["saldo"] - monto
+    fecha = datetime.now().strftime("%Y-%m-%d")
+
+    conn.execute(
+        "UPDATE cuentas SET saldo = ? WHERE account_id = ?",
+        (nuevo_saldo_origen, origen_id),
+    )
+    conn.execute(
+        "INSERT INTO movimientos (account_id, fecha, concepto, monto) VALUES (?, ?, ?, ?)",
+        (origen_id, fecha, concepto, -monto),
+    )
+
+    destino = conn.execute(
+        "SELECT account_id, saldo FROM cuentas WHERE numero_cuenta = ?", (destino_cuenta,)
+    ).fetchone()
+    if destino is not None:
+        conn.execute(
+            "UPDATE cuentas SET saldo = ? WHERE account_id = ?",
+            (destino["saldo"] + monto, destino["account_id"]),
+        )
+        conn.execute(
+            "INSERT INTO movimientos (account_id, fecha, concepto, monto) VALUES (?, ?, ?, ?)",
+            (destino["account_id"], fecha, f"Transferencia recibida: {concepto}", monto),
+        )
+
+    conn.commit()
+    return {
+        "ok": True,
+        "nuevo_saldo": nuevo_saldo_origen,
+        "movimiento": {"fecha": fecha, "concepto": concepto, "monto": -monto},
+    }
+
+
+def crear_apartado(
+    conn: sqlite3.Connection,
+    account_id: str,
+    meta_id: int,
+    monto_por_periodo: float,
+    periodicidad: str,
+) -> dict:
+    if monto_por_periodo <= 0:
+        raise ValueError("monto_por_periodo debe ser mayor a cero")
+
+    meta = conn.execute(
+        "SELECT id FROM metas WHERE id = ? AND account_id = ?", (meta_id, account_id)
+    ).fetchone()
+    if meta is None:
+        raise ValueError(f"Meta no encontrada para esta cuenta: {meta_id}")
+
+    cuenta = conn.execute(
+        "SELECT saldo FROM cuentas WHERE account_id = ?", (account_id,)
+    ).fetchone()
+    if cuenta is None:
+        raise ValueError(f"Cuenta no encontrada: {account_id}")
+    if cuenta["saldo"] < monto_por_periodo:
+        raise ValueError("Saldo insuficiente para el primer periodo del apartado")
+
+    fecha_inicio = datetime.now().strftime("%Y-%m-%d")
+
+    conn.execute(
+        "UPDATE cuentas SET saldo = saldo - ? WHERE account_id = ?",
+        (monto_por_periodo, account_id),
+    )
+    conn.execute(
+        "UPDATE metas SET monto_ahorrado = monto_ahorrado + ? WHERE id = ?",
+        (monto_por_periodo, meta_id),
+    )
+    cursor = conn.execute(
+        """
+        INSERT INTO apartados (account_id, meta_id, monto_por_periodo, periodicidad, fecha_inicio, estado)
+        VALUES (?, ?, ?, ?, ?, 'activo')
+        """,
+        (account_id, meta_id, monto_por_periodo, periodicidad, fecha_inicio),
+    )
+    conn.execute(
+        "INSERT INTO movimientos (account_id, fecha, concepto, monto) VALUES (?, ?, ?, ?)",
+        (account_id, fecha_inicio, "Apartado de ahorro", -monto_por_periodo),
+    )
+    conn.commit()
+
+    return {
+        "ok": True,
+        "apartado": {
+            "id": cursor.lastrowid,
+            "meta_id": meta_id,
+            "monto_por_periodo": monto_por_periodo,
+            "periodicidad": periodicidad,
+            "fecha_inicio": fecha_inicio,
+            "estado": "activo",
+        },
+    }
