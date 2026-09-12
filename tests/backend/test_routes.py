@@ -193,3 +193,51 @@ def test_delete_contacto(app):
             f"/api/contactos/{contacto_id}", headers={"Authorization": f"Bearer {token}"}
         )
         assert response.status_code == 204
+
+
+def test_list_ingresos_programados(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/ingresos-programados", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+
+def test_create_ingreso_programado(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post(
+            "/api/ingresos-programados",
+            json={"descripcion": "Bono", "monto": 5000.0, "frecuencia": "anual", "proxima_fecha": "2026-12-01"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["descripcion"] == "Bono"
+
+
+def test_update_ingreso_programado_parcial(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        ingreso_id = client.get(
+            "/api/ingresos-programados", headers={"Authorization": f"Bearer {token}"}
+        ).json()[0]["id"]
+        response = client.patch(
+            f"/api/ingresos-programados/{ingreso_id}",
+            json={"monto": 13000.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["monto"] == 13000.0
+        assert response.json()["descripcion"] == "Nómina"
+
+
+def test_delete_ingreso_programado(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        ingreso_id = client.get(
+            "/api/ingresos-programados", headers={"Authorization": f"Bearer {token}"}
+        ).json()[0]["id"]
+        response = client.delete(
+            f"/api/ingresos-programados/{ingreso_id}", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 204

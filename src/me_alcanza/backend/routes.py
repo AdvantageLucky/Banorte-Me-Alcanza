@@ -10,6 +10,9 @@ from .dtos import (
     ContactoResponse,
     ContactoUpdate,
     CuentaResponse,
+    IngresoProgramadoCreate,
+    IngresoProgramadoResponse,
+    IngresoProgramadoUpdate,
     LoginRequest,
     LoginResponse,
     MovimientoResponse,
@@ -163,6 +166,90 @@ async def delete_contacto(
     try:
         await request.app.state.mcp_client.call(
             "eliminar_contacto", {"account_id": account_id, "contacto_id": contacto_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ingresos-programados", response_model=list[IngresoProgramadoResponse])
+async def list_ingresos_programados(
+    request: Request, account_id: str = Depends(auth.get_current_account_id)
+) -> list[IngresoProgramadoResponse]:
+    try:
+        ingresos = await request.app.state.mcp_client.call(
+            "get_ingresos_programados", {"account_id": account_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [IngresoProgramadoResponse(**i) for i in ingresos]
+
+
+@router.post("/ingresos-programados", response_model=IngresoProgramadoResponse, status_code=201)
+async def create_ingreso_programado(
+    payload: IngresoProgramadoCreate,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> IngresoProgramadoResponse:
+    try:
+        ingreso = await request.app.state.mcp_client.call(
+            "crear_ingreso_programado",
+            {
+                "account_id": account_id,
+                "descripcion": payload.descripcion,
+                "monto": payload.monto,
+                "frecuencia": payload.frecuencia,
+                "proxima_fecha": str(payload.proxima_fecha),
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return IngresoProgramadoResponse(**ingreso)
+
+
+@router.patch("/ingresos-programados/{ingreso_id}", response_model=IngresoProgramadoResponse)
+async def update_ingreso_programado(
+    ingreso_id: int,
+    payload: IngresoProgramadoUpdate,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> IngresoProgramadoResponse:
+    try:
+        ingresos = await request.app.state.mcp_client.call(
+            "get_ingresos_programados", {"account_id": account_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    actual = next((i for i in ingresos if i["id"] == ingreso_id), None)
+    if actual is None:
+        raise HTTPException(status_code=400, detail=f"Ingreso programado no encontrado para esta cuenta: {ingreso_id}")
+
+    merged = {**actual, **payload.model_dump(exclude_unset=True)}
+    try:
+        actualizado = await request.app.state.mcp_client.call(
+            "actualizar_ingreso_programado",
+            {
+                "account_id": account_id,
+                "ingreso_id": ingreso_id,
+                "descripcion": merged["descripcion"],
+                "monto": merged["monto"],
+                "frecuencia": merged["frecuencia"],
+                "proxima_fecha": str(merged["proxima_fecha"]),
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return IngresoProgramadoResponse(**actualizado)
+
+
+@router.delete("/ingresos-programados/{ingreso_id}", status_code=204)
+async def delete_ingreso_programado(
+    ingreso_id: int,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> None:
+    try:
+        await request.app.state.mcp_client.call(
+            "eliminar_ingreso_programado", {"account_id": account_id, "ingreso_id": ingreso_id}
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
