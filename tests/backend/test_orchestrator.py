@@ -8,6 +8,7 @@ from me_alcanza.backend.orchestrator import (
     Orchestrator,
     _new_surface_id,
     _rewrite_surface_id,
+    build_system_prompt,
     error_a2ui_block,
     read_only_tool_declarations,
 )
@@ -884,3 +885,15 @@ async def test_handle_message_get_resumen_movimientos_reenvia_fechas():
         "get_resumen_movimientos",
         {"account_id": "ana", "fecha_inicio": "2026-09-01", "fecha_fin": "2026-09-30"},
     )
+
+
+def test_modal_esta_en_allowed_components():
+    from me_alcanza.backend.orchestrator import _ALLOWED_COMPONENTS
+
+    assert "Modal" in _ALLOWED_COMPONENTS
+
+
+def test_system_prompt_instruye_explicabilidad():
+    prompt = build_system_prompt()
+    assert "Modal" in prompt
+    assert "Cómo se calculó" in prompt

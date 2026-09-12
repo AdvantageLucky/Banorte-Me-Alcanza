@@ -12,7 +12,7 @@ from .mcp_client import BankMcpClient
 _logger = logging.getLogger(__name__)
 
 _VERSION = "0.9"
-_ALLOWED_COMPONENTS = ["Card", "Column", "Row", "Text", "Button", "List", "Divider"]
+_ALLOWED_COMPONENTS = ["Card", "Column", "Row", "Text", "Button", "List", "Divider", "Modal"]
 MAX_TOOL_CALL_ROUNDS = 5
 
 _READ_ONLY_TOOLS = {
@@ -393,7 +393,14 @@ def build_system_prompt() -> str:
             "principal sin especificar. "
             "5) Envuelve el contenido de cada Card en un Column con algo de estructura (título, "
             "luego el contenido, nunca un solo Text suelto como único hijo) — una tarjeta con un "
-            "solo dato sin título ni jerarquía se ve incompleta y debe evitarse."
+            "solo dato sin título ni jerarquía se ve incompleta y debe evitarse. "
+            "6) Para cualquier tarjeta que muestre un número calculado o derivado (un saldo "
+            "proyectado, el margen de 'simular_flujo_de_caja', el desglose de una transferencia con "
+            "puntos, etc.), agrega un Button variant='borderless' con texto '¿Cómo se calculó?' cuyo "
+            "'trigger' abra un Modal cuyo 'content' sea una Column mostrando los montos y fechas "
+            "concretos que entraron a ese cálculo. Nunca agregues este botón para datos que ya son "
+            "un valor directo de una herramienta (ej. el saldo actual tal cual, sin proyección) — "
+            "solo para números que el LLM o una herramienta derivaron a partir de otros datos."
         ),
         allowed_components=_ALLOWED_COMPONENTS,
         include_schema=True,
