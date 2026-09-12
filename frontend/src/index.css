@@ -149,6 +149,20 @@ body {
   opacity: 0.6;
 }
 
+.chat-message-user {
+  align-self: flex-end;
+  max-width: 80%;
+  margin: 0;
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  background: var(--a2ui-color-primary);
+  color: var(--a2ui-color-on-primary);
+  border-radius: var(--a2ui-border-radius);
+  border-bottom-right-radius: calc(var(--a2ui-border-radius) / 4);
+  font-size: var(--a2ui-font-size-m);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .chat-input {
   display: flex;
   gap: var(--a2ui-spacing-s);

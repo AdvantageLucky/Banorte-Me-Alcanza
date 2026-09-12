@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 from a2ui.basic_catalog.provider import BasicCatalog
@@ -36,8 +37,35 @@ def _as_function_response_payload(value: Any) -> dict:
     return {"result": value}
 
 
-def error_a2ui_block(mensaje: str) -> list[dict]:
-    surface_id = "main"
+_SURFACE_MESSAGE_KEYS = ("createSurface", "updateComponents", "updateDataModel")
+
+
+def _new_surface_id() -> str:
+    # Cada turno de la conversación recibe su propia superficie: así se apila
+    # como una transcripción de chat en vez de sobrescribir la misma tarjeta.
+    return f"turno-{uuid.uuid4().hex[:8]}"
+
+
+def _rewrite_surface_id(a2ui_json: list[dict], surface_id: str) -> list[dict]:
+    # El LLM decide el contenido del bloque A2UI, pero nunca el surfaceId: se
+    # fuerza aquí a un id nuevo por turno, sin depender de que el modelo lo
+    # elija (ni de que sea consistente consigo mismo dentro de su propia
+    # respuesta) — evita repetir el bug de compatibilidad de SDK que ya
+    # tuvimos cuando confiábamos en que el modelo reutilizara un id fijo.
+    rewritten = []
+    for message in a2ui_json:
+        message = dict(message)
+        for key in _SURFACE_MESSAGE_KEYS:
+            if key in message:
+                payload = dict(message[key])
+                payload["surfaceId"] = surface_id
+                message[key] = payload
+        rewritten.append(message)
+    return rewritten
+
+
+def error_a2ui_block(mensaje: str, surface_id: str | None = None) -> list[dict]:
+    surface_id = surface_id or _new_surface_id()
     return [
         {
             "version": "v0.9",
@@ -64,8 +92,8 @@ def error_a2ui_block(mensaje: str) -> list[dict]:
     ]
 
 
-def _confirmation_a2ui_block(mensaje: str) -> list[dict]:
-    surface_id = "main"
+def _confirmation_a2ui_block(mensaje: str, surface_id: str | None = None) -> list[dict]:
+    surface_id = surface_id or _new_surface_id()
     return [
         {
             "version": "v0.9",
@@ -242,9 +270,9 @@ def build_system_prompt() -> str:
             "Nunca afirmes que una transferencia o un apartado ya se realizó: solo se ejecutan "
             "cuando el usuario confirma explícitamente. Nunca inventes saldos, movimientos, "
             "ingresos, gastos, metas o contactos: siempre usa el resultado real de las herramientas. "
-            "Reutiliza el mismo surfaceId a lo largo de toda la sesión de conversación y prefiere "
-            "actualizaciones incrementales con 'updateComponents' en vez de recrear la superficie "
-            "desde cero en cada turno."
+            "El surfaceId que uses no importa: el sistema le asigna uno nuevo a cada turno "
+            "automáticamente, así que usa cualquier id consistente dentro de tu propia respuesta "
+            "(el mismo en createSurface, updateComponents y updateDataModel de este turno)."
         ),
         allowed_components=_ALLOWED_COMPONENTS,
         include_schema=True,
@@ -268,7 +296,9 @@ class Orchestrator:
         return types.GenerateContentConfig(
             system_instruction=self._system_prompt,
             tools=self._tool_declarations(),
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True
+            ),
         )
 
     async def _run_tool_loop(self, account_id: str, contents: list) -> str:
@@ -420,16 +450,23 @@ class Orchestrator:
                         "periodicidad": proposal.payload["periodicidad"],
                     },
                 )
-                return _confirmation_a2ui_block("Apartado de ahorro activado correctamente.")
+                return _confirmation_a2ui_block(
+                    "Apartado de ahorro activado correctamente."
+                )
 
             if proposal.tipo == "transferencia":
                 try:
                     contacto = await self._mcp.call(
                         "get_contacto",
-                        {"account_id": account_id, "contacto_id": proposal.payload["contacto_id"]},
+                        {
+                            "account_id": account_id,
+                            "contacto_id": proposal.payload["contacto_id"],
+                        },
                     )
                 except RuntimeError:
-                    return error_a2ui_block("El contacto de esta propuesta ya no existe.")
+                    return error_a2ui_block(
+                        "El contacto de esta propuesta ya no existe."
+                    )
 
                 resultado = await self._mcp.call(
                     "ejecutar_transferencia",
@@ -476,10 +513,12 @@ class Orchestrator:
 
                 for part in parts:
                     if part.a2ui_json:
-                        return part.a2ui_json
+                        return _rewrite_surface_id(part.a2ui_json, _new_surface_id())
 
                 break
         except Exception as exc:  # noqa: BLE001 - fallback controlado hacia UI de error
             return error_a2ui_block(f"Ocurrió un error al procesar tu solicitud: {exc}")
 
-        return error_a2ui_block("No se pudo generar una respuesta válida. Intenta de nuevo.")
+        return error_a2ui_block(
+            "No se pudo generar una respuesta válida. Intenta de nuevo."
+        )

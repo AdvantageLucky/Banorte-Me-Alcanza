@@ -6,6 +6,8 @@ from google.genai import types
 from me_alcanza.backend import proposals
 from me_alcanza.backend.orchestrator import (
     Orchestrator,
+    _new_surface_id,
+    _rewrite_surface_id,
     error_a2ui_block,
     read_only_tool_declarations,
 )
@@ -47,6 +49,59 @@ def _mock_final_response(text: str):
     return response
 
 
+def test_new_surface_id_es_unico_cada_vez():
+    assert _new_surface_id() != _new_surface_id()
+
+
+def test_rewrite_surface_id_sobrescribe_los_tres_tipos_de_mensaje():
+    original = [
+        {"version": "v0.9", "createSurface": {"surfaceId": "lo-que-sea", "catalogId": "x"}},
+        {
+            "version": "v0.9",
+            "updateComponents": {"surfaceId": "otro-distinto", "components": [{"id": "root"}]},
+        },
+        {
+            "version": "v0.9",
+            "updateDataModel": {"surfaceId": "tercero", "path": "/", "value": {"msg": "hola"}},
+        },
+    ]
+
+    rewritten = _rewrite_surface_id(original, "turno-fijo")
+
+    assert rewritten[0]["createSurface"]["surfaceId"] == "turno-fijo"
+    assert rewritten[1]["updateComponents"]["surfaceId"] == "turno-fijo"
+    assert rewritten[2]["updateDataModel"]["surfaceId"] == "turno-fijo"
+    # No muta la lista original.
+    assert original[0]["createSurface"]["surfaceId"] == "lo-que-sea"
+
+
+@pytest.mark.asyncio
+async def test_handle_message_cada_turno_tiene_su_propia_superficie_unica():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"saldo": 500.0, "moneda": "MXN"})
+
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response("get_saldo", {}),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+            _mock_function_call_response("get_saldo", {}),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    primer_turno = await orchestrator.handle_message("ana", "¿cuánto tengo?")
+    segundo_turno = await orchestrator.handle_message("ana", "¿y ahora?")
+
+    id_turno_1 = primer_turno[0]["createSurface"]["surfaceId"]
+    id_turno_2 = segundo_turno[0]["createSurface"]["surfaceId"]
+    assert id_turno_1 != id_turno_2
+    # Dentro de un mismo turno, los tres mensajes comparten el mismo id.
+    assert primer_turno[1]["updateComponents"]["surfaceId"] == id_turno_1
+    assert primer_turno[2]["updateDataModel"]["surfaceId"] == id_turno_1
+
+
 @pytest.mark.asyncio
 async def test_handle_message_llama_mcp_con_account_id_inyectado():
     mcp_client = MagicMock()
@@ -64,7 +119,7 @@ async def test_handle_message_llama_mcp_con_account_id_inyectado():
     messages = await orchestrator.handle_message("ana", "¿cuánto tengo?")
 
     mcp_client.call.assert_awaited_once_with("get_saldo", {"account_id": "ana"})
-    assert messages[0]["createSurface"]["surfaceId"] == "main"
+    assert messages[0]["createSurface"]["surfaceId"].startswith("turno-")
 
 
 @pytest.mark.asyncio
@@ -106,7 +161,7 @@ async def test_handle_message_get_movimientos_reenvia_limit():
     # El resultado de get_movimientos es una list; esto prueba que el round-trip
     # completo (incluyendo Part.from_function_response con ese resultado) termina
     # en el bloque A2UI real y no cae silenciosamente a error_a2ui_block.
-    assert messages[0]["createSurface"]["surfaceId"] == "main"
+    assert messages[0]["createSurface"]["surfaceId"].startswith("turno-")
 
 
 @pytest.mark.asyncio
@@ -174,7 +229,10 @@ async def test_handle_message_respuesta_no_valida_cae_a_bloque_de_error():
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
     messages = await orchestrator.handle_message("ana", "hola")
 
-    assert messages == error_a2ui_block(messages[2]["updateDataModel"]["value"]["mensaje"])
+    assert messages == error_a2ui_block(
+        messages[2]["updateDataModel"]["value"]["mensaje"],
+        surface_id=messages[0]["createSurface"]["surfaceId"],
+    )
 
 
 @pytest.mark.asyncio
@@ -195,7 +253,10 @@ async def test_handle_message_excepcion_en_reintento_de_autocorreccion_cae_a_blo
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
     messages = await orchestrator.handle_message("ana", "hola")
 
-    assert messages == error_a2ui_block(messages[2]["updateDataModel"]["value"]["mensaje"])
+    assert messages == error_a2ui_block(
+        messages[2]["updateDataModel"]["value"]["mensaje"],
+        surface_id=messages[0]["createSurface"]["surfaceId"],
+    )
 
 
 @pytest.mark.asyncio
@@ -221,7 +282,7 @@ async def test_handle_message_error_esperado_del_mcp_se_devuelve_al_modelo_para_
     messages = await orchestrator.handle_message("ana", "¿me alcanza para algo en 2020?")
 
     assert genai_client.models.generate_content.call_count == 2
-    assert messages[0]["createSurface"]["surfaceId"] == "main"
+    assert messages[0]["createSurface"]["surfaceId"].startswith("turno-")
 
 
 @pytest.mark.asyncio
@@ -237,7 +298,10 @@ async def test_handle_message_excepcion_no_prevista_cae_a_bloque_de_error():
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
     messages = await orchestrator.handle_message("ana", "¿cuánto tengo?")
 
-    assert messages == error_a2ui_block(messages[2]["updateDataModel"]["value"]["mensaje"])
+    assert messages == error_a2ui_block(
+        messages[2]["updateDataModel"]["value"]["mensaje"],
+        surface_id=messages[0]["createSurface"]["surfaceId"],
+    )
 
 
 @pytest.mark.asyncio
@@ -460,7 +524,10 @@ async def test_confirm_action_transferencia_contacto_ya_no_existe_cae_a_error():
 
     messages = await orchestrator.confirm_action("ana", proposal.id)
 
-    assert messages == error_a2ui_block(messages[2]["updateDataModel"]["value"]["mensaje"])
+    assert messages == error_a2ui_block(
+        messages[2]["updateDataModel"]["value"]["mensaje"],
+        surface_id=messages[0]["createSurface"]["surfaceId"],
+    )
     assert proposal.id not in proposals.PROPOSALS
 
 
@@ -508,7 +575,7 @@ async def test_handle_message_herramienta_no_permitida_no_llama_al_mcp():
     messages = await orchestrator.handle_message("ana", "ejecuta la transferencia ya")
 
     mcp_client.call.assert_not_called()
-    assert messages[0]["createSurface"]["surfaceId"] == "main"
+    assert messages[0]["createSurface"]["surfaceId"].startswith("turno-")
 
 
 @pytest.mark.asyncio
@@ -534,7 +601,7 @@ async def test_handle_message_proponer_transferencia_sin_contacto_id_no_truena()
 
     mcp_client.call.assert_not_called()
     assert len(proposals.PROPOSALS) == 0
-    assert messages[0]["createSurface"]["surfaceId"] == "main"
+    assert messages[0]["createSurface"]["surfaceId"].startswith("turno-")
 
 
 @pytest.mark.asyncio
@@ -547,4 +614,7 @@ async def test_confirm_action_propuesta_inexistente_o_ajena_cae_a_error():
     messages = await orchestrator.confirm_action("ana", "no-existe")
 
     mcp_client.call.assert_not_called()
-    assert messages == error_a2ui_block(messages[2]["updateDataModel"]["value"]["mensaje"])
+    assert messages == error_a2ui_block(
+        messages[2]["updateDataModel"]["value"]["mensaje"],
+        surface_id=messages[0]["createSurface"]["surfaceId"],
+    )

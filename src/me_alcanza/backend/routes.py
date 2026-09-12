@@ -38,7 +38,9 @@ async def chat(
     request: Request,
     account_id: str = Depends(auth.get_current_account_id),
 ) -> ChatResponse:
-    messages = await request.app.state.orchestrator.handle_message(account_id, payload.mensaje)
+    messages = await request.app.state.orchestrator.handle_message(
+        account_id, payload.mensaje
+    )
     return ChatResponse(a2ui_messages=messages)
 
 
@@ -48,5 +50,7 @@ async def confirm_action(
     request: Request,
     account_id: str = Depends(auth.get_current_account_id),
 ) -> ConfirmActionResponse:
-    messages = await request.app.state.orchestrator.confirm_action(account_id, payload.proposal_id)
+    messages = await request.app.state.orchestrator.confirm_action(
+        account_id, payload.proposal_id
+    )
     return ConfirmActionResponse(a2ui_messages=messages)

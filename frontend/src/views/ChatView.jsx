@@ -5,6 +5,7 @@ import { injectStyles, removeStyles } from '@a2ui/react/styles';
 import { apiClient } from '../api/client.js';
 import { createActionHandler } from '../chat/actionHandler.js';
 import { dropDuplicateCreateSurface } from '../chat/messageFilter.js';
+import { extractSurfaceId } from '../chat/extractSurfaceId.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 export default function ChatView() {
@@ -12,7 +13,10 @@ export default function ChatView() {
   const [mensaje, setMensaje] = useState('');
   const [sending, setSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [surfaces, setSurfaces] = useState([]);
+  // Transcripción de la conversación: cada turno queda como su propia entrada
+  // (nunca se sobrescribe uno anterior), en el orden real en que ocurrieron —
+  // el backend le da a cada turno del agente su propio surfaceId único.
+  const [turns, setTurns] = useState([]);
 
   function handleApiError(err, fallback) {
     if (err?.status === 401) {
@@ -20,6 +24,13 @@ export default function ChatView() {
       return;
     }
     setErrorMessage(err?.detail || fallback);
+  }
+
+  function appendAgentTurn(messages) {
+    const surfaceId = extractSurfaceId(messages);
+    if (surfaceId) {
+      setTurns((prev) => [...prev, { kind: 'agent', id: surfaceId, surfaceId }]);
+    }
   }
 
   const processor = useMemo(() => {
@@ -31,6 +42,7 @@ export default function ChatView() {
         proc.processMessages(
           dropDuplicateCreateSurface(messages, new Set(proc.model.surfacesMap.keys())),
         );
+        appendAgentTurn(messages);
       },
       onError: (err) => handleApiError(err, 'No se pudo confirmar la acción, intenta de nuevo.'),
     });
@@ -44,30 +56,22 @@ export default function ChatView() {
     return () => removeStyles();
   }, []);
 
-  useEffect(() => {
-    const sync = () => setSurfaces(Array.from(processor.model.surfacesMap.values()));
-    sync();
-    const createdSub = processor.onSurfaceCreated(sync);
-    const deletedSub = processor.onSurfaceDeleted(sync);
-    return () => {
-      createdSub.unsubscribe();
-      deletedSub.unsubscribe();
-    };
-  }, [processor]);
-
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!mensaje.trim() || sending) {
+    const texto = mensaje.trim();
+    if (!texto || sending) {
       return;
     }
     setSending(true);
     setErrorMessage(null);
+    setTurns((prev) => [...prev, { kind: 'user', id: crypto.randomUUID(), text: texto }]);
+    setMensaje('');
     try {
-      const { a2ui_messages } = await apiClient.sendMessage(token, mensaje);
+      const { a2ui_messages } = await apiClient.sendMessage(token, texto);
       processor.processMessages(
         dropDuplicateCreateSurface(a2ui_messages, new Set(processor.model.surfacesMap.keys())),
       );
-      setMensaje('');
+      appendAgentTurn(a2ui_messages);
     } catch (err) {
       handleApiError(err, 'No se pudo enviar el mensaje, intenta de nuevo.');
     } finally {
@@ -84,12 +88,23 @@ export default function ChatView() {
         </button>
       </header>
       <main className="chat-surfaces">
-        {surfaces.length === 0 && (
+        {turns.length === 0 && (
           <p className="chat-empty">Escribe tu primer mensaje para empezar.</p>
         )}
-        {surfaces.map((surface) => (
-          <A2uiSurface key={surface.id} surface={surface} />
-        ))}
+        {turns.map((turn) => {
+          if (turn.kind === 'user') {
+            return (
+              <p key={turn.id} className="chat-message-user">
+                {turn.text}
+              </p>
+            );
+          }
+          const surface = processor.model.getSurface(turn.surfaceId);
+          if (!surface) {
+            return null;
+          }
+          return <A2uiSurface key={turn.id} surface={surface} />;
+        })}
       </main>
       {errorMessage && <p className="chat-error">{errorMessage}</p>}
       <form className="chat-input" onSubmit={handleSubmit}>
