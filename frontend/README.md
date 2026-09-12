@@ -71,7 +71,7 @@ Verificado en esta sesión, contra el backend real corriendo localmente
   mensaje), en vez de crashear o devolver una respuesta corrupta.
 
 ⚠️ **No verificado en vivo por saturación de la API de Gemini**: el
-13 de septiembre de 2026 (día del hackathon), los modelos
+12 de septiembre de 2026 (día del hackathon), los modelos
 `gemini-3.6-flash` (el configurado), `gemini-3.7-flash`,
 `gemini-3.8-flash` y `gemini-flash-latest` devolvieron consistentemente
 `503 UNAVAILABLE` ("This model is currently experiencing high demand")
