@@ -211,6 +211,84 @@ def get_ingresos_programados(conn: sqlite3.Connection, account_id: str) -> list[
     return [dict(r) for r in rows]
 
 
+def crear_ingreso_programado(
+    conn: sqlite3.Connection,
+    account_id: str,
+    descripcion: str,
+    monto: float,
+    frecuencia: str,
+    proxima_fecha: str,
+) -> dict:
+    if monto <= 0:
+        raise ValueError("monto debe ser mayor a cero")
+    cursor = conn.execute(
+        """
+        INSERT INTO ingresos_programados (account_id, descripcion, monto, frecuencia, proxima_fecha)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (account_id, descripcion, monto, frecuencia, proxima_fecha),
+    )
+    conn.commit()
+    return {
+        "id": cursor.lastrowid,
+        "descripcion": descripcion,
+        "monto": monto,
+        "frecuencia": frecuencia,
+        "proxima_fecha": proxima_fecha,
+    }
+
+
+def _get_ingreso_programado(conn: sqlite3.Connection, account_id: str, ingreso_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, descripcion, monto, frecuencia, proxima_fecha
+        FROM ingresos_programados WHERE id = ? AND account_id = ?
+        """,
+        (ingreso_id, account_id),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def actualizar_ingreso_programado(
+    conn: sqlite3.Connection,
+    account_id: str,
+    ingreso_id: int,
+    descripcion: str,
+    monto: float,
+    frecuencia: str,
+    proxima_fecha: str,
+) -> dict:
+    if monto <= 0:
+        raise ValueError("monto debe ser mayor a cero")
+    if _get_ingreso_programado(conn, account_id, ingreso_id) is None:
+        raise ValueError(f"Ingreso programado no encontrado para esta cuenta: {ingreso_id}")
+    conn.execute(
+        """
+        UPDATE ingresos_programados SET descripcion = ?, monto = ?, frecuencia = ?, proxima_fecha = ?
+        WHERE id = ? AND account_id = ?
+        """,
+        (descripcion, monto, frecuencia, proxima_fecha, ingreso_id, account_id),
+    )
+    conn.commit()
+    return {
+        "id": ingreso_id,
+        "descripcion": descripcion,
+        "monto": monto,
+        "frecuencia": frecuencia,
+        "proxima_fecha": proxima_fecha,
+    }
+
+
+def eliminar_ingreso_programado(conn: sqlite3.Connection, account_id: str, ingreso_id: int) -> None:
+    if _get_ingreso_programado(conn, account_id, ingreso_id) is None:
+        raise ValueError(f"Ingreso programado no encontrado para esta cuenta: {ingreso_id}")
+    conn.execute(
+        "DELETE FROM ingresos_programados WHERE id = ? AND account_id = ?",
+        (ingreso_id, account_id),
+    )
+    conn.commit()
+
+
 def get_gastos_fijos(conn: sqlite3.Connection, account_id: str) -> list[dict]:
     rows = conn.execute(
         """
@@ -222,6 +300,84 @@ def get_gastos_fijos(conn: sqlite3.Connection, account_id: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def crear_gasto_fijo(
+    conn: sqlite3.Connection,
+    account_id: str,
+    concepto: str,
+    monto: float,
+    frecuencia: str,
+    proxima_fecha: str,
+) -> dict:
+    if monto <= 0:
+        raise ValueError("monto debe ser mayor a cero")
+    cursor = conn.execute(
+        """
+        INSERT INTO gastos_fijos (account_id, concepto, monto, frecuencia, proxima_fecha)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (account_id, concepto, monto, frecuencia, proxima_fecha),
+    )
+    conn.commit()
+    return {
+        "id": cursor.lastrowid,
+        "concepto": concepto,
+        "monto": monto,
+        "frecuencia": frecuencia,
+        "proxima_fecha": proxima_fecha,
+    }
+
+
+def _get_gasto_fijo(conn: sqlite3.Connection, account_id: str, gasto_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, concepto, monto, frecuencia, proxima_fecha
+        FROM gastos_fijos WHERE id = ? AND account_id = ?
+        """,
+        (gasto_id, account_id),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def actualizar_gasto_fijo(
+    conn: sqlite3.Connection,
+    account_id: str,
+    gasto_id: int,
+    concepto: str,
+    monto: float,
+    frecuencia: str,
+    proxima_fecha: str,
+) -> dict:
+    if monto <= 0:
+        raise ValueError("monto debe ser mayor a cero")
+    if _get_gasto_fijo(conn, account_id, gasto_id) is None:
+        raise ValueError(f"Gasto fijo no encontrado para esta cuenta: {gasto_id}")
+    conn.execute(
+        """
+        UPDATE gastos_fijos SET concepto = ?, monto = ?, frecuencia = ?, proxima_fecha = ?
+        WHERE id = ? AND account_id = ?
+        """,
+        (concepto, monto, frecuencia, proxima_fecha, gasto_id, account_id),
+    )
+    conn.commit()
+    return {
+        "id": gasto_id,
+        "concepto": concepto,
+        "monto": monto,
+        "frecuencia": frecuencia,
+        "proxima_fecha": proxima_fecha,
+    }
+
+
+def eliminar_gasto_fijo(conn: sqlite3.Connection, account_id: str, gasto_id: int) -> None:
+    if _get_gasto_fijo(conn, account_id, gasto_id) is None:
+        raise ValueError(f"Gasto fijo no encontrado para esta cuenta: {gasto_id}")
+    conn.execute(
+        "DELETE FROM gastos_fijos WHERE id = ? AND account_id = ?",
+        (gasto_id, account_id),
+    )
+    conn.commit()
+
+
 def get_metas(conn: sqlite3.Connection, account_id: str) -> list[dict]:
     rows = conn.execute(
         """
@@ -231,6 +387,85 @@ def get_metas(conn: sqlite3.Connection, account_id: str) -> list[dict]:
         (account_id,),
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def crear_meta(
+    conn: sqlite3.Connection,
+    account_id: str,
+    descripcion: str,
+    monto_objetivo: float,
+    fecha_objetivo: str,
+) -> dict:
+    if monto_objetivo <= 0:
+        raise ValueError("monto_objetivo debe ser mayor a cero")
+    cursor = conn.execute(
+        """
+        INSERT INTO metas (account_id, descripcion, monto_objetivo, fecha_objetivo)
+        VALUES (?, ?, ?, ?)
+        """,
+        (account_id, descripcion, monto_objetivo, fecha_objetivo),
+    )
+    conn.commit()
+    return {
+        "id": cursor.lastrowid,
+        "descripcion": descripcion,
+        "monto_objetivo": monto_objetivo,
+        "fecha_objetivo": fecha_objetivo,
+        "monto_ahorrado": 0,
+    }
+
+
+def _get_meta(conn: sqlite3.Connection, account_id: str, meta_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, descripcion, monto_objetivo, fecha_objetivo, monto_ahorrado
+        FROM metas WHERE id = ? AND account_id = ?
+        """,
+        (meta_id, account_id),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def actualizar_meta(
+    conn: sqlite3.Connection,
+    account_id: str,
+    meta_id: int,
+    descripcion: str,
+    monto_objetivo: float,
+    fecha_objetivo: str,
+) -> dict:
+    if monto_objetivo <= 0:
+        raise ValueError("monto_objetivo debe ser mayor a cero")
+    existente = _get_meta(conn, account_id, meta_id)
+    if existente is None:
+        raise ValueError(f"Meta no encontrada para esta cuenta: {meta_id}")
+    conn.execute(
+        "UPDATE metas SET descripcion = ?, monto_objetivo = ?, fecha_objetivo = ? WHERE id = ? AND account_id = ?",
+        (descripcion, monto_objetivo, fecha_objetivo, meta_id, account_id),
+    )
+    conn.commit()
+    return {
+        "id": meta_id,
+        "descripcion": descripcion,
+        "monto_objetivo": monto_objetivo,
+        "fecha_objetivo": fecha_objetivo,
+        "monto_ahorrado": existente["monto_ahorrado"],
+    }
+
+
+def eliminar_meta(conn: sqlite3.Connection, account_id: str, meta_id: int) -> None:
+    if _get_meta(conn, account_id, meta_id) is None:
+        raise ValueError(f"Meta no encontrada para esta cuenta: {meta_id}")
+    activos = conn.execute(
+        "SELECT COUNT(*) FROM apartados WHERE meta_id = ? AND estado = 'activo'",
+        (meta_id,),
+    ).fetchone()[0]
+    if activos > 0:
+        raise ValueError(
+            "No puedes borrar una meta con apartados activos; cancela los apartados primero"
+        )
+    conn.execute("DELETE FROM metas WHERE id = ? AND account_id = ?", (meta_id, account_id))
+    conn.commit()
 
 
 def buscar_contacto(conn: sqlite3.Connection, account_id: str, query: str) -> list[dict]:
@@ -259,6 +494,69 @@ def get_contacto(conn: sqlite3.Connection, account_id: str, contacto_id: int) ->
     if row is None:
         return None
     return dict(row)
+
+
+def crear_contacto(
+    conn: sqlite3.Connection,
+    account_id: str,
+    nombre: str,
+    alias: str,
+    cuenta_destino: str,
+    relacion: str,
+) -> dict:
+    cursor = conn.execute(
+        """
+        INSERT INTO contactos (account_id_titular, nombre, alias, cuenta_destino, relacion)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (account_id, nombre, alias, cuenta_destino, relacion),
+    )
+    conn.commit()
+    return {
+        "id": cursor.lastrowid,
+        "nombre": nombre,
+        "alias": alias,
+        "cuenta_destino": cuenta_destino,
+        "relacion": relacion,
+    }
+
+
+def actualizar_contacto(
+    conn: sqlite3.Connection,
+    account_id: str,
+    contacto_id: int,
+    nombre: str,
+    alias: str,
+    cuenta_destino: str,
+    relacion: str,
+) -> dict:
+    if get_contacto(conn, account_id, contacto_id) is None:
+        raise ValueError(f"Contacto no encontrado para esta cuenta: {contacto_id}")
+    conn.execute(
+        """
+        UPDATE contactos SET nombre = ?, alias = ?, cuenta_destino = ?, relacion = ?
+        WHERE id = ? AND account_id_titular = ?
+        """,
+        (nombre, alias, cuenta_destino, relacion, contacto_id, account_id),
+    )
+    conn.commit()
+    return {
+        "id": contacto_id,
+        "nombre": nombre,
+        "alias": alias,
+        "cuenta_destino": cuenta_destino,
+        "relacion": relacion,
+    }
+
+
+def eliminar_contacto(conn: sqlite3.Connection, account_id: str, contacto_id: int) -> None:
+    if get_contacto(conn, account_id, contacto_id) is None:
+        raise ValueError(f"Contacto no encontrado para esta cuenta: {contacto_id}")
+    conn.execute(
+        "DELETE FROM contactos WHERE id = ? AND account_id_titular = ?",
+        (contacto_id, account_id),
+    )
+    conn.commit()
 
 
 def ejecutar_transferencia(
@@ -370,3 +668,34 @@ def crear_apartado(
             "estado": "activo",
         },
     }
+
+
+def listar_apartados(conn: sqlite3.Connection, account_id: str) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT id, meta_id, monto_por_periodo, periodicidad, fecha_inicio, estado
+        FROM apartados WHERE account_id = ?
+        """,
+        (account_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def cancelar_apartado(conn: sqlite3.Connection, account_id: str, apartado_id: int) -> dict:
+    row = conn.execute(
+        """
+        SELECT id, meta_id, monto_por_periodo, periodicidad, fecha_inicio, estado
+        FROM apartados WHERE id = ? AND account_id = ?
+        """,
+        (apartado_id, account_id),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"Apartado no encontrado para esta cuenta: {apartado_id}")
+    conn.execute(
+        "UPDATE apartados SET estado = 'cancelado' WHERE id = ? AND account_id = ?",
+        (apartado_id, account_id),
+    )
+    conn.commit()
+    resultado = dict(row)
+    resultado["estado"] = "cancelado"
+    return resultado

@@ -167,3 +167,219 @@ def test_get_contacto_inexistente_devuelve_none(conn):
 def test_get_contacto_de_otra_cuenta_devuelve_none(conn):
     contactos = db.buscar_contacto(conn, "ana", "pepe")
     assert db.get_contacto(conn, "luis", contactos[0]["id"]) is None
+
+
+def test_crear_contacto(conn):
+    contacto = db.crear_contacto(conn, "ana", "Sofía López", "Sofi", "5566778899", "amiga")
+    assert contacto["nombre"] == "Sofía López"
+    assert contacto["id"] is not None
+    assert len(db.buscar_contacto(conn, "ana", "sofi")) == 1
+
+
+def test_actualizar_contacto(conn):
+    contactos = db.buscar_contacto(conn, "ana", "pepe")
+    contacto_id = contactos[0]["id"]
+    actualizado = db.actualizar_contacto(
+        conn, "ana", contacto_id, "José R. Actualizado", "Pepe2", "1112223333", "hermano"
+    )
+    assert actualizado["nombre"] == "José R. Actualizado"
+    assert db.get_contacto(conn, "ana", contacto_id)["alias"] == "Pepe2"
+
+
+def test_actualizar_contacto_inexistente(conn):
+    with pytest.raises(ValueError):
+        db.actualizar_contacto(conn, "ana", 999999, "x", "y", "z", "w")
+
+
+def test_actualizar_contacto_de_otra_cuenta(conn):
+    contactos = db.buscar_contacto(conn, "ana", "pepe")
+    with pytest.raises(ValueError):
+        db.actualizar_contacto(conn, "luis", contactos[0]["id"], "x", "y", "z", "w")
+
+
+def test_eliminar_contacto(conn):
+    contactos = db.buscar_contacto(conn, "ana", "pepe")
+    contacto_id = contactos[0]["id"]
+    db.eliminar_contacto(conn, "ana", contacto_id)
+    assert db.get_contacto(conn, "ana", contacto_id) is None
+
+
+def test_eliminar_contacto_de_otra_cuenta(conn):
+    contactos = db.buscar_contacto(conn, "ana", "pepe")
+    with pytest.raises(ValueError):
+        db.eliminar_contacto(conn, "luis", contactos[0]["id"])
+
+
+def test_crear_ingreso_programado(conn):
+    ingreso = db.crear_ingreso_programado(
+        conn, "ana", "Bono anual", 5000.0, "anual", "2026-12-01"
+    )
+    assert ingreso["id"] is not None
+    assert ingreso["descripcion"] == "Bono anual"
+    assert len(db.get_ingresos_programados(conn, "ana")) == 2
+
+
+def test_crear_ingreso_programado_rechaza_monto_no_positivo(conn):
+    with pytest.raises(ValueError):
+        db.crear_ingreso_programado(conn, "ana", "x", 0, "mensual", "2026-12-01")
+
+
+def test_actualizar_ingreso_programado(conn):
+    ingreso_id = db.get_ingresos_programados(conn, "ana")[0]["id"]
+    actualizado = db.actualizar_ingreso_programado(
+        conn, "ana", ingreso_id, "Nómina actualizada", 13000.0, "quincenal", "2026-10-01"
+    )
+    assert actualizado["monto"] == 13000.0
+    assert db.get_ingresos_programados(conn, "ana")[0]["descripcion"] == "Nómina actualizada"
+
+
+def test_actualizar_ingreso_programado_inexistente(conn):
+    with pytest.raises(ValueError):
+        db.actualizar_ingreso_programado(conn, "ana", 999999, "x", 100.0, "mensual", "2026-10-01")
+
+
+def test_actualizar_ingreso_programado_de_otra_cuenta(conn):
+    ingreso_id = db.get_ingresos_programados(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.actualizar_ingreso_programado(conn, "luis", ingreso_id, "x", 100.0, "mensual", "2026-10-01")
+
+
+def test_eliminar_ingreso_programado(conn):
+    ingreso_id = db.get_ingresos_programados(conn, "ana")[0]["id"]
+    db.eliminar_ingreso_programado(conn, "ana", ingreso_id)
+    assert db.get_ingresos_programados(conn, "ana") == []
+
+
+def test_eliminar_ingreso_programado_de_otra_cuenta(conn):
+    ingreso_id = db.get_ingresos_programados(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.eliminar_ingreso_programado(conn, "luis", ingreso_id)
+
+
+def test_crear_gasto_fijo(conn):
+    gasto = db.crear_gasto_fijo(conn, "ana", "Internet", 600.0, "mensual", "2026-10-05")
+    assert gasto["id"] is not None
+    assert gasto["concepto"] == "Internet"
+    assert len(db.get_gastos_fijos(conn, "ana")) == 5
+
+
+def test_crear_gasto_fijo_rechaza_monto_no_positivo(conn):
+    with pytest.raises(ValueError):
+        db.crear_gasto_fijo(conn, "ana", "x", 0, "mensual", "2026-10-05")
+
+
+def test_actualizar_gasto_fijo(conn):
+    gasto_id = db.get_gastos_fijos(conn, "ana")[0]["id"]
+    actualizado = db.actualizar_gasto_fijo(
+        conn, "ana", gasto_id, "Agua actualizada", 350.0, "mensual", "2026-10-10"
+    )
+    assert actualizado["monto"] == 350.0
+
+
+def test_actualizar_gasto_fijo_inexistente(conn):
+    with pytest.raises(ValueError):
+        db.actualizar_gasto_fijo(conn, "ana", 999999, "x", 100.0, "mensual", "2026-10-05")
+
+
+def test_actualizar_gasto_fijo_de_otra_cuenta(conn):
+    gasto_id = db.get_gastos_fijos(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.actualizar_gasto_fijo(conn, "luis", gasto_id, "x", 100.0, "mensual", "2026-10-05")
+
+
+def test_eliminar_gasto_fijo(conn):
+    gasto_id = db.get_gastos_fijos(conn, "ana")[0]["id"]
+    db.eliminar_gasto_fijo(conn, "ana", gasto_id)
+    assert len(db.get_gastos_fijos(conn, "ana")) == 3
+
+
+def test_eliminar_gasto_fijo_de_otra_cuenta(conn):
+    gasto_id = db.get_gastos_fijos(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.eliminar_gasto_fijo(conn, "luis", gasto_id)
+
+
+def test_crear_meta(conn):
+    meta = db.crear_meta(conn, "ana", "Viaje", 20000.0, "2027-01-01")
+    assert meta["id"] is not None
+    assert meta["monto_ahorrado"] == 0
+    assert len(db.get_metas(conn, "ana")) == 2
+
+
+def test_crear_meta_rechaza_monto_no_positivo(conn):
+    with pytest.raises(ValueError):
+        db.crear_meta(conn, "ana", "x", 0, "2027-01-01")
+
+
+def test_actualizar_meta(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    actualizada = db.actualizar_meta(conn, "ana", meta_id, "Concierto actualizado", 9000.0, "2027-02-01")
+    assert actualizada["monto_objetivo"] == 9000.0
+    # monto_ahorrado no se toca por un update
+    assert actualizada["monto_ahorrado"] == 0
+
+
+def test_actualizar_meta_inexistente(conn):
+    with pytest.raises(ValueError):
+        db.actualizar_meta(conn, "ana", 999999, "x", 100.0, "2027-01-01")
+
+
+def test_actualizar_meta_de_otra_cuenta(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.actualizar_meta(conn, "luis", meta_id, "x", 100.0, "2027-01-01")
+
+
+def test_eliminar_meta_sin_apartados(conn):
+    meta_id = db.crear_meta(conn, "ana", "Meta borrable", 1000.0, "2027-01-01")["id"]
+    db.eliminar_meta(conn, "ana", meta_id)
+    assert all(m["id"] != meta_id for m in db.get_metas(conn, "ana"))
+
+
+def test_eliminar_meta_con_apartado_activo_se_bloquea(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    db.crear_apartado(conn, account_id="ana", meta_id=meta_id, monto_por_periodo=50.0, periodicidad="semanal")
+    with pytest.raises(ValueError):
+        db.eliminar_meta(conn, "ana", meta_id)
+
+
+def test_eliminar_meta_de_otra_cuenta(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    with pytest.raises(ValueError):
+        db.eliminar_meta(conn, "luis", meta_id)
+
+
+def test_listar_apartados_vacio(conn):
+    assert db.listar_apartados(conn, "ana") == []
+
+
+def test_listar_apartados_con_uno_activo(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    db.crear_apartado(conn, account_id="ana", meta_id=meta_id, monto_por_periodo=50.0, periodicidad="semanal")
+    apartados = db.listar_apartados(conn, "ana")
+    assert len(apartados) == 1
+    assert apartados[0]["estado"] == "activo"
+
+
+def test_cancelar_apartado(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    apartado_id = db.crear_apartado(
+        conn, account_id="ana", meta_id=meta_id, monto_por_periodo=50.0, periodicidad="semanal"
+    )["apartado"]["id"]
+    cancelado = db.cancelar_apartado(conn, "ana", apartado_id)
+    assert cancelado["estado"] == "cancelado"
+    assert db.listar_apartados(conn, "ana")[0]["estado"] == "cancelado"
+
+
+def test_cancelar_apartado_inexistente(conn):
+    with pytest.raises(ValueError):
+        db.cancelar_apartado(conn, "ana", 999999)
+
+
+def test_cancelar_apartado_de_otra_cuenta(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    apartado_id = db.crear_apartado(
+        conn, account_id="ana", meta_id=meta_id, monto_por_periodo=50.0, periodicidad="semanal"
+    )["apartado"]["id"]
+    with pytest.raises(ValueError):
+        db.cancelar_apartado(conn, "luis", apartado_id)

@@ -95,3 +95,308 @@ def test_confirm_action_con_token_llama_al_orquestador(app):
         assert response.status_code == 200
         assert response.json() == {"a2ui_messages": fake_messages}
         app.state.orchestrator.confirm_action.assert_awaited_once_with("ana", "prop-1")
+
+
+def _login(client) -> str:
+    login = client.post("/api/login", json={"username": "ana", "password": "pass123"})
+    return login.json()["token"]
+
+
+def test_get_cuenta(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/cuenta", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        body = response.json()
+        assert body["numero_cuenta"] == "001122"
+        assert body["saldo"] == 500.00
+
+
+def test_get_cuenta_sin_token_devuelve_401(app):
+    with TestClient(app) as client:
+        response = client.get("/api/cuenta")
+        assert response.status_code == 401
+
+
+def test_get_movimientos_vacio(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/movimientos", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+
+def test_get_movimientos_respeta_limit(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/movimientos?limit=3", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+
+
+def test_get_movimientos_falla_del_mcp_devuelve_400(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        app.state.mcp_client.call = AsyncMock(side_effect=RuntimeError("mcp caído"))
+        response = client.get("/api/movimientos", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 400
+
+
+def test_list_contactos(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/contactos", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert len(response.json()) == 2
+
+
+def test_create_contacto(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post(
+            "/api/contactos",
+            json={"nombre": "Sofía López", "alias": "Sofi", "cuenta_destino": "5566778899", "relacion": "amiga"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["nombre"] == "Sofía López"
+
+
+def test_update_contacto(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        contacto_id = client.get("/api/contactos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.patch(
+            f"/api/contactos/{contacto_id}",
+            json={"alias": "Nuevo alias"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["alias"] == "Nuevo alias"
+
+
+def test_update_contacto_inexistente_devuelve_400(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.patch(
+            "/api/contactos/999999",
+            json={"alias": "x"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 400
+
+
+def test_delete_contacto(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        contacto_id = client.get("/api/contactos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.delete(
+            f"/api/contactos/{contacto_id}", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 204
+
+
+def test_list_ingresos_programados(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/ingresos-programados", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+
+def test_create_ingreso_programado(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post(
+            "/api/ingresos-programados",
+            json={"descripcion": "Bono", "monto": 5000.0, "frecuencia": "anual", "proxima_fecha": "2026-12-01"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["descripcion"] == "Bono"
+
+
+def test_update_ingreso_programado_parcial(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        ingreso_id = client.get(
+            "/api/ingresos-programados", headers={"Authorization": f"Bearer {token}"}
+        ).json()[0]["id"]
+        response = client.patch(
+            f"/api/ingresos-programados/{ingreso_id}",
+            json={"monto": 13000.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["monto"] == 13000.0
+        assert response.json()["descripcion"] == "Nómina"
+
+
+def test_delete_ingreso_programado(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        ingreso_id = client.get(
+            "/api/ingresos-programados", headers={"Authorization": f"Bearer {token}"}
+        ).json()[0]["id"]
+        response = client.delete(
+            f"/api/ingresos-programados/{ingreso_id}", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 204
+
+
+def test_list_gastos_fijos(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert len(response.json()) == 4
+
+
+def test_create_gasto_fijo(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post(
+            "/api/gastos-fijos",
+            json={"concepto": "Internet", "monto": 600.0, "frecuencia": "mensual", "proxima_fecha": "2026-10-05"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["concepto"] == "Internet"
+
+
+def test_update_gasto_fijo_parcial(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        gasto_id = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.patch(
+            f"/api/gastos-fijos/{gasto_id}",
+            json={"monto": 350.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["monto"] == 350.0
+
+
+def test_update_gasto_fijo_con_null_explicito_no_corrompe_el_campo(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        gasto_id = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        original = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"}).json()[0]
+        response = client.patch(
+            f"/api/gastos-fijos/{gasto_id}",
+            json={"proxima_fecha": None},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["proxima_fecha"] == original["proxima_fecha"]
+
+
+def test_delete_gasto_fijo(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        gasto_id = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.delete(f"/api/gastos-fijos/{gasto_id}", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 204
+
+
+def test_list_metas(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/metas", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+
+def test_create_meta(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post(
+            "/api/metas",
+            json={"descripcion": "Viaje", "monto_objetivo": 20000.0, "fecha_objetivo": "2027-01-01"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["monto_ahorrado"] == 0
+
+
+def test_update_meta_parcial(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        meta_id = client.get("/api/metas", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.patch(
+            f"/api/metas/{meta_id}",
+            json={"monto_objetivo": 9000.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["monto_objetivo"] == 9000.0
+
+
+def test_delete_meta_sin_apartados(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        crear = client.post(
+            "/api/metas",
+            json={"descripcion": "Borrable", "monto_objetivo": 1000.0, "fecha_objetivo": "2027-01-01"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        meta_id = crear.json()["id"]
+        response = client.delete(f"/api/metas/{meta_id}", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 204
+
+
+def test_delete_meta_con_apartado_activo_devuelve_400(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        meta_id = client.get("/api/metas", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        client.post(
+            "/api/apartados",
+            json={"meta_id": meta_id, "monto_por_periodo": 50.0, "periodicidad": "semanal"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        response = client.delete(f"/api/metas/{meta_id}", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 400
+        assert "apartados activos" in response.json()["detail"]
+
+
+def test_list_apartados_vacio(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/apartados", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+
+def test_create_apartado(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        meta_id = client.get("/api/metas", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.post(
+            "/api/apartados",
+            json={"meta_id": meta_id, "monto_por_periodo": 50.0, "periodicidad": "semanal"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["estado"] == "activo"
+
+
+def test_cancelar_apartado(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        meta_id = client.get("/api/metas", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        apartado = client.post(
+            "/api/apartados",
+            json={"meta_id": meta_id, "monto_por_periodo": 50.0, "periodicidad": "semanal"},
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()
+        response = client.post(
+            f"/api/apartados/{apartado['id']}/cancelar", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        assert response.json()["estado"] == "cancelado"
+
+
+def test_cancelar_apartado_inexistente_devuelve_400(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post("/api/apartados/999999/cancelar", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 400

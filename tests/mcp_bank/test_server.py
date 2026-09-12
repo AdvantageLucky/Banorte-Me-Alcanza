@@ -56,6 +56,20 @@ async def test_mcp_server_expone_las_tools_esperadas(tmp_path):
                 "simular_flujo_de_caja",
                 "ejecutar_transferencia",
                 "crear_apartado",
+                "crear_contacto",
+                "actualizar_contacto",
+                "eliminar_contacto",
+                "crear_ingreso_programado",
+                "actualizar_ingreso_programado",
+                "eliminar_ingreso_programado",
+                "crear_gasto_fijo",
+                "actualizar_gasto_fijo",
+                "eliminar_gasto_fijo",
+                "crear_meta",
+                "actualizar_meta",
+                "eliminar_meta",
+                "listar_apartados",
+                "cancelar_apartado",
             }
 
 
@@ -141,3 +155,46 @@ async def test_mcp_server_reporta_error_para_cuenta_inexistente(tmp_path):
             await session.initialize()
             result = await session.call_tool("get_saldo", {"account_id": "fantasma"})
             assert result.is_error is True
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_crear_y_eliminar_contacto(tmp_path):
+    db_path = tmp_path / "test_banco.db"
+    async with stdio_client(_params(db_path)) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            contacto = await _call(
+                session,
+                "crear_contacto",
+                {
+                    "account_id": "ana",
+                    "nombre": "Sofía López",
+                    "alias": "Sofi",
+                    "cuenta_destino": "5566778899",
+                    "relacion": "amiga",
+                },
+            )
+            assert contacto["nombre"] == "Sofía López"
+
+            resultado = await _call(
+                session, "eliminar_contacto", {"account_id": "ana", "contacto_id": contacto["id"]}
+            )
+            assert resultado["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_eliminar_meta_con_apartado_activo_reporta_error(tmp_path):
+    db_path = tmp_path / "test_banco.db"
+    async with stdio_client(_params(db_path)) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            metas = await _call(session, "get_metas", {"account_id": "ana"})
+            meta_id = metas[0]["id"]
+            await _call(
+                session,
+                "crear_apartado",
+                {"account_id": "ana", "meta_id": meta_id, "monto_por_periodo": 50.0, "periodicidad": "semanal"},
+            )
+            result = await session.call_tool("eliminar_meta", {"account_id": "ana", "meta_id": meta_id})
+            assert result.is_error is True
+            assert "apartados activos" in result.content[0].text

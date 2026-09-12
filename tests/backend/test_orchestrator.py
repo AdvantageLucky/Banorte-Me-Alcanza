@@ -548,6 +548,10 @@ def test_read_only_tool_declarations_expone_exactamente_las_herramientas_permiti
         "simular_flujo_de_caja",
         "proponer_transferencia",
         "proponer_apartado",
+        "proponer_contacto",
+        "proponer_gasto_fijo",
+        "proponer_ingreso_programado",
+        "proponer_meta",
     }
 
 
@@ -618,3 +622,259 @@ async def test_confirm_action_propuesta_inexistente_o_ajena_cae_a_error():
         messages[2]["updateDataModel"]["value"]["mensaje"],
         surface_id=messages[0]["createSurface"]["surfaceId"],
     )
+
+
+@pytest.mark.asyncio
+async def test_handle_message_proponer_contacto_crea_propuesta_sin_tocar_mcp():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock()
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "proponer_contacto",
+                {"nombre": "Sofía López", "alias": "Sofi", "cuenta_destino": "5566778899", "relacion": "amiga"},
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", "agrega a mi amiga Sofía")
+
+    mcp_client.call.assert_not_called()
+    assert len(proposals.PROPOSALS) == 1
+    proposal = next(iter(proposals.PROPOSALS.values()))
+    assert proposal.tipo == "contacto"
+    assert proposal.payload["nombre"] == "Sofía López"
+
+
+@pytest.mark.asyncio
+async def test_handle_message_proponer_contacto_sin_nombre_no_crea_propuesta():
+    mcp_client = MagicMock()
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "proponer_contacto", {"alias": "Sofi", "cuenta_destino": "5566778899", "relacion": "amiga"}
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", "agrega un contacto")
+    assert len(proposals.PROPOSALS) == 0
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_contacto_llama_crear_contacto_en_mcp():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1, "nombre": "Sofía López"})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "contacto",
+        {"nombre": "Sofía López", "alias": "Sofi", "cuenta_destino": "5566778899", "relacion": "amiga"},
+        "Agregar a Sofía López (Sofi) como contacto",
+    )
+    messages = await orchestrator.confirm_action("ana", proposal.id)
+    mcp_client.call.assert_awaited_once_with(
+        "crear_contacto",
+        {
+            "account_id": "ana",
+            "nombre": "Sofía López",
+            "alias": "Sofi",
+            "cuenta_destino": "5566778899",
+            "relacion": "amiga",
+        },
+    )
+    assert "createSurface" in messages[0]
+    assert proposal.id not in proposals.PROPOSALS
+
+
+@pytest.mark.asyncio
+async def test_handle_message_proponer_gasto_fijo_crea_propuesta_sin_tocar_mcp():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock()
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "proponer_gasto_fijo",
+                {"concepto": "Internet", "monto": 600.0, "frecuencia": "mensual", "proxima_fecha": "2026-10-05"},
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", "tengo un gasto fijo de internet de 600 mensual")
+    mcp_client.call.assert_not_called()
+    proposal = next(iter(proposals.PROPOSALS.values()))
+    assert proposal.tipo == "gasto_fijo"
+
+
+@pytest.mark.asyncio
+async def test_handle_message_proponer_gasto_fijo_monto_no_positivo_no_crea_propuesta():
+    mcp_client = MagicMock()
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "proponer_gasto_fijo",
+                {"concepto": "x", "monto": 0, "frecuencia": "mensual", "proxima_fecha": "2026-10-05"},
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", "gasto de 0")
+    assert len(proposals.PROPOSALS) == 0
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_gasto_fijo_llama_crear_gasto_fijo_en_mcp():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1, "concepto": "Internet"})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "gasto_fijo",
+        {"concepto": "Internet", "monto": 600.0, "frecuencia": "mensual", "proxima_fecha": "2026-10-05"},
+        "Agregar gasto fijo: Internet ($600.00 mensual)",
+    )
+    messages = await orchestrator.confirm_action("ana", proposal.id)
+    mcp_client.call.assert_awaited_once_with(
+        "crear_gasto_fijo",
+        {
+            "account_id": "ana",
+            "concepto": "Internet",
+            "monto": 600.0,
+            "frecuencia": "mensual",
+            "proxima_fecha": "2026-10-05",
+        },
+    )
+    assert "createSurface" in messages[0]
+
+
+@pytest.mark.asyncio
+async def test_handle_message_proponer_ingreso_programado_crea_propuesta_sin_tocar_mcp():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock()
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "proponer_ingreso_programado",
+                {"descripcion": "Bono", "monto": 5000.0, "frecuencia": "anual", "proxima_fecha": "2026-12-01"},
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", "voy a recibir un bono anual de 5000")
+    mcp_client.call.assert_not_called()
+    proposal = next(iter(proposals.PROPOSALS.values()))
+    assert proposal.tipo == "ingreso_programado"
+
+
+@pytest.mark.asyncio
+async def test_handle_message_proponer_ingreso_programado_monto_no_positivo_no_crea_propuesta():
+    mcp_client = MagicMock()
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "proponer_ingreso_programado",
+                {"descripcion": "x", "monto": 0, "frecuencia": "anual", "proxima_fecha": "2026-12-01"},
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", "ingreso de 0")
+    assert len(proposals.PROPOSALS) == 0
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_ingreso_programado_llama_crear_ingreso_programado_en_mcp():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1, "descripcion": "Bono"})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "ingreso_programado",
+        {"descripcion": "Bono", "monto": 5000.0, "frecuencia": "anual", "proxima_fecha": "2026-12-01"},
+        "Agregar ingreso programado: Bono ($5000.00 anual)",
+    )
+    messages = await orchestrator.confirm_action("ana", proposal.id)
+    mcp_client.call.assert_awaited_once_with(
+        "crear_ingreso_programado",
+        {
+            "account_id": "ana",
+            "descripcion": "Bono",
+            "monto": 5000.0,
+            "frecuencia": "anual",
+            "proxima_fecha": "2026-12-01",
+        },
+    )
+    assert "createSurface" in messages[0]
+
+
+@pytest.mark.asyncio
+async def test_handle_message_proponer_meta_crea_propuesta_sin_tocar_mcp():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock()
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "proponer_meta",
+                {"descripcion": "Viaje", "monto_objetivo": 20000.0, "fecha_objetivo": "2027-01-01"},
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", "quiero ahorrar para un viaje")
+    mcp_client.call.assert_not_called()
+    proposal = next(iter(proposals.PROPOSALS.values()))
+    assert proposal.tipo == "meta"
+
+
+@pytest.mark.asyncio
+async def test_handle_message_proponer_meta_monto_no_positivo_no_crea_propuesta():
+    mcp_client = MagicMock()
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_function_call_response(
+                "proponer_meta", {"descripcion": "x", "monto_objetivo": 0, "fecha_objetivo": "2027-01-01"}
+            ),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", "meta de 0")
+    assert len(proposals.PROPOSALS) == 0
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_meta_llama_crear_meta_en_mcp():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1, "descripcion": "Viaje"})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "meta",
+        {"descripcion": "Viaje", "monto_objetivo": 20000.0, "fecha_objetivo": "2027-01-01"},
+        "Crear meta: Viaje ($20000.00)",
+    )
+    messages = await orchestrator.confirm_action("ana", proposal.id)
+    mcp_client.call.assert_awaited_once_with(
+        "crear_meta",
+        {"account_id": "ana", "descripcion": "Viaje", "monto_objetivo": 20000.0, "fecha_objetivo": "2027-01-01"},
+    )
+    assert "createSurface" in messages[0]
