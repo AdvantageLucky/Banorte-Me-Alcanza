@@ -1,6 +1,7 @@
 import os
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from . import cashflow, db
 
@@ -21,6 +22,8 @@ def autenticar(username: str, password: str) -> str | None:
     conn = _connection()
     try:
         return db.autenticar(conn, username, password)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -34,6 +37,8 @@ def get_saldo(account_id: str) -> dict:
         if resultado is None:
             raise ValueError(f"Cuenta no encontrada: {account_id}")
         return resultado
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -47,6 +52,8 @@ def get_cuenta(account_id: str) -> dict:
         if resultado is None:
             raise ValueError(f"Cuenta no encontrada: {account_id}")
         return resultado
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -57,6 +64,8 @@ def get_movimientos(account_id: str, limit: int = 10) -> list[dict]:
     conn = _connection()
     try:
         return db.get_movimientos(conn, account_id, limit=limit)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -67,6 +76,8 @@ def get_ingresos_programados(account_id: str) -> list[dict]:
     conn = _connection()
     try:
         return db.get_ingresos_programados(conn, account_id)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -77,6 +88,8 @@ def get_gastos_fijos(account_id: str) -> list[dict]:
     conn = _connection()
     try:
         return db.get_gastos_fijos(conn, account_id)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -87,6 +100,8 @@ def get_metas(account_id: str) -> list[dict]:
     conn = _connection()
     try:
         return db.get_metas(conn, account_id)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -97,6 +112,8 @@ def buscar_contacto(account_id: str, query: str) -> list[dict]:
     conn = _connection()
     try:
         return db.buscar_contacto(conn, account_id, query)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -110,6 +127,8 @@ def get_contacto(account_id: str, contacto_id: int) -> dict:
         if resultado is None:
             raise ValueError(f"Contacto no encontrado para esta cuenta: {contacto_id}")
         return resultado
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -136,6 +155,8 @@ def simular_flujo_de_caja(
             fecha_objetivo=fecha_objetivo,
             monto_objetivo=monto_objetivo,
         )
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -148,6 +169,8 @@ def ejecutar_transferencia(
     conn = _connection()
     try:
         return db.ejecutar_transferencia(conn, origen_id, destino_cuenta, monto, concepto)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -160,6 +183,8 @@ def crear_apartado(
     conn = _connection()
     try:
         return db.crear_apartado(conn, account_id, meta_id, monto_por_periodo, periodicidad)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -170,6 +195,8 @@ def crear_contacto(account_id: str, nombre: str, alias: str, cuenta_destino: str
     conn = _connection()
     try:
         return db.crear_contacto(conn, account_id, nombre, alias, cuenta_destino, relacion)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -182,6 +209,8 @@ def actualizar_contacto(
     conn = _connection()
     try:
         return db.actualizar_contacto(conn, account_id, contacto_id, nombre, alias, cuenta_destino, relacion)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -193,6 +222,8 @@ def eliminar_contacto(account_id: str, contacto_id: int) -> dict:
     try:
         db.eliminar_contacto(conn, account_id, contacto_id)
         return {"ok": True}
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -205,6 +236,8 @@ def crear_ingreso_programado(
     conn = _connection()
     try:
         return db.crear_ingreso_programado(conn, account_id, descripcion, monto, frecuencia, proxima_fecha)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -224,6 +257,8 @@ def actualizar_ingreso_programado(
         return db.actualizar_ingreso_programado(
             conn, account_id, ingreso_id, descripcion, monto, frecuencia, proxima_fecha
         )
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -235,6 +270,8 @@ def eliminar_ingreso_programado(account_id: str, ingreso_id: int) -> dict:
     try:
         db.eliminar_ingreso_programado(conn, account_id, ingreso_id)
         return {"ok": True}
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -245,6 +282,8 @@ def crear_gasto_fijo(account_id: str, concepto: str, monto: float, frecuencia: s
     conn = _connection()
     try:
         return db.crear_gasto_fijo(conn, account_id, concepto, monto, frecuencia, proxima_fecha)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -257,6 +296,8 @@ def actualizar_gasto_fijo(
     conn = _connection()
     try:
         return db.actualizar_gasto_fijo(conn, account_id, gasto_id, concepto, monto, frecuencia, proxima_fecha)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -268,6 +309,8 @@ def eliminar_gasto_fijo(account_id: str, gasto_id: int) -> dict:
     try:
         db.eliminar_gasto_fijo(conn, account_id, gasto_id)
         return {"ok": True}
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -278,6 +321,8 @@ def crear_meta(account_id: str, descripcion: str, monto_objetivo: float, fecha_o
     conn = _connection()
     try:
         return db.crear_meta(conn, account_id, descripcion, monto_objetivo, fecha_objetivo)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -290,6 +335,8 @@ def actualizar_meta(
     conn = _connection()
     try:
         return db.actualizar_meta(conn, account_id, meta_id, descripcion, monto_objetivo, fecha_objetivo)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -301,6 +348,8 @@ def eliminar_meta(account_id: str, meta_id: int) -> dict:
     try:
         db.eliminar_meta(conn, account_id, meta_id)
         return {"ok": True}
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -311,6 +360,8 @@ def listar_apartados(account_id: str) -> list[dict]:
     conn = _connection()
     try:
         return db.listar_apartados(conn, account_id)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 
@@ -321,6 +372,8 @@ def cancelar_apartado(account_id: str, apartado_id: int) -> dict:
     conn = _connection()
     try:
         return db.cancelar_apartado(conn, account_id, apartado_id)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     finally:
         conn.close()
 

@@ -276,6 +276,20 @@ def test_update_gasto_fijo_parcial(app):
         assert response.json()["monto"] == 350.0
 
 
+def test_update_gasto_fijo_con_null_explicito_no_corrompe_el_campo(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        gasto_id = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        original = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"}).json()[0]
+        response = client.patch(
+            f"/api/gastos-fijos/{gasto_id}",
+            json={"proxima_fecha": None},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["proxima_fecha"] == original["proxima_fecha"]
+
+
 def test_delete_gasto_fijo(app):
     with TestClient(app) as client:
         token = _login(client)
@@ -341,6 +355,7 @@ def test_delete_meta_con_apartado_activo_devuelve_400(app):
         )
         response = client.delete(f"/api/metas/{meta_id}", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 400
+        assert "apartados activos" in response.json()["detail"]
 
 
 def test_list_apartados_vacio(app):

@@ -147,7 +147,7 @@ async def update_contacto(
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    merged = {**actual, **payload.model_dump(exclude_unset=True)}
+    merged = {**actual, **payload.model_dump(exclude_unset=True, exclude_none=True)}
     try:
         actualizado = await request.app.state.mcp_client.call(
             "actualizar_contacto",
@@ -231,7 +231,7 @@ async def update_ingreso_programado(
     if actual is None:
         raise HTTPException(status_code=400, detail=f"Ingreso programado no encontrado para esta cuenta: {ingreso_id}")
 
-    merged = {**actual, **payload.model_dump(exclude_unset=True)}
+    merged = {**actual, **payload.model_dump(exclude_unset=True, exclude_none=True)}
     try:
         actualizado = await request.app.state.mcp_client.call(
             "actualizar_ingreso_programado",
@@ -311,7 +311,7 @@ async def update_gasto_fijo(
     if actual is None:
         raise HTTPException(status_code=400, detail=f"Gasto fijo no encontrado para esta cuenta: {gasto_id}")
 
-    merged = {**actual, **payload.model_dump(exclude_unset=True)}
+    merged = {**actual, **payload.model_dump(exclude_unset=True, exclude_none=True)}
     try:
         actualizado = await request.app.state.mcp_client.call(
             "actualizar_gasto_fijo",
@@ -390,7 +390,7 @@ async def update_meta(
     if actual is None:
         raise HTTPException(status_code=400, detail=f"Meta no encontrada para esta cuenta: {meta_id}")
 
-    merged = {**actual, **payload.model_dump(exclude_unset=True)}
+    merged = {**actual, **payload.model_dump(exclude_unset=True, exclude_none=True)}
     try:
         actualizada = await request.app.state.mcp_client.call(
             "actualizar_meta",

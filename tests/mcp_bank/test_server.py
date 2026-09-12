@@ -197,3 +197,4 @@ async def test_mcp_server_eliminar_meta_con_apartado_activo_reporta_error(tmp_pa
             )
             result = await session.call_tool("eliminar_meta", {"account_id": "ana", "meta_id": meta_id})
             assert result.is_error is True
+            assert "apartados activos" in result.content[0].text
