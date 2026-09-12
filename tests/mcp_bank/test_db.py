@@ -385,12 +385,24 @@ def test_cancelar_apartado_de_otra_cuenta(conn):
         db.cancelar_apartado(conn, "luis", apartado_id)
 
 
-def test_migracion_categoria_es_idempotente(conn):
-    # Correr get_connection otra vez (como pasaría en un segundo arranque del
-    # proceso) no debe fallar aunque la columna ya exista.
-    db.get_connection(":memory:")
-    columnas = [row["name"] for row in conn.execute("PRAGMA table_info(movimientos)")]
-    assert "categoria" in columnas
+def test_migracion_categoria_es_idempotente(tmp_path):
+    # Verificar que correr get_connection() dos veces sobre la misma DB file
+    # es seguro (idempotente) — la segunda llamada debe capturar el OperationalError
+    # cuando intente añadir la columna que ya existe.
+    db_path = str(tmp_path / "test.db")
+
+    # Primera llamada: crea la columna categoria
+    conn1 = db.get_connection(db_path)
+    columnas1 = [row["name"] for row in conn1.execute("PRAGMA table_info(movimientos)")]
+    assert "categoria" in columnas1
+    conn1.close()
+
+    # Segunda llamada: sobre la misma DB file con la columna ya existente
+    # debe capturar OperationalError y devolver una conexión válida
+    conn2 = db.get_connection(db_path)
+    columnas2 = [row["name"] for row in conn2.execute("PRAGMA table_info(movimientos)")]
+    assert "categoria" in columnas2
+    conn2.close()
 
 
 def test_ejecutar_transferencia_categoriza_egreso_e_ingreso(conn):
