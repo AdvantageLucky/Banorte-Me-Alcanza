@@ -668,3 +668,34 @@ def crear_apartado(
             "estado": "activo",
         },
     }
+
+
+def listar_apartados(conn: sqlite3.Connection, account_id: str) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT id, meta_id, monto_por_periodo, periodicidad, fecha_inicio, estado
+        FROM apartados WHERE account_id = ?
+        """,
+        (account_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def cancelar_apartado(conn: sqlite3.Connection, account_id: str, apartado_id: int) -> dict:
+    row = conn.execute(
+        """
+        SELECT id, meta_id, monto_por_periodo, periodicidad, fecha_inicio, estado
+        FROM apartados WHERE id = ? AND account_id = ?
+        """,
+        (apartado_id, account_id),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"Apartado no encontrado para esta cuenta: {apartado_id}")
+    conn.execute(
+        "UPDATE apartados SET estado = 'cancelado' WHERE id = ? AND account_id = ?",
+        (apartado_id, account_id),
+    )
+    conn.commit()
+    resultado = dict(row)
+    resultado["estado"] = "cancelado"
+    return resultado

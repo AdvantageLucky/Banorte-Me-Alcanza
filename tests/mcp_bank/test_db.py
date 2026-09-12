@@ -347,3 +347,39 @@ def test_eliminar_meta_de_otra_cuenta(conn):
     meta_id = db.get_metas(conn, "ana")[0]["id"]
     with pytest.raises(ValueError):
         db.eliminar_meta(conn, "luis", meta_id)
+
+
+def test_listar_apartados_vacio(conn):
+    assert db.listar_apartados(conn, "ana") == []
+
+
+def test_listar_apartados_con_uno_activo(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    db.crear_apartado(conn, account_id="ana", meta_id=meta_id, monto_por_periodo=50.0, periodicidad="semanal")
+    apartados = db.listar_apartados(conn, "ana")
+    assert len(apartados) == 1
+    assert apartados[0]["estado"] == "activo"
+
+
+def test_cancelar_apartado(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    apartado_id = db.crear_apartado(
+        conn, account_id="ana", meta_id=meta_id, monto_por_periodo=50.0, periodicidad="semanal"
+    )["apartado"]["id"]
+    cancelado = db.cancelar_apartado(conn, "ana", apartado_id)
+    assert cancelado["estado"] == "cancelado"
+    assert db.listar_apartados(conn, "ana")[0]["estado"] == "cancelado"
+
+
+def test_cancelar_apartado_inexistente(conn):
+    with pytest.raises(ValueError):
+        db.cancelar_apartado(conn, "ana", 999999)
+
+
+def test_cancelar_apartado_de_otra_cuenta(conn):
+    meta_id = db.get_metas(conn, "ana")[0]["id"]
+    apartado_id = db.crear_apartado(
+        conn, account_id="ana", meta_id=meta_id, monto_por_periodo=50.0, periodicidad="semanal"
+    )["apartado"]["id"]
+    with pytest.raises(ValueError):
+        db.cancelar_apartado(conn, "luis", apartado_id)
