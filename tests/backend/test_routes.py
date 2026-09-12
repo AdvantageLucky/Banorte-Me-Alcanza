@@ -400,3 +400,40 @@ def test_cancelar_apartado_inexistente_devuelve_400(app):
         token = _login(client)
         response = client.post("/api/apartados/999999/cancelar", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 400
+
+
+def test_get_sugerencias_genera_y_lista(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/sugerencias", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+
+
+def test_get_sugerencias_no_duplica_entre_llamadas(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        primera = client.get("/api/sugerencias", headers={"Authorization": f"Bearer {token}"}).json()
+        segunda = client.get("/api/sugerencias", headers={"Authorization": f"Bearer {token}"}).json()
+        assert len(segunda) == len(primera)
+
+
+def test_atender_sugerencia(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        sugerencias = client.get("/api/sugerencias", headers={"Authorization": f"Bearer {token}"}).json()
+        sugerencia_id = sugerencias[0]["id"]
+        response = client.post(
+            f"/api/sugerencias/{sugerencia_id}/atender", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        assert response.json()["estado"] == "atendida"
+
+
+def test_descartar_sugerencia_inexistente_devuelve_400(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post(
+            "/api/sugerencias/999999/descartar", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 400

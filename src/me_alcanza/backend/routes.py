@@ -24,6 +24,7 @@ from .dtos import (
     MetaResponse,
     MetaUpdate,
     MovimientoResponse,
+    SugerenciaResponse,
 )
 
 router = APIRouter(prefix="/api")
@@ -464,3 +465,48 @@ async def cancelar_apartado_route(
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ApartadoResponse(**resultado)
+
+
+@router.get("/sugerencias", response_model=list[SugerenciaResponse])
+async def list_sugerencias(
+    request: Request, account_id: str = Depends(auth.get_current_account_id)
+) -> list[SugerenciaResponse]:
+    try:
+        sugerencias = await request.app.state.mcp_client.call(
+            "generar_y_listar_sugerencias", {"account_id": account_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [SugerenciaResponse(**s) for s in sugerencias]
+
+
+@router.post("/sugerencias/{sugerencia_id}/atender", response_model=SugerenciaResponse)
+async def atender_sugerencia(
+    sugerencia_id: int,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> SugerenciaResponse:
+    try:
+        actualizada = await request.app.state.mcp_client.call(
+            "marcar_sugerencia",
+            {"account_id": account_id, "sugerencia_id": sugerencia_id, "nuevo_estado": "atendida"},
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SugerenciaResponse(**actualizada)
+
+
+@router.post("/sugerencias/{sugerencia_id}/descartar", response_model=SugerenciaResponse)
+async def descartar_sugerencia(
+    sugerencia_id: int,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> SugerenciaResponse:
+    try:
+        actualizada = await request.app.state.mcp_client.call(
+            "marcar_sugerencia",
+            {"account_id": account_id, "sugerencia_id": sugerencia_id, "nuevo_estado": "descartada"},
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SugerenciaResponse(**actualizada)
