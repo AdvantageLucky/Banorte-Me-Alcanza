@@ -396,11 +396,14 @@ def build_system_prompt() -> str:
             "solo dato sin título ni jerarquía se ve incompleta y debe evitarse. "
             "6) Para cualquier tarjeta que muestre un número calculado o derivado (un saldo "
             "proyectado, el margen de 'simular_flujo_de_caja', el desglose de una transferencia con "
-            "puntos, etc.), agrega un Button variant='borderless' con texto '¿Cómo se calculó?' cuyo "
-            "'trigger' abra un Modal cuyo 'content' sea una Column mostrando los montos y fechas "
-            "concretos que entraron a ese cálculo. Nunca agregues este botón para datos que ya son "
-            "un valor directo de una herramienta (ej. el saldo actual tal cual, sin proyección) — "
-            "solo para números que el LLM o una herramienta derivaron a partir de otros datos."
+            "puntos, etc.), agrega un componente Modal como hijo directo de la Column de la tarjeta. "
+            "El Modal se renderiza a sí mismo como el elemento que el usuario toca: su 'trigger' debe "
+            "ser el id de un Text (variant='caption') con el texto '¿Cómo se calculó?', y su 'content' "
+            "el id de una Column mostrando los montos y fechas concretos que entraron a ese cálculo. "
+            "No agregues el trigger ni el content como hijos separados de la tarjeta — el Modal ya los "
+            "renderiza. Nunca agregues este componente para datos que ya son un valor directo de una "
+            "herramienta (ej. el saldo actual tal cual, sin proyección) — solo para números que el LLM "
+            "o una herramienta derivaron a partir de otros datos."
         ),
         allowed_components=_ALLOWED_COMPONENTS,
         include_schema=True,

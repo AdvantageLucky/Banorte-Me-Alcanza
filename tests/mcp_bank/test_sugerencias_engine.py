@@ -96,6 +96,26 @@ def test_score_baja_con_riesgo_de_liquidez():
     assert any("saldo" in f.lower() for f in resultado["factores"])
 
 
+def test_score_penaliza_saldo_no_positivo_sin_ingresos_rastreados():
+    # Sin ingresos rastreados, detectar_riesgo_liquidez nunca dispara. El saldo
+    # en 0 (o negativo) debe penalizarse igual mediante el fallback elif.
+    resultado = engine.calcular_score_salud_financiera(
+        saldo_actual=0.0, ingresos=[], gastos=[], metas=[], apartados_activos=0, hoy=date.today().isoformat()
+    )
+    assert resultado["score"] == 100 - engine.PENALIZACION_SALDO_NO_POSITIVO
+    assert resultado["categoria"] != "Saludable"
+    assert any("saldo" in f.lower() for f in resultado["factores"])
+
+
+def test_score_penaliza_saldo_negativo_sin_ingresos_rastreados():
+    resultado = engine.calcular_score_salud_financiera(
+        saldo_actual=-500.0, ingresos=[], gastos=[], metas=[], apartados_activos=0, hoy=date.today().isoformat()
+    )
+    assert resultado["score"] == 100 - engine.PENALIZACION_SALDO_NO_POSITIVO
+    assert resultado["categoria"] != "Saludable"
+    assert any("saldo" in f.lower() for f in resultado["factores"])
+
+
 def test_score_sube_con_apartado_activo():
     resultado = engine.calcular_score_salud_financiera(
         saldo_actual=10000.0, ingresos=[], gastos=[], metas=[], apartados_activos=1, hoy=date.today().isoformat()

@@ -92,6 +92,7 @@ PENALIZACION_POR_GASTO_PROXIMO = 5
 PENALIZACION_MAX_GASTOS = 20
 PENALIZACION_POR_META_EN_RIESGO = 10
 PENALIZACION_MAX_METAS = 20
+PENALIZACION_SALDO_NO_POSITIVO = 30
 BONO_APARTADO_ACTIVO = 10
 
 
@@ -113,6 +114,9 @@ def calcular_score_salud_financiera(
     if riesgo_liquidez:
         score -= PENALIZACION_RIESGO_LIQUIDEZ
         factores.append("Tu saldo se proyecta insuficiente antes de tu próximo ingreso programado.")
+    elif saldo_actual <= 0:
+        score -= PENALIZACION_SALDO_NO_POSITIVO
+        factores.append("Tu saldo actual está en cero o en negativo.")
 
     penalizacion_gastos = min(len(gastos_proximos) * PENALIZACION_POR_GASTO_PROXIMO, PENALIZACION_MAX_GASTOS)
     if penalizacion_gastos:
