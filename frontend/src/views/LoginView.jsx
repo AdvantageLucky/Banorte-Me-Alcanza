@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { ApiError } from '../api/client.js';
 
 export default function LoginView() {
   const { login } = useAuth();
@@ -15,7 +16,11 @@ export default function LoginView() {
     try {
       await login(username, password);
     } catch (err) {
-      setError(err.detail || 'Usuario o contraseña incorrectos.');
+      if (err instanceof ApiError) {
+        setError(err.detail || 'Usuario o contraseña incorrectos.');
+      } else {
+        setError('No se pudo contactar el servidor. Verifica que el backend esté corriendo.');
+      }
     } finally {
       setSubmitting(false);
     }
