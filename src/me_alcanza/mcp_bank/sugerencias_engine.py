@@ -85,3 +85,61 @@ def detectar_metas_en_riesgo(metas: list[dict], hoy: str) -> list[dict]:
             }
         )
     return candidatos
+
+
+PENALIZACION_RIESGO_LIQUIDEZ = 30
+PENALIZACION_POR_GASTO_PROXIMO = 5
+PENALIZACION_MAX_GASTOS = 20
+PENALIZACION_POR_META_EN_RIESGO = 10
+PENALIZACION_MAX_METAS = 20
+BONO_APARTADO_ACTIVO = 10
+
+
+def calcular_score_salud_financiera(
+    saldo_actual: float,
+    ingresos: list[dict],
+    gastos: list[dict],
+    metas: list[dict],
+    apartados_activos: int,
+    hoy: str,
+) -> dict:
+    riesgo_liquidez = detectar_riesgo_liquidez(saldo_actual, ingresos, gastos, hoy)
+    gastos_proximos = detectar_gastos_fijos_proximos(gastos, saldo_actual, hoy)
+    metas_en_riesgo = detectar_metas_en_riesgo(metas, hoy)
+
+    score = 100
+    factores = []
+
+    if riesgo_liquidez:
+        score -= PENALIZACION_RIESGO_LIQUIDEZ
+        factores.append("Tu saldo se proyecta insuficiente antes de tu próximo ingreso programado.")
+
+    penalizacion_gastos = min(len(gastos_proximos) * PENALIZACION_POR_GASTO_PROXIMO, PENALIZACION_MAX_GASTOS)
+    if penalizacion_gastos:
+        factores.append(
+            f"{len(gastos_proximos)} gasto(s) fijo(s) próximo(s) representan una parte alta de tu saldo actual."
+        )
+        score -= penalizacion_gastos
+
+    penalizacion_metas = min(len(metas_en_riesgo) * PENALIZACION_POR_META_EN_RIESGO, PENALIZACION_MAX_METAS)
+    if penalizacion_metas:
+        factores.append(f"{len(metas_en_riesgo)} meta(s) de ahorro en riesgo de no cumplirse a tiempo.")
+        score -= penalizacion_metas
+
+    if apartados_activos > 0:
+        score += BONO_APARTADO_ACTIVO
+        factores.append("Tienes al menos un apartado de ahorro activo — buen hábito.")
+
+    score = max(0, min(100, score))
+
+    if score >= 80:
+        categoria = "Saludable"
+    elif score >= 50:
+        categoria = "Atención"
+    else:
+        categoria = "Riesgo"
+
+    if not factores:
+        factores.append("No se detectaron riesgos ni hábitos destacados en este momento.")
+
+    return {"score": score, "categoria": categoria, "factores": factores}

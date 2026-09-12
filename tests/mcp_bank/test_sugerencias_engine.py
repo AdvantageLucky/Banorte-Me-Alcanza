@@ -72,3 +72,51 @@ def test_detectar_metas_en_riesgo_dispara_si_falta_poco_y_no_completada():
     assert len(candidatos) == 1
     assert candidatos[0]["entidad_id"] == "7"
     assert candidatos[0]["detalle"]["descripcion"] == "Viaje"
+
+
+def test_score_perfecto_sin_riesgos_ni_apartados():
+    resultado = engine.calcular_score_salud_financiera(
+        saldo_actual=10000.0, ingresos=[], gastos=[], metas=[], apartados_activos=0, hoy=date.today().isoformat()
+    )
+    assert resultado["score"] == 100
+    assert resultado["categoria"] == "Saludable"
+
+
+def test_score_baja_con_riesgo_de_liquidez():
+    # Nota: el mismo gasto (5000, en +2 días, >= 30% del saldo de 200) dispara
+    # AMBAS reglas: riesgo_liquidez (-30) y gasto_fijo_proximo (-5, 1 gasto).
+    # Score esperado: 100 - 30 - 5 = 65.
+    hoy = date.today()
+    ingresos = [{"monto": 100.0, "proxima_fecha": (hoy + timedelta(days=10)).isoformat()}]
+    gastos = [{"id": 1, "concepto": "Gasto", "monto": 5000.0, "proxima_fecha": (hoy + timedelta(days=2)).isoformat()}]
+    resultado = engine.calcular_score_salud_financiera(
+        saldo_actual=200.0, ingresos=ingresos, gastos=gastos, metas=[], apartados_activos=0, hoy=hoy.isoformat()
+    )
+    assert resultado["score"] == 65
+    assert any("saldo" in f.lower() for f in resultado["factores"])
+
+
+def test_score_sube_con_apartado_activo():
+    resultado = engine.calcular_score_salud_financiera(
+        saldo_actual=10000.0, ingresos=[], gastos=[], metas=[], apartados_activos=1, hoy=date.today().isoformat()
+    )
+    assert resultado["score"] == 100  # ya estaba en el tope, el clamp no deja subir de 100
+    assert any("ahorro" in f.lower() for f in resultado["factores"])
+
+
+def test_score_categoria_riesgo_cuando_muy_bajo():
+    # riesgo_liquidez (-30) + gasto_fijo_proximo (-5, 1 gasto) + 3 metas en
+    # riesgo (min(3*10, 20) = -20). Score esperado: 100 - 30 - 5 - 20 = 45.
+    hoy = date.today()
+    ingresos = [{"monto": 100.0, "proxima_fecha": (hoy + timedelta(days=10)).isoformat()}]
+    gastos = [{"id": 1, "concepto": "Gasto", "monto": 5000.0, "proxima_fecha": (hoy + timedelta(days=2)).isoformat()}]
+    metas = [
+        {"id": i, "descripcion": f"Meta {i}", "monto_objetivo": 100.0, "monto_ahorrado": 0.0,
+         "fecha_objetivo": (hoy + timedelta(days=5)).isoformat()}
+        for i in range(3)
+    ]
+    resultado = engine.calcular_score_salud_financiera(
+        saldo_actual=200.0, ingresos=ingresos, gastos=gastos, metas=metas, apartados_activos=0, hoy=hoy.isoformat()
+    )
+    assert resultado["score"] == 45
+    assert resultado["categoria"] == "Riesgo"
