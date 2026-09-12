@@ -22,17 +22,22 @@
   font-display: swap;
 }
 html:root {
-  --a2ui-color-primary: #0f6e5c;
-  --a2ui-color-secondary: #f2a541;
-  --a2ui-color-background: #f7f5f0;
-  --a2ui-color-surface: #ffffff;
-  --a2ui-color-border: #d8d3c7;
-  --a2ui-color-input: #ffffff;
-  --a2ui-color-on-background: #1f2421;
-  --a2ui-color-on-surface: #1f2421;
-  --a2ui-color-on-primary: #ffffff;
-  --a2ui-color-on-secondary: #1f2421;
-  --a2ui-color-on-input: #1f2421;
+  /* Apuntan a las variables --color-* que main.jsx inyecta desde
+     constants/colors.js — una sola fuente de verdad para la paleta de
+     marca, tanto para el chrome hecho a mano como para las tarjetas que
+     genera el LLM vía A2UI. El fallback tras la coma es solo para el
+     primer frame antes de que main.jsx corra la inyección. */
+  --a2ui-color-primary: var(--color-primary, #ec0029);
+  --a2ui-color-secondary: var(--color-secondary, #6a6867);
+  --a2ui-color-background: var(--color-background, #f5f5f5);
+  --a2ui-color-surface: var(--color-surface, #ffffff);
+  --a2ui-color-border: var(--color-border, #c7c9c9);
+  --a2ui-color-input: var(--color-input, #ffffff);
+  --a2ui-color-on-background: var(--color-on-background, #1f1f1f);
+  --a2ui-color-on-surface: var(--color-on-surface, #1f1f1f);
+  --a2ui-color-on-primary: var(--color-on-primary, #ffffff);
+  --a2ui-color-on-secondary: var(--color-on-secondary, #ffffff);
+  --a2ui-color-on-input: var(--color-on-input, #1f1f1f);
   --a2ui-border-radius: 12px;
   --a2ui-border-width: 1px;
   --a2ui-font-family-title:
