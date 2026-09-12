@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState, Fragment } from 'react';
 import { MessageProcessor } from '@a2ui/web_core/v0_9';
 import { A2uiSurface, basicCatalog } from '@a2ui/react/v0_9';
 import { injectStyles, removeStyles } from '@a2ui/react/styles';
+// injectStyles() (arriba) solo trae el CSS estructural heredado de v0_8
+// (layout de los wrappers .a2ui-surface .a2ui-*). Las clases reales del
+// catálogo básico v0_9 (.button, .primary, .a2uiText, etc.) viven en este
+// archivo estático y nadie las importaba, por lo que Button/Text/TextField/
+// ChoicePicker se renderizaban sin ningún estilo.
+import '@a2ui/react/v0_9/index.css';
 import { apiClient } from '../api/client.js';
 import { createActionHandler } from '../chat/actionHandler.js';
 import { dropDuplicateCreateSurface } from '../chat/messageFilter.js';

@@ -1,43 +1,17 @@
-diff --git a/node_modules/@a2ui/react/v0_9/index.js b/node_modules/@a2ui/react/v0_9/index.js
-index fc1dc62..365a7e1 100644
---- a/node_modules/@a2ui/react/v0_9/index.js
-+++ b/node_modules/@a2ui/react/v0_9/index.js
-@@ -389,7 +389,7 @@ function useMarkdown(text, options) {
- }
- 
- // src/v0_9/catalog/basic/components/Text.module.css
--var Text_default = {};
-+var Text_default = { a2uiText: "a2uiText", a2uiCaption: "a2uiCaption" };
- var NON_MARKDOWN_VARIANTS = /* @__PURE__ */ new Set(["h1", "h2", "h3", "h4", "h5", "caption"]);
- function MarkdownText({
-   text,
-@@ -754,7 +754,7 @@ var Modal = createComponentImplementation(ModalApi, ({ props, buildChild }) => {
- });
- 
- // src/v0_9/catalog/basic/components/Button.module.css
--var Button_default = {};
-+var Button_default = { button: "button", primary: "primary", borderless: "borderless" };
- var Button = createComponentImplementation(ButtonApi, ({ props, buildChild }) => {
-   useBasicCatalogStyles();
-   const classes = [Button_default.button];
-@@ -767,7 +767,7 @@ var Button = createComponentImplementation(ButtonApi, ({ props, buildChild }) =>
- });
- 
- // src/v0_9/catalog/basic/components/TextField.module.css
--var TextField_default = {};
-+var TextField_default = { host: "host", label: "label", input: "input", invalid: "invalid", error: "error" };
- var TextField = createComponentImplementation(TextFieldApi, ({ props }) => {
-   useBasicCatalogStyles();
-   const onChange = (e) => {
-@@ -876,7 +876,7 @@ var CheckBox = createComponentImplementation(CheckBoxApi, ({ props }) => {
- });
- 
- // src/v0_9/catalog/basic/components/ChoicePicker.module.css
--var ChoicePicker_default = {};
-+var ChoicePicker_default = { host: "host", label: "label", filterInput: "filterInput", options: "options", chips: "chips", chip: "chip", selected: "selected", optionLabel: "optionLabel", optionText: "optionText" };
- var ChoicePicker = createComponentImplementation(ChoicePickerApi, ({ props }) => {
-   useBasicCatalogStyles();
-   const [filter, setFilter] = useState("");
+diff --git a/node_modules/@a2ui/react/package.json b/node_modules/@a2ui/react/package.json
+index 9b466cc..23cbaf2 100644
+--- a/node_modules/@a2ui/react/package.json
++++ b/node_modules/@a2ui/react/package.json
+@@ -65,7 +65,8 @@
+         "default": "./styles/index.cjs"
+       }
+     },
+-    "./styles/structural.css": "./structural.css"
++    "./styles/structural.css": "./structural.css",
++    "./v0_9/index.css": "./v0_9/index.css"
+   },
+   "sideEffects": [
+     "*.css"
 diff --git a/node_modules/@a2ui/react/v0_9/index.cjs b/node_modules/@a2ui/react/v0_9/index.cjs
 index feee101..384a5ef 100644
 --- a/node_modules/@a2ui/react/v0_9/index.cjs
@@ -78,3 +52,43 @@ index feee101..384a5ef 100644
  var ChoicePicker = createComponentImplementation(basic_catalog.ChoicePickerApi, ({ props }) => {
    useBasicCatalogStyles();
    const [filter, setFilter] = React3.useState("");
+diff --git a/node_modules/@a2ui/react/v0_9/index.js b/node_modules/@a2ui/react/v0_9/index.js
+index fc1dc62..365a7e1 100644
+--- a/node_modules/@a2ui/react/v0_9/index.js
++++ b/node_modules/@a2ui/react/v0_9/index.js
+@@ -389,7 +389,7 @@ function useMarkdown(text, options) {
+ }
+ 
+ // src/v0_9/catalog/basic/components/Text.module.css
+-var Text_default = {};
++var Text_default = { a2uiText: "a2uiText", a2uiCaption: "a2uiCaption" };
+ var NON_MARKDOWN_VARIANTS = /* @__PURE__ */ new Set(["h1", "h2", "h3", "h4", "h5", "caption"]);
+ function MarkdownText({
+   text,
+@@ -754,7 +754,7 @@ var Modal = createComponentImplementation(ModalApi, ({ props, buildChild }) => {
+ });
+ 
+ // src/v0_9/catalog/basic/components/Button.module.css
+-var Button_default = {};
++var Button_default = { button: "button", primary: "primary", borderless: "borderless" };
+ var Button = createComponentImplementation(ButtonApi, ({ props, buildChild }) => {
+   useBasicCatalogStyles();
+   const classes = [Button_default.button];
+@@ -767,7 +767,7 @@ var Button = createComponentImplementation(ButtonApi, ({ props, buildChild }) =>
+ });
+ 
+ // src/v0_9/catalog/basic/components/TextField.module.css
+-var TextField_default = {};
++var TextField_default = { host: "host", label: "label", input: "input", invalid: "invalid", error: "error" };
+ var TextField = createComponentImplementation(TextFieldApi, ({ props }) => {
+   useBasicCatalogStyles();
+   const onChange = (e) => {
+@@ -876,7 +876,7 @@ var CheckBox = createComponentImplementation(CheckBoxApi, ({ props }) => {
+ });
+ 
+ // src/v0_9/catalog/basic/components/ChoicePicker.module.css
+-var ChoicePicker_default = {};
++var ChoicePicker_default = { host: "host", label: "label", filterInput: "filterInput", options: "options", chips: "chips", chip: "chip", selected: "selected", optionLabel: "optionLabel", optionText: "optionText" };
+ var ChoicePicker = createComponentImplementation(ChoicePickerApi, ({ props }) => {
+   useBasicCatalogStyles();
+   const [filter, setFilter] = useState("");
