@@ -1,0 +1,44 @@
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from . import auth
+from .dtos import (
+    ChatRequest,
+    ChatResponse,
+    ConfirmActionRequest,
+    ConfirmActionResponse,
+    LoginRequest,
+    LoginResponse,
+)
+
+router = APIRouter(prefix="/api")
+
+
+@router.post("/login", response_model=LoginResponse)
+async def login(payload: LoginRequest, request: Request) -> LoginResponse:
+    account_id = await request.app.state.mcp_client.call(
+        "autenticar", {"username": payload.username, "password": payload.password}
+    )
+    if account_id is None:
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+    token = auth.create_token(account_id, request.app.state.jwt_secret)
+    return LoginResponse(token=token)
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(
+    payload: ChatRequest,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> ChatResponse:
+    messages = await request.app.state.orchestrator.handle_message(account_id, payload.mensaje)
+    return ChatResponse(a2ui_messages=messages)
+
+
+@router.post("/confirm-action", response_model=ConfirmActionResponse)
+async def confirm_action(
+    payload: ConfirmActionRequest,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> ConfirmActionResponse:
+    messages = await request.app.state.orchestrator.confirm_action(account_id, payload.proposal_id)
+    return ConfirmActionResponse(a2ui_messages=messages)
