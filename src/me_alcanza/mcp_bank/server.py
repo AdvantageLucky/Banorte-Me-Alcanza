@@ -1,9 +1,10 @@
 import os
+from datetime import date
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from . import cashflow, db
+from . import cashflow, db, sugerencias_engine
 
 DB_PATH = os.environ.get("BANK_DB_PATH", "banco.db")
 
@@ -384,6 +385,48 @@ def get_resumen_movimientos(account_id: str, fecha_inicio: str, fecha_fin: str) 
     conn = _connection()
     try:
         return db.get_resumen_movimientos(conn, account_id, fecha_inicio, fecha_fin)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def generar_y_listar_sugerencias(account_id: str) -> list[dict]:
+    """Corre las reglas de detección de riesgo financiero, persiste las sugerencias nuevas
+    (sin duplicar las ya pendientes) y devuelve el listado completo de la cuenta."""
+    conn = _connection()
+    try:
+        saldo = db.get_saldo(conn, account_id)
+        if saldo is None:
+            raise ValueError(f"Cuenta no encontrada: {account_id}")
+        ingresos = db.get_ingresos_programados(conn, account_id)
+        gastos = db.get_gastos_fijos(conn, account_id)
+        metas = db.get_metas(conn, account_id)
+        hoy = date.today().isoformat()
+
+        candidatos = (
+            sugerencias_engine.detectar_riesgo_liquidez(saldo["saldo"], ingresos, gastos, hoy)
+            + sugerencias_engine.detectar_gastos_fijos_proximos(gastos, saldo["saldo"], hoy)
+            + sugerencias_engine.detectar_metas_en_riesgo(metas, hoy)
+        )
+        for candidato in candidatos:
+            if not db.existe_sugerencia_pendiente(conn, account_id, candidato["tipo"], candidato["entidad_id"]):
+                db.crear_sugerencia(conn, account_id, candidato["tipo"], candidato["entidad_id"], candidato["detalle"])
+
+        return db.listar_sugerencias(conn, account_id)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def marcar_sugerencia(account_id: str, sugerencia_id: int, nuevo_estado: str) -> dict:
+    """Marca una sugerencia como 'atendida' o 'descartada'."""
+    conn = _connection()
+    try:
+        return db.marcar_sugerencia(conn, account_id, sugerencia_id, nuevo_estado)
     except ValueError as exc:
         raise ToolError(str(exc)) from exc
     finally:

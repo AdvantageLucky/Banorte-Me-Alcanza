@@ -143,3 +143,13 @@ class ApartadoResponse(BaseModel):
     periodicidad: str
     fecha_inicio: str
     estado: str
+
+
+class SugerenciaResponse(BaseModel):
+    id: int
+    tipo: str
+    entidad_id: str
+    detalle: dict
+    estado: str
+    created_at: str
+    resuelta_at: str | None

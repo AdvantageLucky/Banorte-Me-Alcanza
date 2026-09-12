@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 import os
 import sqlite3
 from datetime import date, datetime, timedelta
@@ -64,6 +65,16 @@ CREATE TABLE IF NOT EXISTS contactos (
     alias TEXT NOT NULL,
     cuenta_destino TEXT NOT NULL,
     relacion TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sugerencias (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id TEXT NOT NULL REFERENCES usuarios(account_id),
+    tipo TEXT NOT NULL,
+    entidad_id TEXT NOT NULL,
+    detalle TEXT NOT NULL,
+    estado TEXT NOT NULL DEFAULT 'pendiente',
+    created_at TEXT NOT NULL,
+    resuelta_at TEXT
 );
 """
 
@@ -718,3 +729,90 @@ def get_resumen_movimientos(
         (account_id, fecha_inicio, fecha_fin),
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+_ESTADOS_VALIDOS_SUGERENCIA = {"pendiente", "atendida", "descartada"}
+
+
+def crear_sugerencia(
+    conn: sqlite3.Connection, account_id: str, tipo: str, entidad_id: str, detalle: dict
+) -> dict:
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor = conn.execute(
+        """
+        INSERT INTO sugerencias (account_id, tipo, entidad_id, detalle, estado, created_at)
+        VALUES (?, ?, ?, ?, 'pendiente', ?)
+        """,
+        (account_id, tipo, entidad_id, json.dumps(detalle), created_at),
+    )
+    conn.commit()
+    return {
+        "id": cursor.lastrowid,
+        "tipo": tipo,
+        "entidad_id": entidad_id,
+        "detalle": detalle,
+        "estado": "pendiente",
+        "created_at": created_at,
+        "resuelta_at": None,
+    }
+
+
+def existe_sugerencia_pendiente(conn: sqlite3.Connection, account_id: str, tipo: str, entidad_id: str) -> bool:
+    row = conn.execute(
+        """
+        SELECT 1 FROM sugerencias
+        WHERE account_id = ? AND tipo = ? AND entidad_id = ? AND estado = 'pendiente'
+        """,
+        (account_id, tipo, entidad_id),
+    ).fetchone()
+    return row is not None
+
+
+def listar_sugerencias(conn: sqlite3.Connection, account_id: str, estado: str | None = None) -> list[dict]:
+    if estado is not None:
+        rows = conn.execute(
+            """
+            SELECT id, tipo, entidad_id, detalle, estado, created_at, resuelta_at
+            FROM sugerencias WHERE account_id = ? AND estado = ?
+            ORDER BY created_at DESC
+            """,
+            (account_id, estado),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """
+            SELECT id, tipo, entidad_id, detalle, estado, created_at, resuelta_at
+            FROM sugerencias WHERE account_id = ?
+            ORDER BY created_at DESC
+            """,
+            (account_id,),
+        ).fetchall()
+    resultado = []
+    for row in rows:
+        item = dict(row)
+        item["detalle"] = json.loads(item["detalle"])
+        resultado.append(item)
+    return resultado
+
+
+def marcar_sugerencia(conn: sqlite3.Connection, account_id: str, sugerencia_id: int, nuevo_estado: str) -> dict:
+    if nuevo_estado not in _ESTADOS_VALIDOS_SUGERENCIA - {"pendiente"}:
+        raise ValueError(f"Estado inválido para marcar una sugerencia: {nuevo_estado}")
+    row = conn.execute(
+        "SELECT id FROM sugerencias WHERE id = ? AND account_id = ?", (sugerencia_id, account_id)
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"Sugerencia no encontrada para esta cuenta: {sugerencia_id}")
+    resuelta_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        "UPDATE sugerencias SET estado = ?, resuelta_at = ? WHERE id = ? AND account_id = ?",
+        (nuevo_estado, resuelta_at, sugerencia_id, account_id),
+    )
+    conn.commit()
+    actualizada = conn.execute(
+        "SELECT id, tipo, entidad_id, detalle, estado, created_at, resuelta_at FROM sugerencias WHERE id = ?",
+        (sugerencia_id,),
+    ).fetchone()
+    resultado = dict(actualizada)
+    resultado["detalle"] = json.loads(resultado["detalle"])
+    return resultado

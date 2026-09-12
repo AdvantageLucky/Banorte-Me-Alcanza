@@ -453,3 +453,53 @@ def test_get_resumen_movimientos_no_mezcla_cuentas(conn):
     hoy = date.today().isoformat()
     resumen_ana = db.get_resumen_movimientos(conn, "ana", hoy, hoy)
     assert resumen_ana == []
+
+
+def test_crear_sugerencia_y_listar(conn):
+    sugerencia = db.crear_sugerencia(
+        conn, "ana", "gasto_fijo_proximo", "1", {"concepto": "Renta", "monto": 4000.0}
+    )
+    assert sugerencia["estado"] == "pendiente"
+    assert sugerencia["detalle"] == {"concepto": "Renta", "monto": 4000.0}
+    listado = db.listar_sugerencias(conn, "ana")
+    assert len(listado) == 1
+    assert listado[0]["tipo"] == "gasto_fijo_proximo"
+
+
+def test_existe_sugerencia_pendiente(conn):
+    assert db.existe_sugerencia_pendiente(conn, "ana", "meta_en_riesgo", "7") is False
+    db.crear_sugerencia(conn, "ana", "meta_en_riesgo", "7", {"x": 1})
+    assert db.existe_sugerencia_pendiente(conn, "ana", "meta_en_riesgo", "7") is True
+
+
+def test_listar_sugerencias_filtra_por_estado(conn):
+    s1 = db.crear_sugerencia(conn, "ana", "meta_en_riesgo", "7", {"x": 1})
+    db.crear_sugerencia(conn, "ana", "gasto_fijo_proximo", "1", {"y": 2})
+    db.marcar_sugerencia(conn, "ana", s1["id"], "atendida")
+    pendientes = db.listar_sugerencias(conn, "ana", estado="pendiente")
+    assert len(pendientes) == 1
+    assert pendientes[0]["tipo"] == "gasto_fijo_proximo"
+
+
+def test_listar_sugerencias_no_mezcla_cuentas(conn):
+    db.crear_sugerencia(conn, "ana", "meta_en_riesgo", "7", {"x": 1})
+    assert db.listar_sugerencias(conn, "luis") == []
+
+
+def test_marcar_sugerencia_atendida(conn):
+    s = db.crear_sugerencia(conn, "ana", "meta_en_riesgo", "7", {"x": 1})
+    actualizada = db.marcar_sugerencia(conn, "ana", s["id"], "atendida")
+    assert actualizada["estado"] == "atendida"
+    assert actualizada["resuelta_at"] is not None
+
+
+def test_marcar_sugerencia_de_otra_cuenta_falla(conn):
+    s = db.crear_sugerencia(conn, "ana", "meta_en_riesgo", "7", {"x": 1})
+    with pytest.raises(ValueError):
+        db.marcar_sugerencia(conn, "luis", s["id"], "atendida")
+
+
+def test_marcar_sugerencia_estado_invalido_falla(conn):
+    s = db.crear_sugerencia(conn, "ana", "meta_en_riesgo", "7", {"x": 1})
+    with pytest.raises(ValueError):
+        db.marcar_sugerencia(conn, "ana", s["id"], "estado_invalido")
