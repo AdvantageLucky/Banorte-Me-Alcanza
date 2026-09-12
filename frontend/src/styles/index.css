@@ -173,6 +173,8 @@ body {
 
 .chat-empty {
   opacity: 0.6;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-l);
 }
 
 .chat-message-user {

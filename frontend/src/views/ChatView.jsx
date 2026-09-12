@@ -92,7 +92,7 @@ export default function ChatView() {
       </header>
       <main className="chat-surfaces">
         {turns.length === 0 && (
-          <p className="chat-empty">Escribe tu primer mensaje para empezar.</p>
+          <p className="chat-empty">Escribe tu primer mensaje para empezar ; )</p>
         )}
         {turns.map((turn) => {
           if (turn.kind === 'user') {
