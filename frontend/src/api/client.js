@@ -33,11 +33,29 @@ export function createApiClient(baseUrl) {
     return response.json();
   }
 
+  async function get(path, { token } = {}) {
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const response = await fetch(`${baseUrl}${path}`, { method: 'GET', headers });
+    if (!response.ok) {
+      throw new ApiError(response.status, await parseErrorDetail(response));
+    }
+    return response.json();
+  }
+
   return {
     login: (username, password) => post('/api/login', { body: { username, password } }),
     sendMessage: (token, mensaje) => post('/api/chat', { token, body: { mensaje } }),
     confirmAction: (token, proposalId) =>
       post('/api/confirm-action', { token, body: { proposal_id: proposalId } }),
+    getCuenta: (token) => get('/api/cuenta', { token }),
+    getMovimientos: (token) => get('/api/movimientos', { token }),
+    getMetas: (token) => get('/api/metas', { token }),
+    getApartados: (token) => get('/api/apartados', { token }),
+    getGastosFijos: (token) => get('/api/gastos-fijos', { token }),
+    getIngresosProgramados: (token) => get('/api/ingresos-programados', { token }),
   };
 }
 

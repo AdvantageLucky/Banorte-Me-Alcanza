@@ -235,33 +235,82 @@ body {
   font-size: var(--a2ui-font-size-s);
 }
 
-.chat-view {
+.app-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
-.chat-header {
+.app-shell-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app-navbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--a2ui-spacing-l);
   padding: var(--a2ui-spacing-m) var(--a2ui-spacing-l);
-  background: var(--a2ui-color-surface);
+  background-color: var(--color-primary);
   border-bottom: var(--a2ui-border-width) solid var(--a2ui-color-border);
   font-size: var(--a2ui-font-size-l);
   font-weight: 600;
-  color: var(--a2ui-color-primary);
 }
 
-.chat-header button {
+.app-navbar-brand {
+  font-family: "GBold";
+  color: var(--color-on-primary);
+  white-space: nowrap;
+}
+
+.app-navbar-tagline {
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-m);
+}
+
+.app-navbar-tabs {
+  display: flex;
+  gap: var(--a2ui-spacing-s);
+  flex: 1;
+}
+
+.app-navbar-tab {
   background: none;
-  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border: none;
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-s);
+  font-weight: 600;
+  color: var(--color-on-primary);
+  opacity: 0.75;
+}
+
+.app-navbar-tab-active {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.app-navbar-logout {
+  background: none;
+  border: var(--a2ui-border-width) solid var(--color-on-primary);
   border-radius: calc(var(--a2ui-border-radius) / 2);
   padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
   cursor: pointer;
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
   color: var(--color-on-primary);
+  white-space: nowrap;
+}
+
+.chat-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .chat-surfaces {
@@ -311,17 +360,6 @@ body {
   background: var(--color-on-primary);
 }
 
-.chat-header {
-  background-color: var(--color-primary);
-}
-.chat-header span:first-of-type {
-  font-family: "GBold";
-  color: var(--color-on-primary);
-}
-.chat-header-subtitle {
-  font-family: var(--a2ui-font-family-title);
-  font-size: var(--a2ui-font-size-m);
-}
 .chat-bot {
   margin-top: -30px;
   z-index: 1;
@@ -340,4 +378,201 @@ body {
   50% {
     opacity: 0;
   }
+}
+
+.yo-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.yo-subnav {
+  display: flex;
+  gap: var(--a2ui-spacing-xs);
+  overflow-x: auto;
+  padding: var(--a2ui-spacing-m) var(--a2ui-spacing-l) 0;
+  background: var(--color-surface);
+  border-bottom: var(--a2ui-border-width) solid var(--a2ui-color-border);
+}
+
+.yo-subnav-tab {
+  background: none;
+  border: none;
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-s);
+  font-weight: 600;
+  color: var(--color-secondary);
+  white-space: nowrap;
+}
+
+.yo-subnav-tab-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.yo-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--a2ui-spacing-l);
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-m);
+}
+
+.yo-state {
+  color: var(--color-secondary);
+  font-size: var(--a2ui-font-size-m);
+}
+
+.yo-state-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--a2ui-spacing-s);
+  color: #c5221f;
+}
+
+.yo-state-error button {
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  border: none;
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-s);
+}
+
+.yo-card {
+  background: var(--color-surface);
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: var(--a2ui-border-radius);
+  padding: var(--a2ui-spacing-m);
+}
+
+.yo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-s);
+}
+
+.yo-movimiento,
+.yo-apartado,
+.yo-recurrente {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--a2ui-spacing-m);
+}
+
+.yo-movimiento-fecha,
+.yo-apartado-detalle,
+.yo-recurrente-detalle {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: var(--a2ui-font-size-xs);
+}
+
+.yo-movimiento-concepto,
+.yo-apartado-monto,
+.yo-recurrente-label {
+  margin: 0;
+  font-weight: 600;
+}
+
+.yo-monto {
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.yo-monto-negativo {
+  color: #c5221f;
+}
+
+.yo-monto-positivo {
+  color: #1e8e3e;
+}
+
+.yo-cuenta-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-xs);
+}
+
+.yo-cuenta-titular {
+  margin: 0;
+  font-weight: 600;
+}
+
+.yo-cuenta-numero {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: var(--a2ui-font-size-s);
+}
+
+.yo-cuenta-saldo {
+  margin: var(--a2ui-spacing-xs) 0 0;
+  font-size: var(--a2ui-font-size-xl);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.yo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-xs);
+}
+
+.yo-meta-descripcion {
+  margin: 0;
+  font-weight: 600;
+}
+
+.yo-meta-progreso-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-background);
+  overflow: hidden;
+}
+
+.yo-meta-progreso-fill {
+  height: 100%;
+  background: var(--color-primary);
+}
+
+.yo-meta-montos,
+.yo-meta-fecha {
+  margin: 0;
+  font-size: var(--a2ui-font-size-s);
+  color: var(--color-secondary);
+}
+
+.yo-badge {
+  padding: var(--a2ui-spacing-xs) var(--a2ui-spacing-s);
+  border-radius: 999px;
+  font-size: var(--a2ui-font-size-xs);
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+  background: var(--color-background);
+  color: var(--color-secondary);
+}
+
+.yo-badge-activo {
+  background: #1e8e3e;
+  color: var(--color-on-primary);
+}
+
+.yo-badge-cancelado {
+  background: var(--color-border);
+  color: var(--color-secondary);
 }

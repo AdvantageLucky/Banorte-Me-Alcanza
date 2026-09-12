@@ -1,16 +1,16 @@
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx';
 import LoginView from './views/LoginView.jsx';
-import ChatView from './views/ChatView.jsx';
+import AppShell from './views/AppShell.jsx';
 
-function AppShell() {
+function AuthGate() {
   const { token } = useAuth();
-  return token ? <ChatView /> : <LoginView />;
+  return token ? <AppShell /> : <LoginView />;
 }
 
 export default function App() {
   return (
     <AuthProvider>
-      <AppShell />
+      <AuthGate />
     </AuthProvider>
   );
 }
