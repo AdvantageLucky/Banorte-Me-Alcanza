@@ -282,3 +282,62 @@ def test_delete_gasto_fijo(app):
         gasto_id = client.get("/api/gastos-fijos", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
         response = client.delete(f"/api/gastos-fijos/{gasto_id}", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 204
+
+
+def test_list_metas(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get("/api/metas", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+
+def test_create_meta(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.post(
+            "/api/metas",
+            json={"descripcion": "Viaje", "monto_objetivo": 20000.0, "fecha_objetivo": "2027-01-01"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["monto_ahorrado"] == 0
+
+
+def test_update_meta_parcial(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        meta_id = client.get("/api/metas", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        response = client.patch(
+            f"/api/metas/{meta_id}",
+            json={"monto_objetivo": 9000.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["monto_objetivo"] == 9000.0
+
+
+def test_delete_meta_sin_apartados(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        crear = client.post(
+            "/api/metas",
+            json={"descripcion": "Borrable", "monto_objetivo": 1000.0, "fecha_objetivo": "2027-01-01"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        meta_id = crear.json()["id"]
+        response = client.delete(f"/api/metas/{meta_id}", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 204
+
+
+def test_delete_meta_con_apartado_activo_devuelve_400(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        meta_id = client.get("/api/metas", headers={"Authorization": f"Bearer {token}"}).json()[0]["id"]
+        client.post(
+            "/api/apartados",
+            json={"meta_id": meta_id, "monto_por_periodo": 50.0, "periodicidad": "semanal"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        response = client.delete(f"/api/metas/{meta_id}", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 400

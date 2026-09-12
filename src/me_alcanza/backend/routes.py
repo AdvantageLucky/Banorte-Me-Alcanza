@@ -18,6 +18,9 @@ from .dtos import (
     IngresoProgramadoUpdate,
     LoginRequest,
     LoginResponse,
+    MetaCreate,
+    MetaResponse,
+    MetaUpdate,
     MovimientoResponse,
 )
 
@@ -334,5 +337,81 @@ async def delete_gasto_fijo(
         await request.app.state.mcp_client.call(
             "eliminar_gasto_fijo", {"account_id": account_id, "gasto_id": gasto_id}
         )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/metas", response_model=list[MetaResponse])
+async def list_metas(
+    request: Request, account_id: str = Depends(auth.get_current_account_id)
+) -> list[MetaResponse]:
+    try:
+        metas = await request.app.state.mcp_client.call("get_metas", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [MetaResponse(**m) for m in metas]
+
+
+@router.post("/metas", response_model=MetaResponse, status_code=201)
+async def create_meta(
+    payload: MetaCreate,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> MetaResponse:
+    try:
+        meta = await request.app.state.mcp_client.call(
+            "crear_meta",
+            {
+                "account_id": account_id,
+                "descripcion": payload.descripcion,
+                "monto_objetivo": payload.monto_objetivo,
+                "fecha_objetivo": str(payload.fecha_objetivo),
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return MetaResponse(**meta)
+
+
+@router.patch("/metas/{meta_id}", response_model=MetaResponse)
+async def update_meta(
+    meta_id: int,
+    payload: MetaUpdate,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> MetaResponse:
+    try:
+        metas = await request.app.state.mcp_client.call("get_metas", {"account_id": account_id})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    actual = next((m for m in metas if m["id"] == meta_id), None)
+    if actual is None:
+        raise HTTPException(status_code=400, detail=f"Meta no encontrada para esta cuenta: {meta_id}")
+
+    merged = {**actual, **payload.model_dump(exclude_unset=True)}
+    try:
+        actualizada = await request.app.state.mcp_client.call(
+            "actualizar_meta",
+            {
+                "account_id": account_id,
+                "meta_id": meta_id,
+                "descripcion": merged["descripcion"],
+                "monto_objetivo": merged["monto_objetivo"],
+                "fecha_objetivo": str(merged["fecha_objetivo"]),
+            },
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return MetaResponse(**actualizada)
+
+
+@router.delete("/metas/{meta_id}", status_code=204)
+async def delete_meta(
+    meta_id: int,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> None:
+    try:
+        await request.app.state.mcp_client.call("eliminar_meta", {"account_id": account_id, "meta_id": meta_id})
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
