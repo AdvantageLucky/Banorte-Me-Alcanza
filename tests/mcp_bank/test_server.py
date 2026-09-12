@@ -74,6 +74,11 @@ async def test_mcp_server_expone_las_tools_esperadas(tmp_path):
                 "generar_y_listar_sugerencias",
                 "marcar_sugerencia",
                 "calcular_score_salud_financiera",
+                "crear_conversacion",
+                "listar_conversaciones",
+                "obtener_mensajes_conversacion",
+                "agregar_mensaje_conversacion",
+                "eliminar_conversacion",
             }
 
 
@@ -272,3 +277,27 @@ async def test_mcp_server_calcular_score_salud_financiera(tmp_path):
             assert 0 <= resultado["score"] <= 100
             assert resultado["categoria"] in {"Saludable", "Atención", "Riesgo"}
             assert isinstance(resultado["factores"], list)
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_conversaciones_flujo_completo(tmp_path):
+    db_path = tmp_path / "test_banco.db"
+    async with stdio_client(_params(db_path)) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            conversacion = await _call(session, "crear_conversacion", {"account_id": "ana", "titulo": "x"})
+            await _call(
+                session,
+                "agregar_mensaje_conversacion",
+                {"account_id": "ana", "conversacion_id": conversacion["id"], "rol": "user", "contenido": "hola"},
+            )
+            mensajes = await _call(
+                session, "obtener_mensajes_conversacion", {"account_id": "ana", "conversacion_id": conversacion["id"]}
+            )
+            assert len(mensajes) == 1
+            listado = await _call(session, "listar_conversaciones", {"account_id": "ana"})
+            assert len(listado) == 1
+            resultado = await session.call_tool(
+                "eliminar_conversacion", {"account_id": "ana", "conversacion_id": conversacion["id"]}
+            )
+            assert resultado.is_error is False

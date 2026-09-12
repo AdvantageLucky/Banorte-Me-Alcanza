@@ -461,5 +461,63 @@ def calcular_score_salud_financiera(account_id: str) -> dict:
         conn.close()
 
 
+@mcp.tool()
+def crear_conversacion(account_id: str, titulo: str) -> dict:
+    """Crea un hilo de conversación nuevo para la cuenta del usuario."""
+    conn = _connection()
+    try:
+        return db.crear_conversacion(conn, account_id, titulo)
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def listar_conversaciones(account_id: str) -> list[dict]:
+    """Lista los hilos de conversación de la cuenta del usuario, más recientes primero."""
+    conn = _connection()
+    try:
+        return db.listar_conversaciones(conn, account_id)
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def obtener_mensajes_conversacion(account_id: str, conversacion_id: int) -> list[dict]:
+    """Obtiene el historial de mensajes de un hilo de conversación, en orden cronológico."""
+    conn = _connection()
+    try:
+        return db.obtener_mensajes_conversacion(conn, account_id, conversacion_id)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def agregar_mensaje_conversacion(account_id: str, conversacion_id: int, rol: str, contenido: str) -> dict:
+    """Agrega un mensaje ('user' o 'model') al historial de un hilo de conversación."""
+    conn = _connection()
+    try:
+        db.agregar_mensaje_conversacion(conn, account_id, conversacion_id, rol, contenido)
+        return {"ok": True}
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def eliminar_conversacion(account_id: str, conversacion_id: int) -> dict:
+    """Elimina un hilo de conversación y todos sus mensajes."""
+    conn = _connection()
+    try:
+        db.eliminar_conversacion(conn, account_id, conversacion_id)
+        return {"ok": True}
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     mcp.run()
