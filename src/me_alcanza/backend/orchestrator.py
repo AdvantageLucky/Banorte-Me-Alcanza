@@ -258,31 +258,35 @@ class Orchestrator:
     async def handle_message(self, account_id: str, mensaje: str) -> list[dict]:
         contents = [mensaje]
 
+        # Todo el flujo (tool loop + el reintento de auto-corrección de abajo) vive
+        # bajo un único try/except: una excepción en CUALQUIER punto -incluyendo la
+        # llamada a generate_content del reintento- debe caer al bloque de error,
+        # nunca propagarse cruda fuera de handle_message.
         try:
             final_text = await self._run_tool_loop(account_id, contents)
+
+            for attempt in range(2):
+                try:
+                    parts = self._fmt.parser.parse_response(final_text)
+                except Exception as exc:  # noqa: BLE001
+                    if attempt == 1:
+                        break
+                    contents.append(
+                        f"Tu respuesta anterior no era un bloque A2UI válido: {exc}. Corrígela."
+                    )
+                    config = self._generate_content_config()
+                    response = self._client.models.generate_content(
+                        model=self._model, contents=contents, config=config
+                    )
+                    final_text = response.text
+                    continue
+
+                for part in parts:
+                    if part.a2ui_json:
+                        return part.a2ui_json
+
+                break
         except Exception as exc:  # noqa: BLE001 - fallback controlado hacia UI de error
             return error_a2ui_block(f"Ocurrió un error al procesar tu solicitud: {exc}")
-
-        for attempt in range(2):
-            try:
-                parts = self._fmt.parser.parse_response(final_text)
-            except Exception as exc:  # noqa: BLE001
-                if attempt == 1:
-                    break
-                contents.append(
-                    f"Tu respuesta anterior no era un bloque A2UI válido: {exc}. Corrígela."
-                )
-                config = self._generate_content_config()
-                response = self._client.models.generate_content(
-                    model=self._model, contents=contents, config=config
-                )
-                final_text = response.text
-                continue
-
-            for part in parts:
-                if part.a2ui_json:
-                    return part.a2ui_json
-
-            break
 
         return error_a2ui_block("No se pudo generar una respuesta válida. Intenta de nuevo.")

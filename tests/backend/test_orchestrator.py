@@ -88,9 +88,13 @@ async def test_handle_message_get_movimientos_reenvia_limit():
     )
 
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
-    await orchestrator.handle_message("ana", "mis últimos movimientos")
+    messages = await orchestrator.handle_message("ana", "mis últimos movimientos")
 
     mcp_client.call.assert_awaited_once_with("get_movimientos", {"account_id": "ana", "limit": 3})
+    # El resultado de get_movimientos es una list; esto prueba que el round-trip
+    # completo (incluyendo Part.from_function_response con ese resultado) termina
+    # en el bloque A2UI real y no cae silenciosamente a error_a2ui_block.
+    assert messages[0]["createSurface"]["surfaceId"] == "main"
 
 
 @pytest.mark.asyncio
@@ -152,6 +156,27 @@ async def test_handle_message_respuesta_no_valida_cae_a_bloque_de_error():
         side_effect=[
             _mock_final_response("esto no tiene bloque a2ui"),
             _mock_final_response("tampoco esto"),
+        ]
+    )
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    messages = await orchestrator.handle_message("ana", "hola")
+
+    assert messages == error_a2ui_block(messages[2]["updateDataModel"]["value"]["mensaje"])
+
+
+@pytest.mark.asyncio
+async def test_handle_message_excepcion_en_reintento_de_autocorreccion_cae_a_bloque_de_error():
+    # Si la respuesta inicial no trae un bloque A2UI válido, handle_message pide
+    # una auto-corrección al modelo; si esa segunda llamada a generate_content
+    # explota, tampoco debe propagar la excepción cruda: debe caer al bloque de
+    # error igual que cualquier otra falla inesperada.
+    mcp_client = MagicMock()
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_final_response("esto no tiene bloque a2ui"),
+            RuntimeError("la API de Gemini falló"),
         ]
     )
 
