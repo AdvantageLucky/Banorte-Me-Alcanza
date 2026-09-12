@@ -998,3 +998,75 @@ async def test_handle_message_hace_fallback_a_modo_offline_si_gemini_falla():
     assert "createSurface" in messages[0]
     valores = next(m for m in messages if "updateDataModel" in m)["updateDataModel"]["value"]
     assert "offline" in str(valores).lower()
+
+
+@pytest.mark.asyncio
+async def test_handle_message_provider_fake_no_llama_a_generate_content():
+    # provider="fake" debe saltarse Gemini por completo: nunca se llama a
+    # generate_content, solo se usa la salida determinista de fake_provider.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock()
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client, provider="fake")
+    messages = await orchestrator.handle_message("ana", 1, "¿cuál es mi saldo?")
+
+    genai_client.models.generate_content.assert_not_called()
+    assert "createSurface" in messages[0]
+
+
+@pytest.mark.asyncio
+async def test_handle_message_provider_fake_excepcion_cae_a_bloque_de_error_generico():
+    # Si el provider YA es "fake" y algo dentro del try explota (ej. la carga
+    # de historial), no tiene sentido reintentar el fallback offline (ya
+    # estamos en modo offline): debe caer directo al bloque de error genérico,
+    # nunca a una segunda tarjeta offline.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=RuntimeError("fallo al cargar historial"))
+    genai_client = MagicMock()
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client, provider="fake")
+    messages = await orchestrator.handle_message("ana", 1, "hola")
+
+    assert messages == error_a2ui_block(
+        messages[2]["updateDataModel"]["value"]["mensaje"],
+        surface_id=messages[0]["createSurface"]["surfaceId"],
+    )
+
+
+@pytest.mark.asyncio
+async def test_handle_message_fallback_offline_no_persiste_historial():
+    # Requisito global: el fallback offline nunca contamina el historial de la
+    # conversación -- una respuesta de emergencia no debe guardarse como si
+    # fuera un turno real.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(side_effect=RuntimeError("429 cuota agotada"))
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    await orchestrator.handle_message("ana", 1, "¿cuál es mi saldo?")
+
+    llamadas = [c.args[0] for c in mcp_client.call.call_args_list]
+    assert "agregar_mensaje_conversacion" not in llamadas
+
+
+@pytest.mark.asyncio
+async def test_handle_message_fallo_al_persistir_no_descarta_respuesta_exitosa():
+    # Regresión del hallazgo crítico: una excepción al persistir el turno
+    # (lock de sqlite, conversación borrada, caída del MCP) jamás debe tirar
+    # una respuesta ya generada con éxito ni reemplazarla por una tarjeta
+    # offline falsa.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], RuntimeError("persist failed")])
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(side_effect=[_mock_final_response(SALDO_A2UI_RESPONSE)])
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    messages = await orchestrator.handle_message("ana", 1, "¿cuánto tengo?")
+
+    assert "createSurface" in messages[0]
+    valores = next(m for m in messages if "updateDataModel" in m)["updateDataModel"]["value"]
+    assert "offline" not in str(valores).lower()
+    assert valores == {"msg": "Tu saldo es $500.0 MXN"}

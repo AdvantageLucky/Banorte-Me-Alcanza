@@ -825,20 +825,21 @@ class Orchestrator:
             )
 
     async def handle_message(self, account_id: str, conversacion_id: int, mensaje: str) -> list[dict]:
-        historial = await self._mcp.call(
-            "obtener_mensajes_conversacion", {"account_id": account_id, "conversacion_id": conversacion_id}
-        )
-        contents = [
-            types.Content(role=m["rol"], parts=[types.Part.from_text(text=m["contenido"])])
-            for m in historial
-        ]
-        contents.append(types.Content(role="user", parts=[types.Part.from_text(text=mensaje)]))
-
-        # Todo el flujo (tool loop + el reintento de auto-corrección de abajo) vive
-        # bajo un único try/except: una excepción en CUALQUIER punto -incluyendo la
-        # llamada a generate_content del reintento- debe caer al bloque de error,
-        # nunca propagarse cruda fuera de handle_message.
+        # Todo el flujo (carga de historial, tool loop y el reintento de
+        # auto-corrección de abajo) vive bajo un único try/except: una excepción
+        # en CUALQUIER punto -incluyendo la carga de historial y la llamada a
+        # generate_content del reintento- debe caer al bloque de error, nunca
+        # propagarse cruda fuera de handle_message.
         try:
+            historial = await self._mcp.call(
+                "obtener_mensajes_conversacion", {"account_id": account_id, "conversacion_id": conversacion_id}
+            )
+            contents = [
+                types.Content(role=m["rol"], parts=[types.Part.from_text(text=m["contenido"])])
+                for m in historial
+            ]
+            contents.append(types.Content(role="user", parts=[types.Part.from_text(text=mensaje)]))
+
             if self._provider == "fake":
                 final_text = fake_provider.generar_respuesta_offline(mensaje)
             else:
@@ -862,24 +863,37 @@ class Orchestrator:
 
                 for part in parts:
                     if part.a2ui_json:
-                        await self._mcp.call(
-                            "agregar_mensaje_conversacion",
-                            {
-                                "account_id": account_id,
-                                "conversacion_id": conversacion_id,
-                                "rol": "user",
-                                "contenido": mensaje,
-                            },
-                        )
-                        await self._mcp.call(
-                            "agregar_mensaje_conversacion",
-                            {
-                                "account_id": account_id,
-                                "conversacion_id": conversacion_id,
-                                "rol": "model",
-                                "contenido": final_text,
-                            },
-                        )
+                        # La persistencia del turno se protege en su propio
+                        # try/except, separado del try externo que activa el
+                        # fallback offline: una falla al guardar (lock de sqlite,
+                        # conversación borrada a mitad del turno, caída del
+                        # transporte MCP) nunca debe tirar una respuesta ya
+                        # generada con éxito ni disfrazarla de una respuesta
+                        # offline falsa. Solo se loguea.
+                        try:
+                            await self._mcp.call(
+                                "agregar_mensaje_conversacion",
+                                {
+                                    "account_id": account_id,
+                                    "conversacion_id": conversacion_id,
+                                    "rol": "user",
+                                    "contenido": mensaje,
+                                },
+                            )
+                            await self._mcp.call(
+                                "agregar_mensaje_conversacion",
+                                {
+                                    "account_id": account_id,
+                                    "conversacion_id": conversacion_id,
+                                    "rol": "model",
+                                    "contenido": final_text,
+                                },
+                            )
+                        except Exception:  # noqa: BLE001 - no persistir no debe tirar una respuesta ya exitosa
+                            _logger.exception(
+                                "no se pudo persistir el turno de conversación, "
+                                "la respuesta ya se generó con éxito"
+                            )
                         return _rewrite_surface_id(part.a2ui_json, _new_surface_id())
 
                 break
