@@ -560,3 +560,9 @@ def test_eliminar_conversacion_de_otra_cuenta_falla(conn):
     conversacion = db.crear_conversacion(conn, "ana", "x")
     with pytest.raises(ValueError):
         db.eliminar_conversacion(conn, "luis", conversacion["id"])
+
+
+def test_agregar_mensaje_rol_invalido_falla(conn):
+    conversacion = db.crear_conversacion(conn, "ana", "x")
+    with pytest.raises(ValueError):
+        db.agregar_mensaje_conversacion(conn, "ana", conversacion["id"], "assistant", "hola")

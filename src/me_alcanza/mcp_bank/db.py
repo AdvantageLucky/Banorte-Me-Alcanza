@@ -751,6 +751,7 @@ def get_resumen_movimientos(
 
 
 _ESTADOS_VALIDOS_SUGERENCIA = {"pendiente", "atendida", "descartada"}
+_ROLES_VALIDOS_MENSAJE = {"user", "model"}
 
 
 def crear_sugerencia(
@@ -881,6 +882,8 @@ def obtener_mensajes_conversacion(conn: sqlite3.Connection, account_id: str, con
 def agregar_mensaje_conversacion(
     conn: sqlite3.Connection, account_id: str, conversacion_id: int, rol: str, contenido: str
 ) -> None:
+    if rol not in _ROLES_VALIDOS_MENSAJE:
+        raise ValueError(f"Rol inválido para un mensaje de conversación: {rol}")
     _verificar_conversacion(conn, account_id, conversacion_id)
     ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn.execute(
