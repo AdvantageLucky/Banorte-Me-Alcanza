@@ -343,14 +343,20 @@ class ApiClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       String? detail;
       try {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        // NO usar response.body: decodifica según el charset del header
+        // Content-Type, y cae a latin1 si no hay uno declarado (que es
+        // el caso cuando el header no existe, ej. en tests) —
+        // corrompería acentos/ñ. Toda esta API es JSON, que por RFC 8259
+        // siempre es UTF-8, así que se decodifica explícito.
+        final decoded =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         detail = decoded['detail'] as String?;
       } catch (_) {
         detail = null;
       }
       throw ApiException(response.statusCode, detail);
     }
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
   }
 }
 ```
