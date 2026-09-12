@@ -234,6 +234,82 @@ def read_only_tool_declarations() -> list[types.Tool]:
                         required=["meta_id", "monto_por_periodo", "periodicidad"],
                     ),
                 ),
+                types.FunctionDeclaration(
+                    name="proponer_contacto",
+                    description=(
+                        "Propone agregar un contacto/beneficiario nuevo a la lista del usuario. "
+                        "NO lo crea: solo genera una propuesta que el usuario debe confirmar "
+                        "explícitamente en la UI."
+                    ),
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "nombre": types.Schema(type=types.Type.STRING),
+                            "alias": types.Schema(type=types.Type.STRING),
+                            "cuenta_destino": types.Schema(type=types.Type.STRING),
+                            "relacion": types.Schema(type=types.Type.STRING),
+                        },
+                        required=["nombre", "alias", "cuenta_destino", "relacion"],
+                    ),
+                ),
+                types.FunctionDeclaration(
+                    name="proponer_gasto_fijo",
+                    description=(
+                        "Propone agregar un gasto fijo recurrente nuevo (ej. renta, colegiatura) a "
+                        "la cuenta del usuario. NO lo crea: solo genera una propuesta que el usuario "
+                        "debe confirmar explícitamente en la UI."
+                    ),
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "concepto": types.Schema(type=types.Type.STRING),
+                            "monto": types.Schema(type=types.Type.NUMBER),
+                            "frecuencia": types.Schema(type=types.Type.STRING),
+                            "proxima_fecha": types.Schema(
+                                type=types.Type.STRING, description="Formato YYYY-MM-DD."
+                            ),
+                        },
+                        required=["concepto", "monto", "frecuencia", "proxima_fecha"],
+                    ),
+                ),
+                types.FunctionDeclaration(
+                    name="proponer_ingreso_programado",
+                    description=(
+                        "Propone agregar un ingreso recurrente nuevo (ej. nómina, renta cobrada) a "
+                        "la cuenta del usuario. NO lo crea: solo genera una propuesta que el usuario "
+                        "debe confirmar explícitamente en la UI."
+                    ),
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "descripcion": types.Schema(type=types.Type.STRING),
+                            "monto": types.Schema(type=types.Type.NUMBER),
+                            "frecuencia": types.Schema(type=types.Type.STRING),
+                            "proxima_fecha": types.Schema(
+                                type=types.Type.STRING, description="Formato YYYY-MM-DD."
+                            ),
+                        },
+                        required=["descripcion", "monto", "frecuencia", "proxima_fecha"],
+                    ),
+                ),
+                types.FunctionDeclaration(
+                    name="proponer_meta",
+                    description=(
+                        "Propone crear una meta de ahorro nueva. NO la crea: solo genera una "
+                        "propuesta que el usuario debe confirmar explícitamente en la UI."
+                    ),
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "descripcion": types.Schema(type=types.Type.STRING),
+                            "monto_objetivo": types.Schema(type=types.Type.NUMBER),
+                            "fecha_objetivo": types.Schema(
+                                type=types.Type.STRING, description="Formato YYYY-MM-DD."
+                            ),
+                        },
+                        required=["descripcion", "monto_objetivo", "fecha_objetivo"],
+                    ),
+                ),
             ]
         )
     ]
@@ -275,7 +351,17 @@ def build_system_prompt() -> str:
             "ingresos, gastos, metas o contactos: siempre usa el resultado real de las herramientas. "
             "El surfaceId que uses no importa: el sistema le asigna uno nuevo a cada turno "
             "automáticamente, así que usa cualquier id consistente dentro de tu propia respuesta "
-            "(el mismo en createSurface, updateComponents y updateDataModel de este turno)."
+            "(el mismo en createSurface, updateComponents y updateDataModel de este turno). "
+            "Para agregar datos nuevos que el usuario mencione en la conversación (un "
+            "contacto/beneficiario nuevo, un gasto fijo nuevo, un ingreso programado nuevo, o una "
+            "meta de ahorro nueva), usa 'proponer_contacto', 'proponer_gasto_fijo', "
+            "'proponer_ingreso_programado' o 'proponer_meta' según corresponda, y muestra una "
+            "tarjeta de confirmación con el mismo patrón de 'confirmar_accion' + proposalId que ya "
+            "usas para transferencias y apartados. Nunca afirmes que un contacto, gasto fijo, "
+            "ingreso programado o meta ya se guardó: solo se crean cuando el usuario confirma "
+            "explícitamente. Estas herramientas son solo para CREAR: editar o borrar un contacto/"
+            "gasto fijo/ingreso programado/meta existente no se hace por chat, dile al usuario que "
+            "lo haga desde la pantalla correspondiente."
         ),
         ui_description=(
             "Usa SIEMPRE jerarquía visual, nunca texto plano sin estructura: "
@@ -381,6 +467,18 @@ class Orchestrator:
         if call.name == "proponer_apartado":
             return self._proponer_apartado(account_id, call.args)
 
+        if call.name == "proponer_contacto":
+            return self._proponer_contacto(account_id, call.args)
+
+        if call.name == "proponer_gasto_fijo":
+            return self._proponer_gasto_fijo(account_id, call.args)
+
+        if call.name == "proponer_ingreso_programado":
+            return self._proponer_ingreso_programado(account_id, call.args)
+
+        if call.name == "proponer_meta":
+            return self._proponer_meta(account_id, call.args)
+
         return {"error": f"Herramienta no permitida: {call.name}"}
 
     async def _proponer_transferencia(self, account_id: str, args: dict) -> dict:
@@ -448,6 +546,126 @@ class Orchestrator:
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
+    def _proponer_contacto(self, account_id: str, args: dict) -> dict:
+        args = args or {}
+        nombre = args.get("nombre")
+        alias = args.get("alias")
+        cuenta_destino = args.get("cuenta_destino")
+        relacion = args.get("relacion")
+        if not nombre:
+            return {"error": "Falta el argumento requerido: nombre"}
+        if not alias:
+            return {"error": "Falta el argumento requerido: alias"}
+        if not cuenta_destino:
+            return {"error": "Falta el argumento requerido: cuenta_destino"}
+        if not relacion:
+            return {"error": "Falta el argumento requerido: relacion"}
+
+        proposal = proposals.crear_propuesta(
+            account_id=account_id,
+            tipo="contacto",
+            payload={
+                "nombre": nombre,
+                "alias": alias,
+                "cuenta_destino": cuenta_destino,
+                "relacion": relacion,
+            },
+            resumen=f"Agregar a {nombre} ({alias}) como contacto",
+        )
+        return {"proposalId": proposal.id, "resumen": proposal.resumen}
+
+    def _proponer_gasto_fijo(self, account_id: str, args: dict) -> dict:
+        args = args or {}
+        concepto = args.get("concepto")
+        monto = args.get("monto")
+        frecuencia = args.get("frecuencia")
+        proxima_fecha = args.get("proxima_fecha")
+        if not concepto:
+            return {"error": "Falta el argumento requerido: concepto"}
+        if monto is None:
+            return {"error": "Falta el argumento requerido: monto"}
+        if not frecuencia:
+            return {"error": "Falta el argumento requerido: frecuencia"}
+        if not proxima_fecha:
+            return {"error": "Falta el argumento requerido: proxima_fecha"}
+
+        monto = float(monto)
+        if monto <= 0:
+            return {"error": "El monto debe ser mayor a cero"}
+
+        proposal = proposals.crear_propuesta(
+            account_id=account_id,
+            tipo="gasto_fijo",
+            payload={
+                "concepto": concepto,
+                "monto": monto,
+                "frecuencia": frecuencia,
+                "proxima_fecha": proxima_fecha,
+            },
+            resumen=f"Agregar gasto fijo: {concepto} (${monto:.2f} {frecuencia})",
+        )
+        return {"proposalId": proposal.id, "resumen": proposal.resumen}
+
+    def _proponer_ingreso_programado(self, account_id: str, args: dict) -> dict:
+        args = args or {}
+        descripcion = args.get("descripcion")
+        monto = args.get("monto")
+        frecuencia = args.get("frecuencia")
+        proxima_fecha = args.get("proxima_fecha")
+        if not descripcion:
+            return {"error": "Falta el argumento requerido: descripcion"}
+        if monto is None:
+            return {"error": "Falta el argumento requerido: monto"}
+        if not frecuencia:
+            return {"error": "Falta el argumento requerido: frecuencia"}
+        if not proxima_fecha:
+            return {"error": "Falta el argumento requerido: proxima_fecha"}
+
+        monto = float(monto)
+        if monto <= 0:
+            return {"error": "El monto debe ser mayor a cero"}
+
+        proposal = proposals.crear_propuesta(
+            account_id=account_id,
+            tipo="ingreso_programado",
+            payload={
+                "descripcion": descripcion,
+                "monto": monto,
+                "frecuencia": frecuencia,
+                "proxima_fecha": proxima_fecha,
+            },
+            resumen=f"Agregar ingreso programado: {descripcion} (${monto:.2f} {frecuencia})",
+        )
+        return {"proposalId": proposal.id, "resumen": proposal.resumen}
+
+    def _proponer_meta(self, account_id: str, args: dict) -> dict:
+        args = args or {}
+        descripcion = args.get("descripcion")
+        monto_objetivo = args.get("monto_objetivo")
+        fecha_objetivo = args.get("fecha_objetivo")
+        if not descripcion:
+            return {"error": "Falta el argumento requerido: descripcion"}
+        if monto_objetivo is None:
+            return {"error": "Falta el argumento requerido: monto_objetivo"}
+        if not fecha_objetivo:
+            return {"error": "Falta el argumento requerido: fecha_objetivo"}
+
+        monto_objetivo = float(monto_objetivo)
+        if monto_objetivo <= 0:
+            return {"error": "El monto_objetivo debe ser mayor a cero"}
+
+        proposal = proposals.crear_propuesta(
+            account_id=account_id,
+            tipo="meta",
+            payload={
+                "descripcion": descripcion,
+                "monto_objetivo": monto_objetivo,
+                "fecha_objetivo": fecha_objetivo,
+            },
+            resumen=f"Crear meta: {descripcion} (${monto_objetivo:.2f})",
+        )
+        return {"proposalId": proposal.id, "resumen": proposal.resumen}
+
     async def confirm_action(self, account_id: str, proposal_id: str) -> list[dict]:
         proposal = proposals.obtener_propuesta_valida(proposal_id, account_id)
         if proposal is None:
@@ -502,6 +720,65 @@ class Orchestrator:
                 )
                 return _confirmation_a2ui_block(
                     f"Transferencia realizada. Nuevo saldo: ${resultado['nuevo_saldo']:.2f}"
+                )
+
+            if proposal.tipo == "contacto":
+                await self._mcp.call(
+                    "crear_contacto",
+                    {
+                        "account_id": account_id,
+                        "nombre": proposal.payload["nombre"],
+                        "alias": proposal.payload["alias"],
+                        "cuenta_destino": proposal.payload["cuenta_destino"],
+                        "relacion": proposal.payload["relacion"],
+                    },
+                )
+                return _confirmation_a2ui_block(
+                    f"Contacto {proposal.payload['nombre']} agregado correctamente."
+                )
+
+            if proposal.tipo == "gasto_fijo":
+                await self._mcp.call(
+                    "crear_gasto_fijo",
+                    {
+                        "account_id": account_id,
+                        "concepto": proposal.payload["concepto"],
+                        "monto": proposal.payload["monto"],
+                        "frecuencia": proposal.payload["frecuencia"],
+                        "proxima_fecha": proposal.payload["proxima_fecha"],
+                    },
+                )
+                return _confirmation_a2ui_block(
+                    f"Gasto fijo '{proposal.payload['concepto']}' agregado correctamente."
+                )
+
+            if proposal.tipo == "ingreso_programado":
+                await self._mcp.call(
+                    "crear_ingreso_programado",
+                    {
+                        "account_id": account_id,
+                        "descripcion": proposal.payload["descripcion"],
+                        "monto": proposal.payload["monto"],
+                        "frecuencia": proposal.payload["frecuencia"],
+                        "proxima_fecha": proposal.payload["proxima_fecha"],
+                    },
+                )
+                return _confirmation_a2ui_block(
+                    f"Ingreso programado '{proposal.payload['descripcion']}' agregado correctamente."
+                )
+
+            if proposal.tipo == "meta":
+                await self._mcp.call(
+                    "crear_meta",
+                    {
+                        "account_id": account_id,
+                        "descripcion": proposal.payload["descripcion"],
+                        "monto_objetivo": proposal.payload["monto_objetivo"],
+                        "fecha_objetivo": proposal.payload["fecha_objetivo"],
+                    },
+                )
+                return _confirmation_a2ui_block(
+                    f"Meta '{proposal.payload['descripcion']}' creada correctamente."
                 )
 
             return error_a2ui_block(f"Tipo de propuesta desconocido: {proposal.tipo}")
