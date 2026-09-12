@@ -61,7 +61,7 @@ export default function LoginView() {
         </div>
 
         <div className="login-video-wrap">
-          {!videoFailed && (
+          <div className="login-animation">
             <video
               className="login-video"
               autoPlay
@@ -70,9 +70,14 @@ export default function LoginView() {
               playsInline
               onError={() => setVideoFailed(true)}
             >
-              <source src="/videos/login-animation.mp4" type="video/mp4" />
+              <source src="/videos/animacion2.webm" type="video/webm" />
             </video>
-          )}
+          </div>
+
+          <div className="login-video-text">
+            <h2>¡Hola!</h2>
+            <p>Bienvenido a nuestra plataforma.</p>
+          </div>
         </div>
       </div>
     </div>
