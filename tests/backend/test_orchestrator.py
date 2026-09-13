@@ -64,6 +64,15 @@ SALDO_SIN_ROOT_A2UI_RESPONSE = f'''Aquí está tu saldo:
 '''
 
 
+SALDO_SURFACE_VACIA_A2UI_RESPONSE = f'''Aquí está tu saldo:
+<a2ui-json>
+[
+  {{"version": "v0.9", "createSurface": {{"surfaceId": "main", "catalogId": "{CATALOG_ID}"}}}}
+]
+</a2ui-json>
+'''
+
+
 def test_new_surface_id_es_unico_cada_vez():
     assert _new_surface_id() != _new_surface_id()
 
@@ -314,6 +323,57 @@ async def test_handle_message_respuesta_sin_id_root_se_autocorrige():
 
     segunda_llamada_contents = genai_client.models.generate_content.call_args_list[1].kwargs["contents"]
     assert any("root" in str(c) for c in segunda_llamada_contents)
+
+
+@pytest.mark.asyncio
+async def test_handle_message_superficie_sin_componentes_se_autocorrige():
+    # Regresión encontrada en producción: un createSurface SIN updateComponents
+    # (ej. tras un error de negocio del MCP que descarrila al modelo) parsea
+    # sin error porque integrity_checker.py solo valida id="root" cuando SÍ
+    # hay componentes — sin este chequeo, el usuario veía una pantalla en
+    # blanco sin ningún mensaje de error.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_final_response(SALDO_SURFACE_VACIA_A2UI_RESPONSE),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    messages = await orchestrator.handle_message("ana", 1, "¿cuál es mi saldo?")
+
+    componentes = next(m for m in messages if "updateComponents" in m)["updateComponents"]["components"]
+    assert any(c["id"] == "root" for c in componentes)
+
+    segunda_llamada_contents = genai_client.models.generate_content.call_args_list[1].kwargs["contents"]
+    assert any("componente" in str(c) for c in segunda_llamada_contents)
+
+
+@pytest.mark.asyncio
+async def test_handle_message_superficie_sin_componentes_dos_veces_cae_a_error_generico():
+    # Si ni siquiera el reintento produce componentes, no debe devolver una
+    # superficie vacía de todos modos: debe caer al error genérico (mejor
+    # que una pantalla en blanco sin explicación).
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_final_response(SALDO_SURFACE_VACIA_A2UI_RESPONSE),
+            _mock_final_response(SALDO_SURFACE_VACIA_A2UI_RESPONSE),
+        ]
+    )
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    messages = await orchestrator.handle_message("ana", 1, "¿cuál es mi saldo?")
+
+    assert messages == error_a2ui_block(
+        "No se pudo generar una respuesta válida. Intenta de nuevo.",
+        surface_id=messages[0]["createSurface"]["surfaceId"],
+    )
 
 
 @pytest.mark.asyncio
@@ -677,11 +737,64 @@ async def test_confirm_action_transferencia_contacto_ya_no_existe_cae_a_error():
 
     messages = await orchestrator.confirm_action("ana", proposal.id)
 
-    assert messages == error_a2ui_block(
-        messages[2]["updateDataModel"]["value"]["mensaje"],
-        surface_id=messages[0]["createSurface"]["surfaceId"],
-    )
+    # Este caso ya tenía su propia traducción más amigable (revalidación de
+    # contacto, más específica que el catch-all de RuntimeError) — gana
+    # precedencia por estar en un try/except propio dentro de la rama
+    # "transferencia", antes de llegar al manejador genérico.
+    assert messages[2]["updateDataModel"]["value"]["mensaje"] == "El contacto de esta propuesta ya no existe."
     assert proposal.id not in proposals.PROPOSALS
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_error_de_negocio_del_mcp_muestra_el_mensaje_real_no_uno_generico():
+    # Regresión: "Saldo insuficiente para el primer periodo del apartado" (un
+    # ToolError real de crear_apartado) caía antes en el catch-all genérico y
+    # el usuario nunca se enteraba de que reintentar no lo iba a arreglar.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(
+        side_effect=RuntimeError("Saldo insuficiente para el primer periodo del apartado")
+    )
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "apartado",
+        {"meta_id": 1, "monto_por_periodo": 5249.50, "periodicidad": "semanal", "num_periodos": 2},
+        "Apartar $5,249.50 semanales",
+    )
+
+    messages = await orchestrator.confirm_action("ana", proposal.id)
+
+    assert (
+        messages[2]["updateDataModel"]["value"]["mensaje"]
+        == "Saldo insuficiente para el primer periodo del apartado"
+    )
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_error_inesperado_no_de_mcp_muestra_mensaje_generico():
+    # Al contrario del caso de arriba: una excepción que NO viene de
+    # mcp_client.call (ej. algo interno del propio orquestador) sí debe
+    # esconder su texto crudo — puede traer detalles que no son seguros de
+    # mostrar (ver el comentario junto al catch-all en confirm_action).
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=ValueError("boom interno inesperado"))
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "apartado",
+        {"meta_id": 1, "monto_por_periodo": 100.0, "periodicidad": "semanal", "num_periodos": 2},
+        "Apartar $100 semanales",
+    )
+
+    messages = await orchestrator.confirm_action("ana", proposal.id)
+
+    mensaje = messages[2]["updateDataModel"]["value"]["mensaje"]
+    assert mensaje == "No se pudo completar la acción. Intenta de nuevo en unos momentos."
+    assert "boom interno inesperado" not in mensaje
 
 
 def test_read_only_tool_declarations_expone_exactamente_las_herramientas_permitidas():

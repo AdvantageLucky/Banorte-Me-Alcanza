@@ -71,6 +71,21 @@ def _as_function_response_payload(value: Any) -> dict:
 _SURFACE_MESSAGE_KEYS = ("createSurface", "updateComponents", "updateDataModel")
 
 
+def _tiene_componentes_visibles(a2ui_json: list[dict]) -> bool:
+    # El parser de a2ui valida que exista un componente con id="root" SOLO
+    # cuando hay al menos un mensaje updateComponents con componentes — un
+    # bloque que trae únicamente createSurface (sin updateComponents, o con
+    # 'components' vacío) no tiene nada que validar, así que parsea sin
+    # error y el usuario ve una superficie completamente en blanco, sin
+    # ningún mensaje de error. Se observó en producción con
+    # simular_flujo_de_caja tras un error de negocio del MCP.
+    return any(
+        message.get("updateComponents", {}).get("components")
+        for message in a2ui_json
+        if "updateComponents" in message
+    )
+
+
 def _new_surface_id() -> str:
     # Cada turno de la conversación recibe su propia superficie: así se apila
     # como una transcripción de chat en vez de sobrescribir la misma tarjeta.
@@ -675,7 +690,10 @@ def build_system_prompt() -> str:
             "visualmente montos pequeños y urgentes (ej. una renta que vence en días), aunque sean "
             "más importantes. Úsalo SIEMPRE que 'get_resumen_movimientos' devuelva 2 o más "
             "categorías, con bars=[{label: categoria, value: total} por cada fila] — nunca "
-            "inventes categorías o montos que la herramienta no devolvió. Para un calendario o "
+            "inventes categorías o montos que la herramienta no devolvió. Si 'get_resumen_movimientos' "
+            "devuelve UNA sola categoría, NO uses BarChart ni DonutChart (ni ningún otro gráfico): una "
+            "gráfica de un solo dato no compara nada, es decoración pura — di el total y la "
+            "categoría en Text/StatCard, como ya haces para el resto del resumen. Para un calendario o "
             "resumen de próximos eventos financieros (ingresos programados, gastos fijos, metas), "
             "NO uses BarChart: lista cada grupo por separado con Text/Row simples (como ya haces "
             "para 'Próximos Ingresos', 'Gastos Fijos Próximos', 'Metas de Ahorro'), sin además "
@@ -690,12 +708,12 @@ def build_system_prompt() -> str:
             "PlanDePago muestra una lista de alternativas seleccionables, como una tabla de planes "
             "(props: title y subtitle opcionales, options=lista de {id, label, detail, amount ya "
             "formateado, highlighted opcional}, selectedId enlazado a un path del data model igual "
-            "que los demás componentes de entrada). Úsalo con 'apartado_sugerido' de "
-            "'simular_flujo_de_caja' (una sola opción está bien: id='sugerido', "
-            "label=f'{periodicidad}', detail=f'{num_periodos} periodos', "
-            "amount=monto_por_periodo formateado) seguido de un Button normal cuya "
-            "'action.event.context' lea ese mismo path — nunca inventes tasas, CAT ni plazos "
-            "adicionales que la herramienta no calculó. "
+            "que los demás componentes de entrada). Es para elegir entre VARIAS alternativas "
+            "genuinamente distintas (ej. distintos plazos de un plan de pago, cada uno con su "
+            "propio CAT/monto) — nunca lo uses para un solo apartado con un solo monto sugerido: "
+            "para ESE caso usa ApartadoPlanner (ver abajo), que además deja ajustar el monto antes "
+            "de confirmar. Nunca inventes tasas, CAT ni plazos adicionales que la herramienta no "
+            "calculó. "
             "LineChart dibuja una serie de puntos conectados por una línea (props: title y "
             "valuePrefix opcionales, points=lista de {label, value, tone opcional para marcar UN "
             "punto crítico}, thresholdValue/thresholdLabel opcionales para una línea de "
@@ -706,7 +724,10 @@ def build_system_prompt() -> str:
             "reemplaza el texto plano de '¿cómo se calculó?': muestra la gráfica en vez de (o "
             "además de) los montos en un Modal. Nunca inventes puntos intermedios que la "
             "herramienta no devolvió — usa la serie tal cual, en el mismo orden. "
-            "ApartadoPlanner es un slider interactivo para ajustar un apartado de ahorro (props: "
+            "ApartadoPlanner es un slider interactivo para ajustar un apartado de ahorro — "
+            "es la opción CORRECTA (no PlanDePago) cada vez que sugieras un apartado con UN solo "
+            "monto propuesto, incluso si a ti solo se te ocurre una cifra: el usuario puede "
+            "arrastrar el slider a lo que sí le funcione antes de confirmar (props: "
             "title/subtitle opcionales, montoObjetivo=el déficit real en pesos, "
             "periodicidadLabel=ej 'semanal', minMonto/maxMonto para el rango del slider, "
             "montoPorPeriodo enlazado a un path del data model). El componente calcula SOLO en "
@@ -1174,6 +1195,17 @@ class Orchestrator:
                 )
 
             return error_a2ui_block(f"Tipo de propuesta desconocido: {proposal.tipo}")
+        except RuntimeError as exc:
+            # confirm_action nunca llama al LLM (solo al MCP): el único lugar
+            # del código que lanza RuntimeError es BankMcpClient.call cuando
+            # una tool devuelve ToolError — es decir, un mensaje de regla de
+            # negocio ya sanitizado por nosotros mismos (ej. "Saldo
+            # insuficiente para el primer periodo del apartado"), seguro de
+            # mostrar tal cual. Antes caía en el catch-all genérico de abajo
+            # y el usuario nunca se enteraba de POR QUÉ falló ni de que
+            # reintentar no iba a arreglarlo.
+            _logger.warning("confirm_action rechazado por regla de negocio: %s", exc)
+            return error_a2ui_block(str(exc))
         except Exception:  # noqa: BLE001 - fallback controlado hacia UI de error
             # Nunca se interpola el texto crudo de la excepción en el mensaje
             # que ve el usuario: puede traer payloads de proveedores externos
@@ -1287,6 +1319,23 @@ class Orchestrator:
                         break
                     contents.append(
                         f"Tu respuesta anterior no era un bloque A2UI válido: {exc}. Corrígela."
+                    )
+                    config = self._generate_content_config()
+                    response = self._client.models.generate_content(
+                        model=self._model, contents=contents, config=config
+                    )
+                    final_text = response.text
+                    continue
+
+                a2ui_part = next((part for part in parts if part.a2ui_json), None)
+                if a2ui_part is not None and not _tiene_componentes_visibles(a2ui_part.a2ui_json):
+                    if attempt == 1:
+                        break
+                    contents.append(
+                        "Tu respuesta anterior creó una superficie pero no generó ningún "
+                        "componente visible (falta 'updateComponents' o vino vacío): quien "
+                        "la reciba ve una pantalla en blanco, sin ningún mensaje. Genera al "
+                        "menos un componente con id: 'root'."
                     )
                     config = self._generate_content_config()
                     response = self._client.models.generate_content(
