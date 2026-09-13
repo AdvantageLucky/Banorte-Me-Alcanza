@@ -5,8 +5,11 @@ services:
       - "10000:10000"
     environment:
       PORT: "10000"
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       GOOGLE_AI_STUDIO_API_KEY: ${GOOGLE_AI_STUDIO_API_KEY}
-      GEMINI_MODEL: ${GEMINI_MODEL}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       JWT_SECRET: ${JWT_SECRET}
       BANK_DB_PATH: /data/banco.db
     volumes:

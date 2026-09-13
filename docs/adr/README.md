@@ -29,6 +29,7 @@ reemplazada y se escribe una nueva.
 | [0019](0019-sugerencias-proactivas-sin-llm.md) | Sugerencias proactivas deterministas, fuera del chat | Aceptada |
 | [0020](0020-explicabilidad-por-componente.md) | Explicabilidad: todo número derivado lleva un "¿Cómo se calculó?" | Aceptada |
 | [0021](0021-estrategia-de-pruebas.md) | Pruebas: MCP real por stdio, LLM mockeado, TDD por feature | Aceptada |
+| [0022](0022-adaptador-openai-sin-tocar-el-orquestador.md) | Soporte multi-proveedor de LLM vía adaptador, sin reescribir el orquestador | Aceptada |
 
 ## Cómo agregar una
 

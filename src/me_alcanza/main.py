@@ -4,34 +4,64 @@ import os
 import uvicorn
 from dotenv import load_dotenv
 from google import genai
+from openai import OpenAI
 
 from me_alcanza.backend.app import create_app
+from me_alcanza.backend.openai_compat_client import OpenAICompatClient
 
 load_dotenv()
 
 _logger = logging.getLogger(__name__)
 
+_PROVIDERS_CON_LLM_REAL = ("gemini", "openai")
+
+
+def _build_llm_client(provider: str) -> tuple[object, str]:
+    """Construye el cliente LLM y el nombre de modelo para el provider
+    elegido. `genai.Client`/`OpenAICompatClient` exponen la misma superficie
+    mínima (`.models.generate_content(...)`) que `orchestrator.py` usa —
+    ver ADR 0022 y `openai_compat_client.py`."""
+    if provider == "openai":
+        api_key = os.environ.get("OPENAI_API_KEY")
+        model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        openai_client = OpenAI(api_key=api_key or "sin-configurar")
+        return OpenAICompatClient(openai_client, model=model), model
+
+    api_key = os.environ.get("GOOGLE_AI_STUDIO_API_KEY")
+    model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    return genai.Client(api_key=api_key or "sin-configurar"), model
+
+
+def _api_key_env_var(provider: str) -> str:
+    return "OPENAI_API_KEY" if provider == "openai" else "GOOGLE_AI_STUDIO_API_KEY"
+
 
 def main():
-    provider = os.environ.get("LLM_PROVIDER", "gemini")
-    if provider not in ("gemini", "fake"):
+    provider = os.environ.get("LLM_PROVIDER", "gemini").strip().lower()
+    if provider not in (*_PROVIDERS_CON_LLM_REAL, "fake"):
         _logger.warning(
-            "LLM_PROVIDER=%r no es un valor reconocido (usa 'gemini' o 'fake') — usando 'gemini' por defecto.",
+            "LLM_PROVIDER=%r no es un valor reconocido (usa 'gemini', 'openai' o 'fake') — "
+            "usando 'gemini' por defecto.",
             provider,
         )
         provider = "gemini"
-    api_key = os.environ.get("GOOGLE_AI_STUDIO_API_KEY")
-    if provider != "fake" and not api_key:
+
+    if provider in _PROVIDERS_CON_LLM_REAL and not os.environ.get(_api_key_env_var(provider)):
         _logger.warning(
-            "GOOGLE_AI_STUDIO_API_KEY no está configurada — forzando LLM_PROVIDER=fake "
-            "(modo offline) para que el backend arranque de todas formas."
+            "%s no está configurada — forzando LLM_PROVIDER=fake (modo offline) para que el "
+            "backend arranque de todas formas.",
+            _api_key_env_var(provider),
         )
         provider = "fake"
 
-    genai_client = genai.Client(api_key=api_key or "sin-configurar")
+    if provider == "fake":
+        llm_client, model = _build_llm_client("gemini")  # cliente placeholder, nunca se usa en modo fake
+    else:
+        llm_client, model = _build_llm_client(provider)
+
     app = create_app(
-        genai_client=genai_client,
-        model=os.environ.get("GEMINI_MODEL", "gemini-2.0-flash"),
+        genai_client=llm_client,
+        model=model,
         jwt_secret=os.environ["JWT_SECRET"],
         db_path=os.environ.get("BANK_DB_PATH", "banco.db"),
         provider=provider,
