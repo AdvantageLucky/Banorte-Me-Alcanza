@@ -195,6 +195,152 @@ describe('createApiClient', () => {
     });
   });
 
+  describe('CRUD del core bancario', () => {
+    it('createMeta hace POST a /api/metas con el body de la meta', async () => {
+      const creada = { id: 1, descripcion: 'Viaje', monto_objetivo: 1000, fecha_objetivo: '2026-12-01', monto_ahorrado: 0 };
+      fetchMock.mockResolvedValue({ ok: true, json: async () => creada });
+      const client = createApiClient('http://api.test');
+
+      const result = await client.createMeta('jwt-123', {
+        descripcion: 'Viaje',
+        monto_objetivo: 1000,
+        fecha_objetivo: '2026-12-01',
+      });
+
+      expect(result).toEqual(creada);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/api/metas',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer jwt-123' },
+          body: JSON.stringify({ descripcion: 'Viaje', monto_objetivo: 1000, fecha_objetivo: '2026-12-01' }),
+        }),
+      );
+    });
+
+    it('updateMeta hace PATCH a /api/metas/{id} con solo los campos cambiados', async () => {
+      const actualizada = { id: 1, descripcion: 'Viaje', monto_objetivo: 1500, fecha_objetivo: '2026-12-01', monto_ahorrado: 0 };
+      fetchMock.mockResolvedValue({ ok: true, json: async () => actualizada });
+      const client = createApiClient('http://api.test');
+
+      const result = await client.updateMeta('jwt-123', 1, { monto_objetivo: 1500 });
+
+      expect(result).toEqual(actualizada);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/api/metas/1',
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer jwt-123' },
+          body: JSON.stringify({ monto_objetivo: 1500 }),
+        }),
+      );
+    });
+
+    it('deleteMeta hace DELETE a /api/metas/{id} y no intenta parsear un body en 204', async () => {
+      fetchMock.mockResolvedValue({ ok: true, status: 204 });
+      const client = createApiClient('http://api.test');
+
+      const result = await client.deleteMeta('jwt-123', 1);
+
+      expect(result).toBeUndefined();
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/api/metas/1',
+        expect.objectContaining({ method: 'DELETE', headers: { Authorization: 'Bearer jwt-123' } }),
+      );
+    });
+
+    it('createApartado hace POST a /api/apartados', async () => {
+      const creado = { id: 1, meta_id: 1, monto_por_periodo: 100, periodicidad: 'mensual', fecha_inicio: '2026-09-12', estado: 'activo' };
+      fetchMock.mockResolvedValue({ ok: true, json: async () => creado });
+      const client = createApiClient('http://api.test');
+
+      await client.createApartado('jwt-123', { meta_id: 1, monto_por_periodo: 100, periodicidad: 'mensual' });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/api/apartados',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ meta_id: 1, monto_por_periodo: 100, periodicidad: 'mensual' }),
+        }),
+      );
+    });
+
+    it('cancelarApartado hace POST a /api/apartados/{id}/cancelar sin body', async () => {
+      const cancelado = { id: 1, meta_id: 1, monto_por_periodo: 100, periodicidad: 'mensual', fecha_inicio: '2026-09-12', estado: 'cancelado' };
+      fetchMock.mockResolvedValue({ ok: true, json: async () => cancelado });
+      const client = createApiClient('http://api.test');
+
+      const result = await client.cancelarApartado('jwt-123', 1);
+
+      expect(result).toEqual(cancelado);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/api/apartados/1/cancelar',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    it.each([
+      ['createGastoFijo', 'updateGastoFijo', 'deleteGastoFijo', '/api/gastos-fijos'],
+      ['createIngresoProgramado', 'updateIngresoProgramado', 'deleteIngresoProgramado', '/api/ingresos-programados'],
+    ])('%s/%s/%s hacen POST/PATCH/DELETE a %s', async (createFn, updateFn, deleteFn, basePath) => {
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) });
+      const client = createApiClient('http://api.test');
+
+      await client[createFn]('jwt-123', { concepto: 'Renta', monto: 5000, frecuencia: 'mensual', proxima_fecha: '2026-10-01' });
+      expect(fetchMock).toHaveBeenCalledWith(`http://api.test${basePath}`, expect.objectContaining({ method: 'POST' }));
+
+      await client[updateFn]('jwt-123', 1, { monto: 5500 });
+      expect(fetchMock).toHaveBeenCalledWith(`http://api.test${basePath}/1`, expect.objectContaining({ method: 'PATCH' }));
+
+      fetchMock.mockResolvedValue({ ok: true, status: 204 });
+      await client[deleteFn]('jwt-123', 1);
+      expect(fetchMock).toHaveBeenCalledWith(`http://api.test${basePath}/1`, expect.objectContaining({ method: 'DELETE' }));
+    });
+
+    it('getContactos hace un GET autenticado a /api/contactos', async () => {
+      const contactos = [{ id: 1, nombre: 'José Ramírez', alias: 'Pepe', cuenta_destino: '9988776655', relacion: 'hermano' }];
+      fetchMock.mockResolvedValue({ ok: true, json: async () => contactos });
+      const client = createApiClient('http://api.test');
+
+      const result = await client.getContactos('jwt-123');
+
+      expect(result).toEqual(contactos);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/api/contactos',
+        expect.objectContaining({ method: 'GET', headers: { Authorization: 'Bearer jwt-123' } }),
+      );
+    });
+
+    it('createContacto/updateContacto/deleteContacto hacen POST/PATCH/DELETE a /api/contactos', async () => {
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) });
+      const client = createApiClient('http://api.test');
+
+      await client.createContacto('jwt-123', { nombre: 'Sofía', alias: 'Sofi', cuenta_destino: '111', relacion: 'amiga' });
+      expect(fetchMock).toHaveBeenCalledWith('http://api.test/api/contactos', expect.objectContaining({ method: 'POST' }));
+
+      await client.updateContacto('jwt-123', 1, { alias: 'Sofi L.' });
+      expect(fetchMock).toHaveBeenCalledWith('http://api.test/api/contactos/1', expect.objectContaining({ method: 'PATCH' }));
+
+      fetchMock.mockResolvedValue({ ok: true, status: 204 });
+      await client.deleteContacto('jwt-123', 1);
+      expect(fetchMock).toHaveBeenCalledWith('http://api.test/api/contactos/1', expect.objectContaining({ method: 'DELETE' }));
+    });
+
+    it('propaga un ApiException cuando el PATCH responde con error', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({ detail: 'monto debe ser mayor a cero' }),
+      });
+      const client = createApiClient('http://api.test');
+
+      await expect(client.updateMeta('jwt-123', 1, { monto_objetivo: -5 })).rejects.toMatchObject({
+        status: 400,
+        detail: 'monto debe ser mayor a cero',
+      });
+    });
+  });
+
   describe('sugerencias', () => {
     it('getSugerencias hace un GET autenticado a /api/sugerencias', async () => {
       const sugerencias = [

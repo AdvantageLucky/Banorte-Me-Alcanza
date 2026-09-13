@@ -5,6 +5,7 @@ import MetasTab from './yo/MetasTab.jsx';
 import ApartadosTab from './yo/ApartadosTab.jsx';
 import PagosFijosTab from './yo/PagosFijosTab.jsx';
 import IngresosTab from './yo/IngresosTab.jsx';
+import ContactosTab from './yo/ContactosTab.jsx';
 
 const SECCIONES = [
   { id: 'cuenta', label: 'Cuenta', Component: CuentaTab },
@@ -13,6 +14,7 @@ const SECCIONES = [
   { id: 'apartados', label: 'Apartados', Component: ApartadosTab },
   { id: 'pagos-fijos', label: 'Pagos fijos', Component: PagosFijosTab },
   { id: 'ingresos', label: 'Ingresos', Component: IngresosTab },
+  { id: 'contactos', label: 'Contactos', Component: ContactosTab },
 ];
 
 export default function YoView() {

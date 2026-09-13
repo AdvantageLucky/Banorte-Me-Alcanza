@@ -636,6 +636,154 @@ body {
   color: var(--color-secondary);
 }
 
+/* CRUD del core bancario (crear/editar/eliminar contactos, metas, apartados,
+   pagos fijos e ingresos programados) — mismo lenguaje visual que el resto
+   de "Yo", sin componentes nuevos de UI kit. */
+
+.yo-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-m);
+}
+
+.yo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--a2ui-spacing-m);
+}
+
+.yo-toolbar-hint {
+  color: var(--color-secondary);
+  font-size: var(--a2ui-font-size-s);
+}
+
+.yo-btn-primary,
+.yo-btn-danger {
+  border: none;
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-s);
+  font-weight: 600;
+}
+
+.yo-btn-primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.yo-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.yo-btn-danger {
+  background: none;
+  border: var(--a2ui-border-width) solid #c5221f;
+  color: #c5221f;
+}
+
+.yo-card-actions {
+  display: flex;
+  gap: var(--a2ui-spacing-xs);
+  margin-left: auto;
+}
+
+.yo-card-actions button {
+  background: none;
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  padding: var(--a2ui-spacing-xs) var(--a2ui-spacing-s);
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-xs);
+  color: var(--color-secondary);
+}
+
+.yo-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-s);
+  background: var(--color-surface);
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: var(--a2ui-border-radius);
+  padding: var(--a2ui-spacing-m);
+}
+
+.yo-form-row {
+  display: flex;
+  gap: var(--a2ui-spacing-m);
+  flex-wrap: wrap;
+}
+
+.yo-form-row label {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-xs);
+  font-size: var(--a2ui-font-size-s);
+  color: var(--color-secondary);
+}
+
+.yo-form-row input,
+.yo-form-row select {
+  padding: var(--a2ui-spacing-s);
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-m);
+  background: var(--color-input);
+  color: var(--color-on-input);
+}
+
+.yo-form-error {
+  margin: 0;
+  color: #c5221f;
+  font-size: var(--a2ui-font-size-s);
+}
+
+.yo-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--a2ui-spacing-s);
+}
+
+.yo-form-actions button:not(.yo-btn-primary) {
+  background: none;
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-s);
+  color: var(--color-secondary);
+}
+
+.yo-contacto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--a2ui-spacing-m);
+}
+
+.yo-contacto-nombre {
+  margin: 0;
+  font-weight: 600;
+}
+
+.yo-contacto-alias {
+  font-weight: 400;
+  color: var(--color-secondary);
+}
+
+.yo-contacto-detalle {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: var(--a2ui-font-size-xs);
+}
+
 .asistente-view {
   flex: 1;
   display: flex;
