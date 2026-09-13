@@ -428,7 +428,7 @@ def generar_y_listar_sugerencias(account_id: str) -> list[dict]:
             + sugerencias_engine.detectar_metas_en_riesgo(metas, hoy)
         )
         for candidato in candidatos:
-            if not db.existe_sugerencia_pendiente(conn, account_id, candidato["tipo"], candidato["entidad_id"]):
+            if not db.existe_sugerencia_vigente(conn, account_id, candidato["tipo"], candidato["entidad_id"], hoy):
                 db.crear_sugerencia(conn, account_id, candidato["tipo"], candidato["entidad_id"], candidato["detalle"])
 
         return db.listar_sugerencias(conn, account_id)

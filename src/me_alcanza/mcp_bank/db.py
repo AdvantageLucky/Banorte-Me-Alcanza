@@ -859,13 +859,24 @@ def crear_sugerencia(
     }
 
 
-def existe_sugerencia_pendiente(conn: sqlite3.Connection, account_id: str, tipo: str, entidad_id: str) -> bool:
+def existe_sugerencia_vigente(
+    conn: sqlite3.Connection, account_id: str, tipo: str, entidad_id: str, hoy: str
+) -> bool:
+    # "Vigente" = pendiente (sin importar cuándo se creó) O ya generada hoy
+    # (sin importar su estado). Antes solo miraba 'pendiente': en cuanto el
+    # usuario atendía/descartaba una sugerencia, el riesgo real que la causó
+    # -que atender no arregla, solo confirma que se vio- volvía a calificar
+    # como "candidato nuevo" en la siguiente llamada (cada vez que se abre o
+    # refresca la pestaña Sugerencias), duplicando la MISMA alerta varias
+    # veces en el mismo día. `hoy` se recibe del llamador (no se calcula
+    # aquí) para no depender de si SQLite y Python coinciden en zona horaria.
     row = conn.execute(
         """
         SELECT 1 FROM sugerencias
-        WHERE account_id = ? AND tipo = ? AND entidad_id = ? AND estado = 'pendiente'
+        WHERE account_id = ? AND tipo = ? AND entidad_id = ?
+          AND (estado = 'pendiente' OR substr(created_at, 1, 10) = ?)
         """,
-        (account_id, tipo, entidad_id),
+        (account_id, tipo, entidad_id, hoy),
     ).fetchone()
     return row is not None
 

@@ -506,10 +506,34 @@ def test_crear_sugerencia_y_listar(conn):
     assert listado[0]["tipo"] == "gasto_fijo_proximo"
 
 
-def test_existe_sugerencia_pendiente(conn):
-    assert db.existe_sugerencia_pendiente(conn, "ana", "meta_en_riesgo", "7") is False
+def test_existe_sugerencia_vigente_por_estar_pendiente(conn):
+    hoy = date.today().isoformat()
+    assert db.existe_sugerencia_vigente(conn, "ana", "meta_en_riesgo", "7", hoy) is False
     db.crear_sugerencia(conn, "ana", "meta_en_riesgo", "7", {"x": 1})
-    assert db.existe_sugerencia_pendiente(conn, "ana", "meta_en_riesgo", "7") is True
+    assert db.existe_sugerencia_vigente(conn, "ana", "meta_en_riesgo", "7", hoy) is True
+
+
+def test_existe_sugerencia_vigente_no_duplica_aunque_ya_se_haya_atendido_hoy(conn):
+    # Regresión real: atender/descartar una sugerencia NO arregla el riesgo
+    # que la causó (ej. un saldo proyectado negativo sigue negativo), así
+    # que sin este chequeo el usuario veía la MISMA alerta reaparecer cada
+    # vez que abría/refrescaba la pestaña Sugerencias el mismo día.
+    hoy = date.today().isoformat()
+    sugerencia = db.crear_sugerencia(conn, "ana", "riesgo_liquidez", "cuenta", {"margen": -570})
+    db.marcar_sugerencia(conn, "ana", sugerencia["id"], "atendida")
+
+    assert db.existe_sugerencia_vigente(conn, "ana", "riesgo_liquidez", "cuenta", hoy) is True
+
+
+def test_existe_sugerencia_vigente_permite_una_nueva_al_dia_siguiente(conn):
+    # Al contrario del caso de arriba: un día después, sí debe poder
+    # generarse una alerta nueva si el riesgo sigue vivo -- 'vigente' no
+    # significa "ya no vuelve a aparecer jamás", solo "no lo dupliques HOY".
+    sugerencia = db.crear_sugerencia(conn, "ana", "riesgo_liquidez", "cuenta", {"margen": -570})
+    db.marcar_sugerencia(conn, "ana", sugerencia["id"], "atendida")
+
+    manana = (date.today() + timedelta(days=1)).isoformat()
+    assert db.existe_sugerencia_vigente(conn, "ana", "riesgo_liquidez", "cuenta", manana) is False
 
 
 def test_listar_sugerencias_filtra_por_estado(conn):
