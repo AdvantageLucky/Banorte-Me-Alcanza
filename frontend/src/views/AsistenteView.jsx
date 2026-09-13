@@ -25,7 +25,7 @@ import ConfirmActionModal from '../components/ConfirmActionModal.jsx';
 import ConversationSidebar from '../components/ConversationSidebar.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import logo from '../assets/images/logo.svg';
-import { Mic, Square } from 'lucide-react';
+import { Mic, Square, Volume2 } from 'lucide-react';
 
 // Las notificaciones/sugerencias ya no viven aquí: tienen su propio tab
 // "Atención" (ver AtencionView), donde se pueden filtrar y cada una trae su
@@ -324,7 +324,7 @@ function SpeakButton({ speaking, onClick }) {
       aria-label={speaking ? 'Detener lectura en voz alta' : 'Escuchar esta respuesta en voz alta'}
       title={speaking ? 'Detener lectura' : 'Escuchar en voz alta'}
     >
-      {speaking ? '⏹️' : '🔊'}
+      {speaking ? <Square color="#5b6570" size={16} /> : <Volume2 color="#5b6570" size={18} />}
     </button>
   );
 }
