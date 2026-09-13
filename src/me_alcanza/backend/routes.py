@@ -562,7 +562,12 @@ async def get_propuesta_sugerencia(
     if sugerencia is None:
         raise HTTPException(status_code=404, detail="Sugerencia no encontrada")
     titulo, descripcion = sugerencias_a2ui.titulo_y_descripcion(sugerencia["tipo"], sugerencia["detalle"])
-    propuesta = request.app.state.orchestrator.generar_propuesta_sugerencia(titulo, descripcion)
+    try:
+        propuesta = request.app.state.orchestrator.generar_propuesta_sugerencia(titulo, descripcion)
+    except Exception as exc:  # noqa: BLE001 - falla del LLM (cuota, red, etc.) no debe tirar un 500 crudo
+        raise HTTPException(
+            status_code=503, detail="No se pudo generar la propuesta en este momento."
+        ) from exc
     return PropuestaSugerenciaResponse(propuesta=propuesta)
 
 

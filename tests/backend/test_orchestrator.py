@@ -50,6 +50,20 @@ def _mock_final_response(text: str):
     return response
 
 
+SALDO_SIN_ROOT_A2UI_RESPONSE = f'''Aquí está tu saldo:
+<a2ui-json>
+[
+  {{"version": "v0.9", "createSurface": {{"surfaceId": "main", "catalogId": "{CATALOG_ID}"}}}},
+  {{"version": "v0.9", "updateComponents": {{"surfaceId": "main", "components": [
+    {{"id": "tarjeta", "component": "Card", "child": "txt"}},
+    {{"id": "txt", "component": "Text", "text": {{"path": "/msg"}}}}
+  ]}}}},
+  {{"version": "v0.9", "updateDataModel": {{"surfaceId": "main", "path": "/", "value": {{"msg": "Tu saldo es $500.0 MXN"}}}}}}
+]
+</a2ui-json>
+'''
+
+
 def test_new_surface_id_es_unico_cada_vez():
     assert _new_surface_id() != _new_surface_id()
 
@@ -273,6 +287,33 @@ async def test_handle_message_excepcion_en_reintento_de_autocorreccion_cae_a_blo
     assert "createSurface" in messages[0]
     valores = next(m for m in messages if "updateDataModel" in m)["updateDataModel"]["value"]
     assert "offline" in str(valores).lower()
+
+
+@pytest.mark.asyncio
+async def test_handle_message_respuesta_sin_id_root_se_autocorrige():
+    # El parser real de a2ui (integrity_checker.py) YA valida que exista un
+    # componente con id="root" y lanza A2uiIntegrityError si falta — cae en
+    # el mismo mecanismo de auto-corrección que cualquier otro JSON A2UI
+    # inválido. Esto confirma que ese caso no necesita un chequeo propio: ya
+    # está cubierto aguas abajo por la librería.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(side_effect=[[], None, None])
+    genai_client = MagicMock()
+    genai_client.models.generate_content = MagicMock(
+        side_effect=[
+            _mock_final_response(SALDO_SIN_ROOT_A2UI_RESPONSE),
+            _mock_final_response(SALDO_A2UI_RESPONSE),
+        ]
+    )
+
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    messages = await orchestrator.handle_message("ana", 1, "¿cuál es mi saldo?")
+
+    componentes = next(m for m in messages if "updateComponents" in m)["updateComponents"]["components"]
+    assert any(c["id"] == "root" for c in componentes)
+
+    segunda_llamada_contents = genai_client.models.generate_content.call_args_list[1].kwargs["contents"]
+    assert any("root" in str(c) for c in segunda_llamada_contents)
 
 
 @pytest.mark.asyncio
@@ -659,6 +700,7 @@ def test_read_only_tool_declarations_expone_exactamente_las_herramientas_permiti
         "buscar_contacto",
         "simular_flujo_de_caja",
         "calcular_score_salud_financiera",
+        "detectar_picos_gasto",
         "proponer_transferencia",
         "proponer_apartado",
         "proponer_contacto",

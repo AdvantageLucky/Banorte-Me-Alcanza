@@ -464,6 +464,36 @@ def test_get_resumen_movimientos_no_mezcla_cuentas(conn):
     assert resumen_ana == []
 
 
+def _insertar_movimiento(conn, account_id, fecha, categoria, monto, concepto="x"):
+    conn.execute(
+        "INSERT INTO movimientos (account_id, fecha, concepto, monto, categoria) VALUES (?, ?, ?, ?, ?)",
+        (account_id, fecha, concepto, monto, categoria),
+    )
+    conn.commit()
+
+
+def test_get_promedio_historico_por_categoria_promedia_los_periodos_previos(conn):
+    # Rango actual: día 20-22 (3 días). Periodos previos de igual duración:
+    # 17-19, 14-16, 11-13.
+    _insertar_movimiento(conn, "luis", "2026-01-17", "renta", -100.0)
+    _insertar_movimiento(conn, "luis", "2026-01-14", "renta", -200.0)
+    _insertar_movimiento(conn, "luis", "2026-01-11", "renta", -300.0)
+    # Dentro del rango actual: no debe contar para el histórico.
+    _insertar_movimiento(conn, "luis", "2026-01-21", "renta", -999.0)
+
+    promedio = db.get_promedio_historico_por_categoria(conn, "luis", "2026-01-20", "2026-01-22", periodos=3)
+
+    assert promedio["renta"] == -200.0
+
+
+def test_get_promedio_historico_por_categoria_categoria_sin_historial_no_aparece(conn):
+    _insertar_movimiento(conn, "luis", "2026-01-21", "renta", -100.0)  # dentro del rango actual
+
+    promedio = db.get_promedio_historico_por_categoria(conn, "luis", "2026-01-20", "2026-01-22", periodos=3)
+
+    assert "renta" not in promedio
+
+
 def test_crear_sugerencia_y_listar(conn):
     sugerencia = db.crear_sugerencia(
         conn, "ana", "gasto_fijo_proximo", "1", {"concepto": "Renta", "monto": 4000.0}

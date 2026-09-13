@@ -4,7 +4,7 @@ from datetime import date
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from . import cashflow, db, sugerencias_engine
+from . import anomalias, cashflow, db, sugerencias_engine
 
 DB_PATH = os.environ.get("BANK_DB_PATH", "banco.db")
 
@@ -385,6 +385,23 @@ def get_resumen_movimientos(account_id: str, fecha_inicio: str, fecha_fin: str) 
     conn = _connection()
     try:
         return db.get_resumen_movimientos(conn, account_id, fecha_inicio, fecha_fin)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def detectar_picos_gasto(account_id: str, fecha_inicio: str, fecha_fin: str) -> list[dict]:
+    """Detecta categorías cuyo gasto en [fecha_inicio, fecha_fin] excede su propio
+    promedio histórico (mismos días de los 3 periodos previos) por 40% o más."""
+    conn = _connection()
+    try:
+        resumen_actual = db.get_resumen_movimientos(conn, account_id, fecha_inicio, fecha_fin)
+        promedio_historico = db.get_promedio_historico_por_categoria(
+            conn, account_id, fecha_inicio, fecha_fin
+        )
+        return anomalias.detectar_picos_gasto(resumen_actual, promedio_historico)
     except ValueError as exc:
         raise ToolError(str(exc)) from exc
     finally:

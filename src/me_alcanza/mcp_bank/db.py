@@ -750,6 +750,47 @@ def get_resumen_movimientos(
     return [dict(r) for r in rows]
 
 
+def get_promedio_historico_por_categoria(
+    conn: sqlite3.Connection,
+    account_id: str,
+    fecha_inicio: str,
+    fecha_fin: str,
+    periodos: int = 3,
+) -> dict[str, float]:
+    """Promedio de gasto por categoría en los `periodos` rangos previos,
+    inmediatamente antes de fecha_inicio, cada uno de la misma duración que
+    [fecha_inicio, fecha_fin]. Es la base para detectar picos/anomalías
+    (ver mcp_bank/anomalias.py): compara el gasto actual contra el promedio
+    real de esa MISMA cuenta en periodos anteriores, nunca contra un umbral
+    inventado.
+    """
+    inicio = date.fromisoformat(fecha_inicio)
+    fin = date.fromisoformat(fecha_fin)
+    duracion = (fin - inicio).days + 1
+
+    totales_por_periodo: dict[str, list[float]] = {}
+    cursor_fin = inicio - timedelta(days=1)
+    for _ in range(periodos):
+        cursor_inicio = cursor_fin - timedelta(days=duracion - 1)
+        rows = conn.execute(
+            """
+            SELECT categoria, SUM(monto) AS total
+            FROM movimientos
+            WHERE account_id = ? AND fecha >= ? AND fecha <= ?
+            GROUP BY categoria
+            """,
+            (account_id, cursor_inicio.isoformat(), cursor_fin.isoformat()),
+        ).fetchall()
+        for row in rows:
+            totales_por_periodo.setdefault(row["categoria"], []).append(row["total"])
+        cursor_fin = cursor_inicio - timedelta(days=1)
+
+    return {
+        categoria: sum(totales) / periodos
+        for categoria, totales in totales_por_periodo.items()
+    }
+
+
 _ESTADOS_VALIDOS_SUGERENCIA = {"pendiente", "atendida", "descartada"}
 _ROLES_VALIDOS_MENSAJE = {"user", "model"}
 

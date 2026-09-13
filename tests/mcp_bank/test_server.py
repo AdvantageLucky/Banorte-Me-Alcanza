@@ -71,6 +71,7 @@ async def test_mcp_server_expone_las_tools_esperadas(tmp_path):
                 "listar_apartados",
                 "cancelar_apartado",
                 "get_resumen_movimientos",
+                "detectar_picos_gasto",
                 "generar_y_listar_sugerencias",
                 "marcar_sugerencia",
                 "calcular_score_salud_financiera",

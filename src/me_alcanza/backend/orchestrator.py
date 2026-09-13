@@ -45,6 +45,7 @@ _READ_ONLY_TOOLS = {
     "buscar_contacto",
     "simular_flujo_de_caja",
     "calcular_score_salud_financiera",
+    "detectar_picos_gasto",
 }
 
 
@@ -251,6 +252,30 @@ def read_only_tool_declarations() -> list[types.Tool]:
                     parameters=types.Schema(type=types.Type.OBJECT, properties={}),
                 ),
                 types.FunctionDeclaration(
+                    name="detectar_picos_gasto",
+                    description=(
+                        "Detecta categorías cuyo gasto en un rango de fechas excede su propio "
+                        "promedio histórico (de la misma cuenta, en periodos previos de igual "
+                        "duración) por 40% o más — devuelve categoria, total_actual, "
+                        "promedio_historico, factor y severidad ('media'|'alta'). Úsala junto "
+                        "con 'get_resumen_movimientos' para el MISMO rango de fechas cuando "
+                        "vayas a mostrar un BarChart de gastos por categoría, para marcar con "
+                        "tone las categorías que dispararon un pico real."
+                    ),
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "fecha_inicio": types.Schema(
+                                type=types.Type.STRING, description="Formato YYYY-MM-DD."
+                            ),
+                            "fecha_fin": types.Schema(
+                                type=types.Type.STRING, description="Formato YYYY-MM-DD."
+                            ),
+                        },
+                        required=["fecha_inicio", "fecha_fin"],
+                    ),
+                ),
+                types.FunctionDeclaration(
                     name="proponer_transferencia",
                     description=(
                         "Propone una transferencia a un contacto YA IDENTIFICADO por su id exacto "
@@ -399,9 +424,22 @@ def build_system_prompt() -> str:
             "POR CADA candidato, cada una con su botón 'confirmar_accion' llevando el "
             "context={'proposalId': '<el id devuelto por esa llamada específica>'} correspondiente "
             "a ESE candidato; el usuario desambigua simplemente confirmando la tarjeta correcta. "
+            "Si el resultado de 'buscar_contacto' está vacío (ningún candidato, ej. el usuario "
+            "menciona a alguien que no está en su lista de contactos), NO llames a "
+            "'proponer_transferencia' ni inventes un contacto: muestra una tarjeta simple "
+            "explicando que no encontraste a esa persona en sus contactos y sugiriendo agregarla "
+            "primero con 'proponer_contacto' si de verdad quiere transferirle. "
             "Nunca afirmes que una transferencia o un apartado ya se realizó: solo se ejecutan "
             "cuando el usuario confirma explícitamente. Nunca inventes saldos, movimientos, "
             "ingresos, gastos, metas o contactos: siempre usa el resultado real de las herramientas. "
+            "Si el usuario pide repetir o rehacer una acción mencionada antes en esta misma "
+            "conversación (ej. 'vuelve a hacer ese depósito', 'repite la transferencia anterior'), "
+            "el historial que ves incluye el JSON A2UI completo que generaste en ese turno: "
+            "extrae de ahí el contacto/monto/concepto que usaste y vuelve a llamar a "
+            "'buscar_contacto' + 'proponer_transferencia' (o la tool que corresponda) desde cero. "
+            "Nunca reutilices un proposalId de una tarjeta anterior: cada propuesta es de un solo "
+            "uso y expira sola, así que un proposalId viejo ya no sirve aunque lo veas en tu "
+            "propio historial. "
             "El surfaceId que uses no importa: el sistema le asigna uno nuevo a cada turno "
             "automáticamente, así que usa cualquier id consistente dentro de tu propia respuesta "
             "(el mismo en createSurface, updateComponents y updateDataModel de este turno). "
@@ -424,6 +462,12 @@ def build_system_prompt() -> str:
             "calcules o inventes tú mismo ese score."
         ),
         ui_description=(
+            "REGLA OBLIGATORIA antes que cualquier otra: el componente de nivel superior de "
+            "cada tarjeta (el que va como hijo directo del surface, normalmente un Card) SIEMPRE "
+            "debe tener exactamente \"id\": \"root\" dentro de 'updateComponents'. Si usas "
+            "cualquier otro id para el componente raíz (o lo omites), tu respuesta se rechaza y "
+            "se te pide corregirla, desperdiciando un turno completo. Todos los demás ids pueden "
+            "ser lo que quieras, pero el raíz de cada tarjeta que generes es siempre \"root\". "
             "Usa SIEMPRE jerarquía visual, nunca texto plano sin estructura: "
             "1) Todo Text lleva un 'variant' explícito según su rol — 'h3' para el título de la "
             "tarjeta (ej. 'Saldo disponible', 'Confirmar transferencia'), 'h1' o 'h2' para el dato "
@@ -502,7 +546,14 @@ def build_system_prompt() -> str:
             "BarChart dibuja barras (props: title opcional, valuePrefix opcional ej '$', bars=lista "
             "de {label, value, tone opcional}). Úsalo SIEMPRE que 'get_resumen_movimientos' "
             "devuelva 2 o más categorías, con bars=[{label: categoria, value: total} por cada "
-            "fila] — nunca inventes categorías o montos que la herramienta no devolvió. "
+            "fila] — nunca inventes categorías o montos que la herramienta no devolvió. Cuando "
+            "muestres un BarChart de gastos por categoría, llama TAMBIÉN a "
+            "'detectar_picos_gasto' con el mismo rango de fechas: por cada categoría que "
+            "aparezca en su resultado, pon tone='negative' en esa barra si severidad='alta', o "
+            "tone='warning' si severidad='media'; las categorías que no aparecen ahí van sin "
+            "tone (o 'neutral'). Nunca marques una categoría como pico sin que "
+            "'detectar_picos_gasto' la haya devuelto — no lo decidas tú a partir de qué tan alta "
+            "se ve la barra. "
             "PlanDePago muestra una lista de alternativas seleccionables, como una tabla de planes "
             "(props: title y subtitle opcionales, options=lista de {id, label, detail, amount ya "
             "formateado, highlighted opcional}, selectedId enlazado a un path del data model igual "
@@ -569,7 +620,7 @@ class Orchestrator:
     async def _dispatch_tool_call(self, account_id: str, call) -> Any:
         if call.name in _READ_ONLY_TOOLS:
             args = {"account_id": account_id}
-            if call.name == "get_resumen_movimientos":
+            if call.name in ("get_resumen_movimientos", "detectar_picos_gasto"):
                 call_args = call.args or {}
                 fecha_inicio = call_args.get("fecha_inicio")
                 fecha_fin = call_args.get("fecha_fin")

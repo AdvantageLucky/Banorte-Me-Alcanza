@@ -587,6 +587,21 @@ def test_get_propuesta_sugerencia_inexistente_devuelve_404(app):
         assert response.status_code == 404
 
 
+def test_get_propuesta_sugerencia_falla_del_llm_devuelve_error_limpio_no_500_crudo(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        sugerencias = client.get("/api/sugerencias", headers={"Authorization": f"Bearer {token}"}).json()
+        sugerencia_id = sugerencias[0]["id"]
+        app.state.orchestrator.generar_propuesta_sugerencia = MagicMock(
+            side_effect=RuntimeError("cuota de Gemini agotada")
+        )
+        response = client.get(
+            f"/api/sugerencias/{sugerencia_id}/propuesta", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 503
+        assert "cuota de Gemini agotada" not in response.text
+
+
 def test_get_score_salud_financiera(app):
     with TestClient(app) as client:
         token = _login(client)
