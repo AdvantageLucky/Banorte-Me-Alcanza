@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from google.genai import types
 
-from me_alcanza.backend import proposals
+from me_alcanza.backend import a2ui_custom_catalog, proposals
 from me_alcanza.backend.orchestrator import (
     Orchestrator,
     _new_surface_id,
@@ -74,6 +74,29 @@ def test_rewrite_surface_id_sobrescribe_los_tres_tipos_de_mensaje():
     assert rewritten[2]["updateDataModel"]["surfaceId"] == "turno-fijo"
     # No muta la lista original.
     assert original[0]["createSurface"]["surfaceId"] == "lo-que-sea"
+
+
+def test_rewrite_surface_id_tambien_fuerza_el_catalogId_del_createSurface():
+    # El modelo a veces alucina el catalogId del catálogo básico genérico de
+    # la especificación (el que conoce de su entrenamiento) en vez del propio
+    # del equipo: si eso llega tal cual al frontend, el MessageProcessor no
+    # encuentra ese catálogo registrado (solo tiene el propio) y truena con
+    # "Catalog not found", lo que el usuario ve como "No se pudo enviar el
+    # mensaje" aunque la respuesta haya llegado bien por HTTP. Igual que con
+    # surfaceId, no se confía en que el modelo elija el catalogId correcto.
+    original = [
+        {
+            "version": "v0.9",
+            "createSurface": {
+                "surfaceId": "lo-que-sea",
+                "catalogId": "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json",
+            },
+        },
+    ]
+
+    rewritten = _rewrite_surface_id(original, "turno-fijo")
+
+    assert rewritten[0]["createSurface"]["catalogId"] == a2ui_custom_catalog.CUSTOM_CATALOG_ID
 
 
 @pytest.mark.asyncio

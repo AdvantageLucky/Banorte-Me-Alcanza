@@ -76,6 +76,17 @@ def _rewrite_surface_id(a2ui_json: list[dict], surface_id: str) -> list[dict]:
     # elija (ni de que sea consistente consigo mismo dentro de su propia
     # respuesta) — evita repetir el bug de compatibilidad de SDK que ya
     # tuvimos cuando confiábamos en que el modelo reutilizara un id fijo.
+    #
+    # Por la misma razón se fuerza aquí el catalogId de createSurface: el
+    # JSON Schema que ve el modelo no restringe ese campo a un valor fijo
+    # (es un string libre), así que a veces alucina el catalogId del
+    # catálogo básico genérico de la especificación (el que conoce de su
+    # entrenamiento) en vez del propio del equipo. El frontend solo registra
+    # nuestro catálogo, así que un catalogId ajeno hace que el
+    # MessageProcessor truene con "Catalog not found" al procesar un mensaje
+    # que sí llegó bien por HTTP — visible para el usuario como "No se pudo
+    # enviar el mensaje", con la respuesta completa (pero inútil) en el
+    # network tab.
     rewritten = []
     for message in a2ui_json:
         message = dict(message)
@@ -83,6 +94,8 @@ def _rewrite_surface_id(a2ui_json: list[dict], surface_id: str) -> list[dict]:
             if key in message:
                 payload = dict(message[key])
                 payload["surfaceId"] = surface_id
+                if key == "createSurface":
+                    payload["catalogId"] = _catalog_id()
                 message[key] = payload
         rewritten.append(message)
     return rewritten

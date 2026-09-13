@@ -25,6 +25,7 @@ import ConfirmActionModal from '../components/ConfirmActionModal.jsx';
 import ConversationSidebar from '../components/ConversationSidebar.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import logo from '../assets/images/logo.svg';
+import { Mic, Square } from 'lucide-react';
 
 // Las notificaciones/sugerencias ya no viven aquí: tienen su propio tab
 // "Atención" (ver AtencionView), donde se pueden filtrar y cada una trae su
@@ -278,7 +279,7 @@ export default function AsistenteView() {
               aria-label={micRecognition.listening ? 'Detener dictado por voz' : 'Dictar mensaje por voz'}
               title={micRecognition.listening ? 'Detener dictado' : 'Dictar por voz'}
             >
-              {micRecognition.listening ? '⏹️' : '🎙️'}
+              {micRecognition.listening ? <Square size={20} /> : <Mic size={20} />}
             </button>
           )}
           <input
