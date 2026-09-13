@@ -12,7 +12,22 @@ from .mcp_client import BankMcpClient
 _logger = logging.getLogger(__name__)
 
 _VERSION = "0.9"
-_ALLOWED_COMPONENTS = ["Card", "Column", "Row", "Text", "Button", "List", "Divider", "Modal"]
+_ALLOWED_COMPONENTS = [
+    "Card",
+    "Column",
+    "Row",
+    "Text",
+    "Button",
+    "List",
+    "Divider",
+    "Modal",
+    "Tabs",
+    "TextField",
+    "CheckBox",
+    "ChoicePicker",
+    "Slider",
+    "DateTimeInput",
+]
 MAX_TOOL_CALL_ROUNDS = 5
 # Cuántos mensajes de historial (no turnos) se reenvían a Gemini como
 # contexto: últimos 10 mensajes ≈ últimos 5 pares usuario/modelo.
@@ -406,7 +421,44 @@ def build_system_prompt() -> str:
             "No agregues el trigger ni el content como hijos separados de la tarjeta — el Modal ya los "
             "renderiza. Nunca agregues este componente para datos que ya son un valor directo de una "
             "herramienta (ej. el saldo actual tal cual, sin proyección) — solo para números que el LLM "
-            "o una herramienta derivaron a partir de otros datos."
+            "o una herramienta derivaron a partir de otros datos. "
+            "7) Además de Card/Column/Row/Text/Button/List/Divider/Modal, tienes disponibles "
+            "TextField, CheckBox, ChoicePicker, Slider, DateTimeInput y Tabs. Úsalos solo cuando "
+            "aporten valor real, nunca como decoración: "
+            "DateTimeInput para que el usuario elija una fecha (ej. cuándo programar un ingreso, "
+            "la fecha límite de una meta) — pon enableDate=true; "
+            "Slider para que el usuario ajuste un monto o porcentaje dentro de un rango conocido "
+            "(ej. cuánto apartar de una meta, qué porcentaje de un ingreso destinar a algo); "
+            "ChoicePicker para elegir entre opciones ya conocidas (ej. categoría de un gasto fijo, "
+            "cuenta de destino) en vez de pedirlo como texto libre; "
+            "CheckBox para una decisión sí/no dentro de un formulario más grande (ej. 'marcar como "
+            "recurrente'); "
+            "TextField solo para texto libre que ninguna otra herramienta puede resolver (ej. el "
+            "nombre de un contacto nuevo o el concepto de un gasto); "
+            "Tabs para agrupar contenido relacionado pero independiente dentro de la misma tarjeta "
+            "(ej. 'Resumen' y 'Detalle'), nunca para pasos de un mismo flujo. "
+            "Todo componente de entrada (TextField, CheckBox, ChoicePicker, Slider, DateTimeInput) "
+            "SIEMPRE debe enlazar su 'value' a un path del data model (ej. {\"path\": \"/monto\"}), "
+            "nunca a un literal fijo, y ESE MISMO path debe inicializarse en updateDataModel con un "
+            "valor por default. El Button que confirma el formulario debe leer esos valores en su "
+            "'action.event.context' usando el mismo binding, nunca copiándolos como texto fijo — así "
+            "el backend recibe lo que el usuario realmente ajustó, no lo que el modelo cree que puso. "
+            "Ejemplo completo (un Slider que ajusta un monto a apartar, con su botón de confirmar):\n"
+            '{"version": "v0.9", "createSurface": {"surfaceId": "<id>", "catalogId": "..."}}\n'
+            '{"version": "v0.9", "updateComponents": {"surfaceId": "<id>", "components": ['
+            '{"id": "root", "component": "Card", "child": "col"}, '
+            '{"id": "col", "component": "Column", "children": ["slider", "btn"]}, '
+            '{"id": "slider", "component": "Slider", "label": "Monto a apartar", "min": 0, '
+            '"max": 2000, "value": {"path": "/montoApartar"}}, '
+            '{"id": "btn", "component": "Button", "child": "btnLabel", "variant": "primary", '
+            '"action": {"event": {"name": "confirmar_apartado", '
+            '"context": {"monto": {"path": "/montoApartar"}}}}}, '
+            '{"id": "btnLabel", "component": "Text", "text": "Confirmar"}]}}\n'
+            '{"version": "v0.9", "updateDataModel": {"surfaceId": "<id>", "path": "/", '
+            '"value": {"montoApartar": 500}}}\n'
+            "No inventes datos que el usuario deba ajustar si no tienes un rango o valor inicial "
+            "razonable: si no sabes min/max, pide el dato por texto en vez de mostrar un Slider a "
+            "ciegas."
         ),
         allowed_components=_ALLOWED_COMPONENTS,
         include_schema=True,
