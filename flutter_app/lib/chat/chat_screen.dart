@@ -382,7 +382,10 @@ class _ChatScreenState extends State<ChatScreen> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Image(image: AssetImage('assets/icon/icon.png'), width: 32, height: 32),
+                              _AgentAvatarColumn(
+                                hablando: hablando,
+                                onSpeak: () => _handleSpeakId(turn.id, turn.text),
+                              ),
                               const SizedBox(width: Space.s),
                               Flexible(
                                 child: ConstrainedBox(
@@ -397,13 +400,6 @@ class _ChatScreenState extends State<ChatScreen> {
                                   ),
                                 ),
                               ),
-                              IconButton(
-                                iconSize: 20,
-                                color: hablando ? BrandColors.rojo : BrandColors.gris,
-                                icon: Icon(hablando ? Icons.stop_circle_outlined : Icons.volume_up_outlined),
-                                tooltip: hablando ? 'Detener lectura' : 'Escuchar en voz alta',
-                                onPressed: () => _handleSpeakId(turn.id, turn.text),
-                              ),
                             ],
                           ),
                         );
@@ -415,23 +411,16 @@ class _ChatScreenState extends State<ChatScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Image.asset y no CircleAvatar: el recorte
-                            // circular le cortaba la colita a la mascota.
-                            const Image(image: AssetImage('assets/icon/icon.png'), width: 32, height: 32),
+                            _AgentAvatarColumn(
+                              hablando: hablando,
+                              onSpeak: () => _handleSpeakTurn(turn),
+                            ),
                             const SizedBox(width: Space.s),
                             Flexible(
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(maxWidth: maxBubbleWidth),
                                 child: Surface(surfaceContext: _host.contextFor(turn.surfaceId)),
                               ),
-                            ),
-                            // Accesibilidad: lectura en voz alta de esta respuesta.
-                            IconButton(
-                              iconSize: 20,
-                              color: hablando ? BrandColors.rojo : BrandColors.gris,
-                              icon: Icon(hablando ? Icons.stop_circle_outlined : Icons.volume_up_outlined),
-                              tooltip: hablando ? 'Detener lectura' : 'Escuchar en voz alta',
-                              onPressed: () => _handleSpeakTurn(turn),
                             ),
                           ],
                         ),
@@ -504,6 +493,49 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Columna a la izquierda de cada respuesta del agente: mascota ("Banorberto"),
+/// su nombre debajo (estilo WhatsApp) y el botón de leer en voz alta debajo de
+/// eso. Antes el botón vivía a la DERECHA de la tarjeta, en la misma fila,
+/// robándole ancho a la UI generativa; aquí queda apilado con el avatar en
+/// vez de competir por espacio horizontal con la tarjeta.
+class _AgentAvatarColumn extends StatelessWidget {
+  const _AgentAvatarColumn({required this.hablando, required this.onSpeak});
+
+  final bool hablando;
+  final VoidCallback onSpeak;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Image.asset y no CircleAvatar: el recorte circular le cortaba la
+        // colita a la mascota.
+        const Image(image: AssetImage('assets/icon/icon.png'), width: 32, height: 32),
+        const SizedBox(height: 2),
+        const Text(
+          'Banorberto',
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: BrandColors.gris),
+        ),
+        const SizedBox(height: 2),
+        // Accesibilidad: lectura en voz alta de esta respuesta.
+        SizedBox(
+          width: 28,
+          height: 28,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            iconSize: 16,
+            color: hablando ? BrandColors.rojo : BrandColors.gris,
+            icon: Icon(hablando ? Icons.stop_circle_outlined : Icons.volume_up_outlined),
+            tooltip: hablando ? 'Detener lectura' : 'Escuchar en voz alta',
+            onPressed: onSpeak,
+          ),
+        ),
+      ],
     );
   }
 }
