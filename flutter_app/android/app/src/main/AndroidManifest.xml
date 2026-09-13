@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Dictado por voz (speech_to_text) para accesibilidad del chat. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="Me Alcanza"
         android:name="${applicationName}"
@@ -41,6 +43,12 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Requerido desde Android 11 (API 30) para que speech_to_text
+             pueda detectar el motor de reconocimiento de voz del sistema,
+             ver https://developer.android.com/training/package-visibility. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>

@@ -26,7 +26,7 @@ describe('buildTurnsFromHistorial', () => {
     );
 
     expect(processMessages).toHaveBeenCalledWith(a2uiJson);
-    expect(turns).toEqual([{ kind: 'agent', id: 'surf-1', surfaceId: 'surf-1' }]);
+    expect(turns).toEqual([{ kind: 'agent', id: 'surf-1', surfaceId: 'surf-1', messages: a2uiJson }]);
   });
 
   it('cae a texto plano cuando el turno del modelo no tiene a2ui_json', () => {

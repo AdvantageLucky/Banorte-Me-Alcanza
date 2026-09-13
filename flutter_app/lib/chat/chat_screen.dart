@@ -9,6 +9,8 @@ import 'package:genui/genui.dart';
 import '../api/api_client.dart';
 import '../auth/auth_controller.dart';
 import 'action_router.dart';
+import 'extract_surface_text.dart';
+import 'speech_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
@@ -39,8 +41,13 @@ class UserTurn extends ChatTurn {
 }
 
 class AgentTurn extends ChatTurn {
-  AgentTurn(super.id, this.surfaceId);
+  AgentTurn(super.id, this.surfaceId, this.rawMessages);
   final String surfaceId;
+  // El a2ui crudo de este turno (ver ApiClient.sendMessage), guardado
+  // además del surfaceId para que el botón de "escuchar en voz alta" (ver
+  // extractSurfaceText) tenga de dónde sacar texto sin tener que
+  // reconstruirlo leyendo el SurfaceController.
+  final List<dynamic> rawMessages;
 }
 
 class _ChatScreenState extends State<ChatScreen> {
@@ -52,6 +59,19 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _awaitingResponse = false;
   String? _errorMessage;
   int _turnCounter = 0;
+  // El a2ui crudo del envío en curso, a la espera de que
+  // ConversationSurfaceAdded confirme el surfaceId real para poder
+  // adjuntarlo al AgentTurn correspondiente (ver _feedMessagesToConversation
+  // y el listener de _conversation.events más abajo).
+  List<dynamic> _pendingRawMessages = const [];
+
+  // Accesibilidad: dictado por voz (STT) y lectura en voz alta (TTS). Ver
+  // speech_service.dart — ambos usan los motores nativos del OS.
+  final _speechService = SpeechService();
+  bool _sttSupported = false;
+  bool _listening = false;
+  String _interimTranscript = '';
+  String? _speakingTurnId;
 
   late final SurfaceController _surfaceController;
   late final A2uiTransportAdapter _transport;
@@ -77,7 +97,9 @@ class _ChatScreenState extends State<ChatScreen> {
       if (event is ConversationSurfaceAdded) {
         setState(() {
           _awaitingResponse = false;
-          _turns.add(AgentTurn('turn-${_turnCounter++}', event.surfaceId));
+          _turns.add(
+            AgentTurn('turn-${_turnCounter++}', event.surfaceId, _pendingRawMessages),
+          );
         });
         _scrollToBottom();
       } else if (event is ConversationError) {
@@ -96,6 +118,14 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     });
+
+    // Chequeo único al entrar al chat: si el dispositivo no trae
+    // reconocimiento de voz (falta el servicio de Google en Android,
+    // permiso denegado, etc.) el botón de mic ni se muestra — igual que en
+    // React con `supported` (ver useSpeechRecognition.js).
+    _speechService.sttAvailable.then((available) {
+      if (mounted) setState(() => _sttSupported = available);
+    });
   }
 
   late final ActionRouter _actionRouter = ActionRouter(
@@ -109,6 +139,10 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_errorMessage != null) {
       setState(() => _errorMessage = null);
     }
+    // Se guarda ANTES de alimentar el transporte: ConversationSurfaceAdded
+    // puede disparar de forma síncrona dentro de addMessage, y para
+    // entonces ya necesita estar disponible (ver el listener en initState).
+    _pendingRawMessages = messages;
     for (final message in messages) {
       _transport.addMessage(core.A2uiMessage.fromJson(message as Map<String, dynamic>));
     }
@@ -195,6 +229,58 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // Dictado por voz (STT, accesibilidad): al detectar el final del habla se
+  // manda el mensaje directo, igual que si el usuario lo hubiera escrito y
+  // presionado enviar.
+  Future<void> _handleToggleMic() async {
+    if (_listening) {
+      await _speechService.stopListening();
+      return;
+    }
+    setState(() {
+      _listening = true;
+      _interimTranscript = '';
+    });
+    await _speechService.startListening(
+      localeId: 'es_MX',
+      onFinalResult: (texto) {
+        if (!mounted) return;
+        setState(() {
+          _listening = false;
+          _interimTranscript = '';
+        });
+        if (texto.isNotEmpty) {
+          _messageController.text = texto;
+          _handleSubmit();
+        }
+      },
+      onPartialResult: (texto) {
+        if (mounted) setState(() => _interimTranscript = texto);
+      },
+      onListeningEnded: () {
+        if (mounted) setState(() => _listening = false);
+      },
+    );
+  }
+
+  // Lectura en voz alta (TTS, accesibilidad) de la respuesta de un turno.
+  Future<void> _handleSpeakTurn(AgentTurn turn) async {
+    if (_speakingTurnId == turn.id) {
+      await _speechService.stopSpeaking();
+      setState(() => _speakingTurnId = null);
+      return;
+    }
+    final texto = extractSurfaceText(turn.rawMessages);
+    if (texto.isEmpty) {
+      return;
+    }
+    _speechService.onSpeakComplete = () {
+      if (mounted) setState(() => _speakingTurnId = null);
+    };
+    setState(() => _speakingTurnId = turn.id);
+    await _speechService.speak(texto, lang: 'es-MX');
+  }
+
   @override
   void dispose() {
     _eventsSubscription.cancel();
@@ -203,6 +289,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     _transport.dispose();
+    _speechService.dispose();
     super.dispose();
   }
 
@@ -320,6 +407,17 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ),
                               ),
                             ),
+                            // Accesibilidad: lectura en voz alta (TTS) de
+                            // esta respuesta — ver extractSurfaceText.dart.
+                            IconButton(
+                              icon: Icon(
+                                _speakingTurnId == turn.id ? Icons.stop_circle_outlined : Icons.volume_up,
+                              ),
+                              tooltip: _speakingTurnId == turn.id
+                                  ? 'Detener lectura'
+                                  : 'Escuchar en voz alta',
+                              onPressed: () => _handleSpeakTurn(turn),
+                            ),
                           ],
                         ),
                       );
@@ -332,11 +430,28 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
             ),
+          if (_listening)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                '🎙️ Escuchando… $_interimTranscript',
+                style: TextStyle(color: Theme.of(context).colorScheme.secondary),
+              ),
+            ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
+                  // Accesibilidad: dictado por voz (STT) — se oculta solo
+                  // si el dispositivo no lo soporta (ver initState).
+                  if (_sttSupported)
+                    IconButton(
+                      icon: Icon(_listening ? Icons.stop_circle : Icons.mic),
+                      color: _listening ? Theme.of(context).colorScheme.primary : null,
+                      tooltip: _listening ? 'Detener dictado' : 'Dictar por voz',
+                      onPressed: _sending ? null : _handleToggleMic,
+                    ),
                   Expanded(
                     child: TextField(
                       controller: _messageController,

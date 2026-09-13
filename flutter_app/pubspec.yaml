@@ -40,6 +40,12 @@ dependencies:
   http: ^1.6.0
   shared_preferences: ^2.5.5
 
+  # Accesibilidad: dictado por voz (STT) y lectura en voz alta (TTS) del
+  # chat. Ambos usan los motores nativos del OS, sin backend ni claves de
+  # API — ver lib/chat/speech_service.dart.
+  speech_to_text: ^7.3.0
+  flutter_tts: ^4.2.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

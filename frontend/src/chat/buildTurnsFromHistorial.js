@@ -17,7 +17,10 @@ export function buildTurnsFromHistorial(mensajes, { processMessages, extractSurf
       processMessages(m.a2ui_json);
       const surfaceId = extractSurfaceId(m.a2ui_json);
       if (surfaceId) {
-        turns.push({ kind: 'agent', id: surfaceId, surfaceId });
+        // `messages` (el a2ui_json crudo) queda disponible para el botón de
+        // "escuchar en voz alta" (ver extractSurfaceText.js) — el historial
+        // no vive solo en el modelo del MessageProcessor.
+        turns.push({ kind: 'agent', id: surfaceId, surfaceId, messages: m.a2ui_json });
       }
       continue;
     }

@@ -26,6 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Dictado por voz (speech_to_text) y lectura en voz alta (flutter_tts)
+	     para accesibilidad del chat. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Usamos el micrófono para que puedas dictar tus mensajes en el chat.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Usamos reconocimiento de voz para transcribir lo que dictas en el chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

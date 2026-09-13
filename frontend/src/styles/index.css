@@ -715,6 +715,53 @@ body {
   font-size: var(--a2ui-font-size-m);
 }
 
+/* Accesibilidad: dictado por voz (mic) y lectura en voz alta (speak). Ver
+   useSpeechRecognition.js / useSpeechSynthesis.js — ambos se ocultan solos
+   (no se renderiza el botón) cuando el navegador no los soporta. */
+.mic-button {
+  padding: var(--a2ui-spacing-s);
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  background: var(--color-on-primary);
+  font-size: var(--a2ui-font-size-m);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mic-button-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.chat-mic-status {
+  margin: 0;
+  padding: 0 var(--a2ui-spacing-l);
+  font-size: var(--a2ui-font-size-s);
+  color: var(--color-secondary);
+}
+
+.speak-button {
+  align-self: flex-start;
+  margin-top: var(--a2ui-spacing-xs);
+  border: none;
+  background: none;
+  padding: var(--a2ui-spacing-xs);
+  font-size: var(--a2ui-font-size-m);
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 999px;
+  opacity: 0.7;
+}
+
+.speak-button:hover {
+  opacity: 1;
+}
+
+.speak-button-active {
+  opacity: 1;
+  background: var(--a2ui-color-border);
+}
+
 .confirm-modal-overlay {
   position: fixed;
   inset: 0;

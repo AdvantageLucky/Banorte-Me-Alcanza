@@ -28,5 +28,10 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- Dictado por voz (speech_to_text) para accesibilidad del chat. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Usamos el micrófono para que puedas dictar tus mensajes en el chat.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Usamos reconocimiento de voz para transcribir lo que dictas en el chat.</string>
 </dict>
 </plist>

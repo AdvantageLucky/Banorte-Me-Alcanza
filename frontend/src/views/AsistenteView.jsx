@@ -17,6 +17,9 @@ import { createConfirmActionWithModal } from '../chat/confirmWithModal.js';
 import { buildTurnsFromHistorial } from '../chat/buildTurnsFromHistorial.js';
 import { dropDuplicateCreateSurface } from '../chat/messageFilter.js';
 import { extractSurfaceId } from '../chat/extractSurfaceId.js';
+import { extractSurfaceText } from '../chat/extractSurfaceText.js';
+import { useSpeechRecognition } from '../chat/useSpeechRecognition.js';
+import { useSpeechSynthesis } from '../chat/useSpeechSynthesis.js';
 import Typewriter from '../components/typewritter.jsx';
 import ConfirmActionModal from '../components/ConfirmActionModal.jsx';
 import ConversationSidebar from '../components/ConversationSidebar.jsx';
@@ -74,7 +77,11 @@ export default function AsistenteView() {
   function appendAgentTurn(messages) {
     const surfaceId = extractSurfaceId(messages);
     if (surfaceId) {
-      setTurns((prev) => [...prev, { kind: 'agent', id: surfaceId, surfaceId }]);
+      // `messages` (el a2ui crudo) se guarda además del surfaceId para que
+      // el botón de "escuchar en voz alta" (ver extractSurfaceText.js)
+      // tenga de dónde sacar texto sin tener que reconstruirlo leyendo el
+      // modelo interno del MessageProcessor.
+      setTurns((prev) => [...prev, { kind: 'agent', id: surfaceId, surfaceId, messages }]);
     }
   }
 
@@ -101,16 +108,18 @@ export default function AsistenteView() {
     return () => removeStyles();
   }, []);
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    const texto = mensaje.trim();
+  // Extraída de handleSubmit para que tanto el formulario (texto escrito)
+  // como el dictado por voz (ver micRecognition abajo, que autoenvía al
+  // detectar el final del habla) compartan la misma lógica de envío sin
+  // depender del estado `mensaje`, que para el caso de voz nunca llega a
+  // escribirse.
+  async function submitMensaje(texto) {
     if (!texto || sending) {
       return;
     }
     setSending(true);
     setErrorMessage(null);
     setTurns((prev) => [...prev, { kind: 'user', id: crypto.randomUUID(), text: texto }]);
-    setMensaje('');
     try {
       const { a2ui_messages, conversacion_id: nuevoConversacionId } = await apiClient.sendMessage(
         token,
@@ -133,6 +142,43 @@ export default function AsistenteView() {
     } finally {
       setSending(false);
     }
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    const texto = mensaje.trim();
+    setMensaje('');
+    await submitMensaje(texto);
+  }
+
+  // Dictado por voz (STT, accesibilidad): al detectar el final del habla se
+  // manda el mensaje directo, sin pasar por el input de texto.
+  const micRecognition = useSpeechRecognition({
+    lang: 'es-MX',
+    onFinalResult: (texto) => {
+      setMensaje('');
+      submitMensaje(texto);
+    },
+  });
+
+  // Lectura en voz alta (TTS, accesibilidad) de las respuestas del agente.
+  const speechSynthesis = useSpeechSynthesis({ lang: 'es-MX' });
+
+  function handleToggleMic() {
+    if (micRecognition.listening) {
+      micRecognition.stop();
+    } else {
+      micRecognition.start();
+    }
+  }
+
+  function handleSpeakTurn(turn) {
+    if (speechSynthesis.speakingId === turn.id) {
+      speechSynthesis.cancel();
+      return;
+    }
+    const texto = turn.kind === 'agent-text' ? turn.text : extractSurfaceText(turn.messages);
+    speechSynthesis.speak(texto, turn.id);
   }
 
   function handleNuevaConversacion() {
@@ -188,6 +234,12 @@ export default function AsistenteView() {
                 <div className="chat-bot" key={turn.id}>
                   <img className="chat-logo" src={logo} alt="Logo" width="40" height="40" />
                   <p className="chat-message-agent-text">{turn.text}</p>
+                  {speechSynthesis.supported && (
+                    <SpeakButton
+                      speaking={speechSynthesis.speakingId === turn.id}
+                      onClick={() => handleSpeakTurn(turn)}
+                    />
+                  )}
                 </div>
               );
             }
@@ -199,12 +251,36 @@ export default function AsistenteView() {
               <div className="chat-bot" key={turn.id}>
                 <img className="chat-logo" src={logo} alt="Logo" width="40" height="40" />
                 <A2uiSurface key={turn.id} surface={surface} />
+                {speechSynthesis.supported && (
+                  <SpeakButton
+                    speaking={speechSynthesis.speakingId === turn.id}
+                    onClick={() => handleSpeakTurn(turn)}
+                  />
+                )}
               </div>
             );
           })}
         </main>
         {errorMessage && <p className="chat-error">{errorMessage}</p>}
+        {micRecognition.listening && (
+          <p className="chat-mic-status" aria-live="polite">
+            🎙️ Escuchando… {micRecognition.interimTranscript}
+          </p>
+        )}
         <form className="chat-input" onSubmit={handleSubmit}>
+          {micRecognition.supported && (
+            <button
+              type="button"
+              className={`mic-button${micRecognition.listening ? ' mic-button-active' : ''}`}
+              onClick={handleToggleMic}
+              disabled={sending}
+              aria-pressed={micRecognition.listening}
+              aria-label={micRecognition.listening ? 'Detener dictado por voz' : 'Dictar mensaje por voz'}
+              title={micRecognition.listening ? 'Detener dictado' : 'Dictar por voz'}
+            >
+              {micRecognition.listening ? '⏹️' : '🎙️'}
+            </button>
+          )}
           <input
             type="text"
             value={mensaje}
@@ -231,5 +307,23 @@ export default function AsistenteView() {
         />
       )}
     </div>
+  );
+}
+
+// Botón de "escuchar en voz alta" (TTS, accesibilidad) que acompaña cada
+// respuesta del agente. Vive fuera de AsistenteView porque no depende de su
+// estado: recibe todo por props.
+function SpeakButton({ speaking, onClick }) {
+  return (
+    <button
+      type="button"
+      className={`speak-button${speaking ? ' speak-button-active' : ''}`}
+      onClick={onClick}
+      aria-pressed={speaking}
+      aria-label={speaking ? 'Detener lectura en voz alta' : 'Escuchar esta respuesta en voz alta'}
+      title={speaking ? 'Detener lectura' : 'Escuchar en voz alta'}
+    >
+      {speaking ? '⏹️' : '🔊'}
+    </button>
   );
 }
