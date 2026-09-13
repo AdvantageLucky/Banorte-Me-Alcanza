@@ -69,7 +69,7 @@ export default function AsistenteView() {
     () =>
       createConfirmActionWithModal({
         getPropuesta: (proposalId) => apiClient.getPropuesta(token, proposalId),
-        confirmAction: (proposalId) => apiClient.confirmAction(token, proposalId),
+        confirmAction: (proposalId, context) => apiClient.confirmAction(token, proposalId, context),
         requestConfirmation: (payload) => setPendingConfirmation(payload),
       }),
     [token],
