@@ -203,7 +203,11 @@ class _Encabezado extends StatelessWidget {
               padding: EdgeInsets.only(top: 4),
               child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             )
-          else
+          // Con 0 pendientes, "Todo en orden" (abajo) ya lo dice: un "0"
+          // gigante aquí es ruido, no información — antes además se
+          // renderizaba en BankGothic, donde el glifo del cero se ve como
+          // un recuadro hueco sin nada adentro.
+          else if (pendientes > 0)
             Text('$pendientes', style: DisplayText.saldo.copyWith(fontSize: 36, color: BrandColors.rojo)),
         ],
       ),
