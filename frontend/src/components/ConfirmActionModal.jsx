@@ -16,7 +16,7 @@ export default function ConfirmActionModal({ resumen, onConfirm, onCancel }) {
         onClick={(event) => event.stopPropagation()}
       >
         <h3 id="confirm-modal-title" className="confirm-modal-title">
-          Confirma esta operación
+          ¿Estás seguro de hacer esto?
         </h3>
         <p className="confirm-modal-resumen">{resumen}</p>
         <p className="confirm-modal-note">
