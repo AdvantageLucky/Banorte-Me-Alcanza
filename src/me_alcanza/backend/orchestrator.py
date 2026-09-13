@@ -2,11 +2,10 @@ import logging
 import uuid
 from typing import Any
 
-from a2ui.basic_catalog.provider import BasicCatalog
 from a2ui.inference_formats.direct_json.format import DirectJsonFormat
 from google.genai import types
 
-from . import fake_provider, proposals
+from . import a2ui_custom_catalog, fake_provider, proposals
 from .mcp_client import BankMcpClient
 
 _logger = logging.getLogger(__name__)
@@ -27,6 +26,9 @@ _ALLOWED_COMPONENTS = [
     "ChoicePicker",
     "Slider",
     "DateTimeInput",
+    "StatCard",
+    "BarChart",
+    "PlanDePago",
 ]
 MAX_TOOL_CALL_ROUNDS = 5
 # Cuántos mensajes de historial (no turnos) se reenvían a Gemini como
@@ -42,11 +44,12 @@ _READ_ONLY_TOOLS = {
     "get_metas",
     "buscar_contacto",
     "simular_flujo_de_caja",
+    "calcular_score_salud_financiera",
 }
 
 
 def _catalog_id() -> str:
-    return BasicCatalog.get_catalog_id(_VERSION)
+    return a2ui_custom_catalog.CUSTOM_CATALOG_ID
 
 
 def _as_function_response_payload(value: Any) -> dict:
@@ -224,6 +227,17 @@ def read_only_tool_declarations() -> list[types.Tool]:
                     ),
                 ),
                 types.FunctionDeclaration(
+                    name="calcular_score_salud_financiera",
+                    description=(
+                        "Calcula un score 0-100 de salud financiera de la cuenta del usuario "
+                        "actual, con categoria ('Saludable'/'Atención'/'Riesgo') y los factores "
+                        "que lo explican. Úsala cuando el usuario pregunte por su salud "
+                        "financiera en general (ej. '¿cómo ando de finanzas?', '¿voy bien?') o "
+                        "cuando quieras cerrar una respuesta mostrando el panorama completo."
+                    ),
+                    parameters=types.Schema(type=types.Type.OBJECT, properties={}),
+                ),
+                types.FunctionDeclaration(
                     name="proponer_transferencia",
                     description=(
                         "Propone una transferencia a un contacto YA IDENTIFICADO por su id exacto "
@@ -343,7 +357,7 @@ def read_only_tool_declarations() -> list[types.Tool]:
 
 def build_system_prompt() -> str:
     fmt = DirectJsonFormat(
-        version=_VERSION, catalogs=[BasicCatalog.get_config(version=_VERSION)]
+        version=_VERSION, catalogs=[a2ui_custom_catalog.get_config(_VERSION)]
     )
     return fmt.prompt_generator.generate(
         role_description=(
@@ -391,7 +405,10 @@ def build_system_prompt() -> str:
             "Para preguntas sobre patrones de gasto (ej. '¿en qué gasté este mes?', '¿cuánto gasté en "
             "transferencias?'), usa 'get_resumen_movimientos' calculando tú mismo el rango de fechas a "
             "partir de hoy (ej. 'este mes' = del día 1 del mes actual a hoy); nunca pidas ni inventes "
-            "el detalle de movimientos individuales."
+            "el detalle de movimientos individuales. "
+            "Para preguntas sobre salud financiera general, usa 'calcular_score_salud_financiera' y "
+            "muestra su score, categoría y factores tal cual los devuelve la herramienta; nunca "
+            "calcules o inventes tú mismo ese score."
         ),
         ui_description=(
             "Usa SIEMPRE jerarquía visual, nunca texto plano sin estructura: "
@@ -458,7 +475,32 @@ def build_system_prompt() -> str:
             '"value": {"montoApartar": 500}}}\n'
             "No inventes datos que el usuario deba ajustar si no tienes un rango o valor inicial "
             "razonable: si no sabes min/max, pide el dato por texto en vez de mostrar un Slider a "
-            "ciegas."
+            "ciegas. "
+            "8) Además tienes 3 componentes propios de dominio financiero (no son parte del "
+            "catálogo básico del protocolo, los diseñó este equipo) — úsalos para presentar datos "
+            "reales de forma mucho más clara que un Text plano: "
+            "StatCard muestra un dato destacado con tendencia (props: label, value ya formateado "
+            "como texto, trend='up'|'down'|'flat' opcional, trendLabel opcional, tone="
+            "'positive'|'negative'|'neutral'|'warning'). Úsalo con el resultado de "
+            "'calcular_score_salud_financiera' (label='Salud financiera', value=f'{score}/100', "
+            "tone según categoria: Saludable→positive, Atención→warning, Riesgo→negative, "
+            "trendLabel=el primer factor) o con el saldo/margen proyectado de "
+            "'simular_flujo_de_caja'. "
+            "BarChart dibuja barras (props: title opcional, valuePrefix opcional ej '$', bars=lista "
+            "de {label, value, tone opcional}). Úsalo SIEMPRE que 'get_resumen_movimientos' "
+            "devuelva 2 o más categorías, con bars=[{label: categoria, value: total} por cada "
+            "fila] — nunca inventes categorías o montos que la herramienta no devolvió. "
+            "PlanDePago muestra una lista de alternativas seleccionables, como una tabla de planes "
+            "(props: title y subtitle opcionales, options=lista de {id, label, detail, amount ya "
+            "formateado, highlighted opcional}, selectedId enlazado a un path del data model igual "
+            "que los demás componentes de entrada). Úsalo con 'apartado_sugerido' de "
+            "'simular_flujo_de_caja' (una sola opción está bien: id='sugerido', "
+            "label=f'{periodicidad}', detail=f'{num_periodos} periodos', "
+            "amount=monto_por_periodo formateado) seguido de un Button normal cuya "
+            "'action.event.context' lea ese mismo path — nunca inventes tasas, CAT ni plazos "
+            "adicionales que la herramienta no calculó. "
+            "Nunca uses estos 3 componentes como decoración de un dato que ya se explica solo con "
+            "un Text; resérvalos para cuando de verdad ayudan a comparar o destacar información."
         ),
         allowed_components=_ALLOWED_COMPONENTS,
         include_schema=True,
@@ -472,7 +514,7 @@ class Orchestrator:
         self._mcp = mcp_client
         self._provider = provider
         self._fmt = DirectJsonFormat(
-            version=_VERSION, catalogs=[BasicCatalog.get_config(version=_VERSION)]
+            version=_VERSION, catalogs=[a2ui_custom_catalog.get_config(_VERSION)]
         )
         self._system_prompt = build_system_prompt()
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, Fragment } from 'react';
 import { MessageProcessor } from '@a2ui/web_core/v0_9';
-import { A2uiSurface, basicCatalog } from '@a2ui/react/v0_9';
+import { A2uiSurface } from '@a2ui/react/v0_9';
 import { injectStyles, removeStyles } from '@a2ui/react/styles';
 // injectStyles() (arriba) solo trae el CSS estructural heredado de v0_8
 // (layout de los wrappers .a2ui-surface .a2ui-*). Las clases reales del
@@ -8,6 +8,8 @@ import { injectStyles, removeStyles } from '@a2ui/react/styles';
 // archivo estático y nadie las importaba, por lo que Button/Text/TextField/
 // ChoicePicker se renderizaban sin ningún estilo.
 import '@a2ui/react/v0_9/index.css';
+import { meAlcanzaCatalog } from '../a2ui-custom/catalog.js';
+import '../a2ui-custom/styles.css';
 import { apiClient } from '../api/client.js';
 import { useApiResource } from '../api/useApiResource.js';
 import { createActionHandler } from '../chat/actionHandler.js';
@@ -110,7 +112,7 @@ export default function AsistenteView() {
       await confirmActionHandler(action);
       await sugerenciaActionHandler(action);
     };
-    proc = new MessageProcessor([basicCatalog], handleAction);
+    proc = new MessageProcessor([meAlcanzaCatalog], handleAction);
     return proc;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);

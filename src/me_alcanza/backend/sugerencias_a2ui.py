@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from a2ui.basic_catalog.provider import BasicCatalog
+from . import a2ui_custom_catalog
 
 _VERSION = "0.9"
 
@@ -12,7 +12,7 @@ _MESES_ABREV = {
 
 
 def _catalog_id() -> str:
-    return BasicCatalog.get_catalog_id(_VERSION)
+    return a2ui_custom_catalog.CUSTOM_CATALOG_ID
 
 
 def _new_surface_id() -> str:

@@ -610,6 +610,7 @@ def test_read_only_tool_declarations_expone_exactamente_las_herramientas_permiti
         "get_metas",
         "buscar_contacto",
         "simular_flujo_de_caja",
+        "calcular_score_salud_financiera",
         "proponer_transferencia",
         "proponer_apartado",
         "proponer_contacto",
