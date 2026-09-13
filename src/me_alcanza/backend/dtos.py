@@ -22,6 +22,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     a2ui_messages: list[dict]
+    conversacion_id: int
 
 
 class ConfirmActionRequest(BaseModel):
@@ -178,6 +179,10 @@ class MensajeResponse(BaseModel):
     rol: str
     contenido: str
     created_at: str
+    # Solo se llena para turnos rol="model": el bloque A2UI reconstruido a
+    # partir del texto crudo persistido (ver Orchestrator.reparsear_mensaje_modelo).
+    # None cuando el turno es de usuario, o si ese texto viejo ya no parsea.
+    a2ui_json: list[dict] | None = None
 
 
 class CrearConversacionRequest(BaseModel):

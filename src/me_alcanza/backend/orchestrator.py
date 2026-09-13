@@ -840,6 +840,23 @@ class Orchestrator:
                 "No se pudo completar la acción. Intenta de nuevo en unos momentos."
             )
 
+    def reparsear_mensaje_modelo(self, contenido: str) -> list[dict] | None:
+        # Los turnos "model" persistidos en una conversación guardan el texto
+        # crudo que produjo el LLM (el mismo que se le reenvía como historial
+        # en el próximo turno), no el bloque A2UI ya parseado que ve el
+        # frontend en vivo. Al abrir un historial pasado, esta función corre
+        # el mismo parser que handle_message para reconstruir esa tarjeta con
+        # fidelidad completa (misma tarjeta interactiva), en vez de mostrarla
+        # como texto plano.
+        try:
+            parts = self._fmt.parser.parse_response(contenido)
+        except Exception:  # noqa: BLE001 - un mensaje viejo mal formado no debe tirar el historial completo
+            return None
+        for part in parts:
+            if part.a2ui_json:
+                return _rewrite_surface_id(part.a2ui_json, _new_surface_id())
+        return None
+
     async def handle_message(self, account_id: str, conversacion_id: int, mensaje: str) -> list[dict]:
         # Todo el flujo (carga de historial, tool loop y el reintento de
         # auto-corrección de abajo) vive bajo un único try/except: una excepción

@@ -432,6 +432,34 @@ async def test_handle_message_proponer_apartado_monto_no_positivo_no_crea_propue
     assert len(proposals.PROPOSALS) == 0
 
 
+def test_reparsear_mensaje_modelo_reconstruye_la_tarjeta_a2ui():
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", MagicMock())
+
+    resultado = orchestrator.reparsear_mensaje_modelo(SALDO_A2UI_RESPONSE)
+
+    assert resultado is not None
+    assert "createSurface" in resultado[0]
+
+
+def test_reparsear_mensaje_modelo_asigna_un_surface_id_fresco():
+    # Igual que en un turno en vivo: reabrir el historial no debe reusar el
+    # surfaceId original (podría chocar con uno ya presente en la sesión).
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", MagicMock())
+
+    resultado = orchestrator.reparsear_mensaje_modelo(SALDO_A2UI_RESPONSE)
+
+    assert resultado[0]["createSurface"]["surfaceId"] != "main"
+
+
+def test_reparsear_mensaje_modelo_con_texto_invalido_devuelve_none():
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", MagicMock())
+
+    assert orchestrator.reparsear_mensaje_modelo("esto no es un bloque a2ui válido") is None
+
+
 def test_obtener_resumen_propuesta_devuelve_tipo_y_resumen():
     genai_client = MagicMock()
     orchestrator = Orchestrator(genai_client, "gemini-test", MagicMock())

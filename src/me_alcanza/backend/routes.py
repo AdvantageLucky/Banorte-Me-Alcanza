@@ -73,7 +73,7 @@ async def chat(
     messages = await request.app.state.orchestrator.handle_message(
         account_id, conversacion_id, payload.mensaje
     )
-    return ChatResponse(a2ui_messages=messages)
+    return ChatResponse(a2ui_messages=messages, conversacion_id=conversacion_id)
 
 
 @router.post("/confirm-action", response_model=ConfirmActionResponse)
@@ -593,7 +593,14 @@ async def get_mensajes_conversacion(
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return [MensajeResponse(**m) for m in mensajes]
+    orchestrator = request.app.state.orchestrator
+    return [
+        MensajeResponse(
+            **m,
+            a2ui_json=orchestrator.reparsear_mensaje_modelo(m["contenido"]) if m["rol"] == "model" else None,
+        )
+        for m in mensajes
+    ]
 
 
 @router.delete("/conversaciones/{conversacion_id}", status_code=204)

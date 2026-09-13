@@ -69,11 +69,39 @@ def test_chat_con_token_llama_al_orquestador(app):
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
-        assert response.json() == {"a2ui_messages": fake_messages}
+        body = response.json()
+        assert body["a2ui_messages"] == fake_messages
+        assert isinstance(body["conversacion_id"], int)
         app.state.orchestrator.handle_message.assert_awaited_once()
         args = app.state.orchestrator.handle_message.await_args.args
         assert args[0] == "ana"
         assert args[2] == "¿me alcanza para el concierto?"
+
+
+def test_chat_devuelve_el_conversacion_id_usado_para_que_el_frontend_pueda_reenviarlo(app):
+    # Bug real que esto previene: si el frontend nunca captura el
+    # conversacion_id de la respuesta, cada mensaje que manda omite el campo
+    # y el backend autocrea una conversación nueva cada vez -la memoria de
+    # contexto entre turnos queda rota aunque toda la persistencia exista.
+    with TestClient(app) as client:
+        token = _login(client)
+        app.state.orchestrator.handle_message = AsyncMock(
+            return_value=[{"version": "v0.9", "createSurface": {"surfaceId": "main", "catalogId": "x"}}]
+        )
+
+        response = client.post(
+            "/api/chat", json={"mensaje": "hola"}, headers={"Authorization": f"Bearer {token}"}
+        )
+        conversacion_id = response.json()["conversacion_id"]
+
+        response2 = client.post(
+            "/api/chat",
+            json={"mensaje": "otra vez", "conversacion_id": conversacion_id},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response2.json()["conversacion_id"] == conversacion_id
+        segunda_llamada_args = app.state.orchestrator.handle_message.await_args_list[1].args
+        assert segunda_llamada_args[1] == conversacion_id
 
 
 def test_chat_sin_conversacion_id_falla_del_mcp_al_autocrear_devuelve_400(app):
@@ -607,6 +635,47 @@ def test_obtener_mensajes_de_conversacion_ajena_devuelve_400(app):
             headers={"Authorization": f"Bearer {token_luis}"},
         )
         assert response.status_code == 400
+
+
+def test_obtener_mensajes_de_conversacion_reparsea_los_turnos_del_modelo(app):
+    # El texto crudo persistido para un turno "model" no es lo que renderizó
+    # el frontend en vivo (es el mismo texto que se le reenvía al LLM como
+    # historial) -esta ruta debe reconstruirlo como a2ui_json real, no
+    # devolverlo como si fuera texto plano.
+    catalog_id = "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"
+    respuesta_modelo = f'''Aquí está tu saldo:
+<a2ui-json>
+[
+  {{"version": "v0.9", "createSurface": {{"surfaceId": "main", "catalogId": "{catalog_id}"}}}},
+  {{"version": "v0.9", "updateComponents": {{"surfaceId": "main", "components": [
+    {{"id": "root", "component": "Text", "text": "Tu saldo es $500.0 MXN"}}
+  ]}}}}
+]
+</a2ui-json>
+'''
+    mensajes_guardados = [
+        {"rol": "user", "contenido": "hola", "created_at": "2026-09-12T10:00:00"},
+        {"rol": "model", "contenido": respuesta_modelo, "created_at": "2026-09-12T10:00:01"},
+    ]
+
+    with TestClient(app) as client:
+        token = _login(client)
+
+        async def fake_call(name, args=None):
+            if name == "obtener_mensajes_conversacion":
+                return mensajes_guardados
+            return None
+
+        app.state.mcp_client.call = AsyncMock(side_effect=fake_call)
+
+        response = client.get(
+            "/api/conversaciones/1/mensajes", headers={"Authorization": f"Bearer {token}"}
+        )
+        mensajes = response.json()
+        assert mensajes[0]["rol"] == "user"
+        assert mensajes[0]["a2ui_json"] is None
+        assert mensajes[1]["rol"] == "model"
+        assert "createSurface" in mensajes[1]["a2ui_json"][0]
 
 
 def test_eliminar_conversacion(app):

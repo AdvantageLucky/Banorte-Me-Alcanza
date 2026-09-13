@@ -29,10 +29,10 @@ describe('createApiClient', () => {
     );
   });
 
-  it('sends the bearer token and mensaje on /api/chat', async () => {
+  it('sends the bearer token and mensaje on /api/chat, with no conversacion_id by default', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => ({ a2ui_messages: [] }),
+      json: async () => ({ a2ui_messages: [], conversacion_id: 1 }),
     });
     const client = createApiClient('http://api.test');
 
@@ -42,8 +42,53 @@ describe('createApiClient', () => {
       'http://api.test/api/chat',
       expect.objectContaining({
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer jwt-123' },
-        body: JSON.stringify({ mensaje: '¿me alcanza para el concierto?' }),
+        body: JSON.stringify({ mensaje: '¿me alcanza para el concierto?', conversacion_id: null }),
       }),
+    );
+  });
+
+  it('sends the given conversacion_id on /api/chat so the backend continues that same thread', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ a2ui_messages: [], conversacion_id: 7 }),
+    });
+    const client = createApiClient('http://api.test');
+
+    await client.sendMessage('jwt-123', 'otro mensaje', 7);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://api.test/api/chat',
+      expect.objectContaining({
+        body: JSON.stringify({ mensaje: 'otro mensaje', conversacion_id: 7 }),
+      }),
+    );
+  });
+
+  it('getConversaciones hace un GET autenticado a /api/conversaciones', async () => {
+    const conversaciones = [{ id: 1, titulo: 'Nueva conversación', created_at: '2026-09-12T10:00:00', updated_at: '2026-09-12T10:00:00' }];
+    fetchMock.mockResolvedValue({ ok: true, json: async () => conversaciones });
+    const client = createApiClient('http://api.test');
+
+    const result = await client.getConversaciones('jwt-123');
+
+    expect(result).toEqual(conversaciones);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://api.test/api/conversaciones',
+      expect.objectContaining({ method: 'GET', headers: { Authorization: 'Bearer jwt-123' } }),
+    );
+  });
+
+  it('getMensajesConversacion hace un GET autenticado a /api/conversaciones/{id}/mensajes', async () => {
+    const mensajes = [{ rol: 'user', contenido: 'hola', created_at: '2026-09-12T10:00:00', a2ui_json: null }];
+    fetchMock.mockResolvedValue({ ok: true, json: async () => mensajes });
+    const client = createApiClient('http://api.test');
+
+    const result = await client.getMensajesConversacion('jwt-123', 7);
+
+    expect(result).toEqual(mensajes);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://api.test/api/conversaciones/7/mensajes',
+      expect.objectContaining({ method: 'GET', headers: { Authorization: 'Bearer jwt-123' } }),
     );
   });
 

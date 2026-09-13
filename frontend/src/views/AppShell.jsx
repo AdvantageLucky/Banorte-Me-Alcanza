@@ -1,29 +1,28 @@
 import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext.jsx';
-import ChatView from './ChatView.jsx';
-import DashboardView from './DashboardView.jsx';
+import AsistenteView from './AsistenteView.jsx';
 import YoView from './YoView.jsx';
 
 // Navbar de nivel app: antes ChatView era la única pantalla tras el login y
 // traía su propio encabezado con marca + "Salir". Ahora ese encabezado vive
-// aquí, una sola vez, con tabs para cambiar entre Dashboard, Chat y Yo.
+// aquí, una sola vez, con tabs para cambiar entre Asistente y Yo.
+// El tab "Dashboard" (lista estática de sugerencias, sin nada que la
+// disparara sola) se eliminó: su contenido (NotificacionesPanel) ahora vive
+// dentro de Asistente, donde sí se muestra sin que el usuario tenga que ir a
+// buscarlo.
 const TABS = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'chat', label: 'Chat' },
+  { id: 'asistente', label: 'Asistente' },
   { id: 'yo', label: 'Yo' },
 ];
 
 const VIEWS = {
-  dashboard: DashboardView,
-  chat: ChatView,
+  asistente: AsistenteView,
   yo: YoView,
 };
 
 export default function AppShell() {
   const { logout } = useAuth();
-  // Chat sigue siendo la pantalla inicial al entrar, aunque Dashboard
-  // aparezca primero en la barra (mismo orden que el shell de Flutter).
-  const [activeTab, setActiveTab] = useState('chat');
+  const [activeTab, setActiveTab] = useState('asistente');
   const ActiveView = VIEWS[activeTab];
 
   return (
