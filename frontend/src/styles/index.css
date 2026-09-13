@@ -1105,3 +1105,7 @@ body {
   color: var(--color-secondary);
   font-size: var(--a2ui-font-size-xs);
 }
+.chat-animation {
+  width: fit-content;
+  margin-top: -15px;
+}

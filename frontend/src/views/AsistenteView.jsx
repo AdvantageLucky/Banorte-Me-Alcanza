@@ -219,7 +219,7 @@ export default function AsistenteView() {
       />
       <div className="chat-view">
         <main className="chat-surfaces">
-          {turns.length === 0 && (
+          {(turns.length === 0 && !sending) && (
             <Typewriter />
           )}
           {turns.map((turn) => {
@@ -261,11 +261,26 @@ export default function AsistenteView() {
               </div>
             );
           })}
+          {sending && (
+            <div className="chat-animation">
+              <video
+                className="login-video"
+                style={{ width: '100px', flex: 0 }}
+                autoPlay
+                loop
+                muted
+                playsInline
+                onError={() => setVideoFailed(true)}
+              >
+                <source src="/videos/thinking.webm" type="video/webm" />
+              </video>
+            </div>
+          )}
         </main>
         {errorMessage && <p className="chat-error">{errorMessage}</p>}
         {micRecognition.listening && (
           <p className="chat-mic-status" aria-live="polite">
-            🎙️ Escuchando… {micRecognition.interimTranscript}
+            Escuchando… {micRecognition.interimTranscript}
           </p>
         )}
         <form className="chat-input" onSubmit={handleSubmit}>
