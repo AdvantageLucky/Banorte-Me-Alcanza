@@ -232,3 +232,53 @@ class ChatTurnResponse {
   /// anteriores a la memoria de conversación.
   final int? conversacionId;
 }
+
+/// Una entrada del historial de hilos (GET /api/conversaciones) — el título
+/// y la fecha son lo único que la lista necesita mostrar; el contenido se
+/// pide aparte por id (ver [MensajeConversacion]).
+class Conversacion {
+  const Conversacion({
+    required this.id,
+    required this.titulo,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final int id;
+  final String titulo;
+  final String createdAt;
+  final String updatedAt;
+
+  factory Conversacion.fromJson(Map<String, dynamic> json) => Conversacion(
+        id: json['id'] as int,
+        titulo: json['titulo'] as String,
+        createdAt: json['created_at'] as String,
+        updatedAt: json['updated_at'] as String,
+      );
+}
+
+/// Un turno persistido de una conversación (GET
+/// /api/conversaciones/{id}/mensajes). Para `rol == "model"`, `a2uiJson` trae
+/// la tarjeta reconstruida por el backend (ver
+/// `Orchestrator.reparsear_mensaje_modelo`) — null si ese turno es de usuario,
+/// o si el texto viejo ya no parsea como A2UI válido.
+class MensajeConversacion {
+  const MensajeConversacion({
+    required this.rol,
+    required this.contenido,
+    required this.createdAt,
+    this.a2uiJson,
+  });
+
+  final String rol;
+  final String contenido;
+  final String createdAt;
+  final List<dynamic>? a2uiJson;
+
+  factory MensajeConversacion.fromJson(Map<String, dynamic> json) => MensajeConversacion(
+        rol: json['rol'] as String,
+        contenido: json['contenido'] as String,
+        createdAt: json['created_at'] as String,
+        a2uiJson: json['a2ui_json'] as List<dynamic>?,
+      );
+}

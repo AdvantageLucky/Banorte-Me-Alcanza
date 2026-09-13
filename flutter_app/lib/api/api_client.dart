@@ -72,6 +72,19 @@ class ApiClient {
     return body['a2ui_messages'] as List<dynamic>;
   }
 
+  // ------------------------------------------------------- conversaciones
+
+  Future<List<Conversacion>> getConversaciones(String token) async =>
+      _list(await _getList('/api/conversaciones', token: token), Conversacion.fromJson);
+
+  Future<List<MensajeConversacion>> getMensajesConversacion(String token, int id) async => _list(
+        await _getList('/api/conversaciones/$id/mensajes', token: token),
+        MensajeConversacion.fromJson,
+      );
+
+  Future<void> eliminarConversacion(String token, int id) =>
+      _delete('/api/conversaciones/$id', token: token);
+
   // -------------------------------------------------------------- cuenta
 
   Future<Cuenta> getCuenta(String token) async =>

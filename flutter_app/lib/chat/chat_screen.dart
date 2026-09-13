@@ -7,9 +7,11 @@ import 'package:genui/genui.dart';
 import '../a2ui/a2ui_host.dart';
 import '../api/api_client.dart';
 import '../auth/auth_controller.dart';
+import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../theme/tokens.dart';
 import 'action_router.dart';
+import 'conversaciones_drawer.dart';
 import 'extract_surface_text.dart';
 import 'speech_service.dart';
 
@@ -50,6 +52,14 @@ class AgentTurn extends ChatTurn {
   final List<dynamic> rawMessages;
 }
 
+// Un turno "model" del historial cuyo texto viejo ya no parsea como A2UI
+// (a2ui_json vino null desde el backend — ver Orchestrator.reparsear_mensaje_
+// modelo). Nunca ocurre en vivo, solo al reabrir una conversación pasada.
+class AgentTextTurn extends ChatTurn {
+  AgentTextTurn(super.id, this.text);
+  final String text;
+}
+
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
@@ -63,6 +73,11 @@ class _ChatScreenState extends State<ChatScreen> {
   /// Hilo de conversación actual. El backend lo devuelve en el primer
   /// turno; reenviarlo es lo que le da memoria al asistente.
   int? _conversacionId;
+
+  // Historial de hilos (drawer) — se recarga cada vez que se abre, así que
+  // una conversación recién creada por el primer mensaje aparece sin tener
+  // que refrescar nada a mano.
+  late Future<List<Conversacion>> _conversacionesFuture;
 
   // El a2ui crudo del envío en curso, a la espera de que el host confirme
   // el surfaceId real para adjuntarlo al AgentTurn correspondiente.
@@ -93,6 +108,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _conversacionesFuture = widget.apiClient.getConversaciones(widget.authController.token!);
     _host = A2uiHost(onAction: _onAction);
     _surfaceSub = _host.surfaceAdded.listen((surfaceId) {
       setState(() {
@@ -185,6 +201,47 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  void _reloadConversaciones() {
+    setState(() {
+      _conversacionesFuture = widget.apiClient.getConversaciones(widget.authController.token!);
+    });
+  }
+
+  /// Reabre un hilo pasado: pide su historial completo y reconstruye cada
+  /// turno. Los turnos "model" con a2ui_json se re-alimentan al mismo
+  /// A2uiHost que usan los mensajes en vivo (mismo camino que _feedMessages,
+  /// así que el listener de `surfaceAdded` en initState agrega el AgentTurn
+  /// solo) — nunca se arma la tarjeta a mano aquí.
+  Future<void> _cargarConversacion(int id) async {
+    await _speechService.stopSpeaking();
+    if (!mounted) return;
+    setState(() {
+      _turns.clear();
+      _conversacionId = id;
+      _errorMessage = null;
+      _speakingTurnId = null;
+    });
+    try {
+      final token = widget.authController.token!;
+      final mensajes = await widget.apiClient.getMensajesConversacion(token, id);
+      for (final m in mensajes) {
+        if (!mounted) return;
+        if (m.rol == 'user') {
+          setState(() => _turns.add(UserTurn('turn-${_turnCounter++}', m.contenido)));
+          continue;
+        }
+        if (m.a2uiJson != null) {
+          _feedMessages(m.a2uiJson!);
+          continue;
+        }
+        setState(() => _turns.add(AgentTextTurn('turn-${_turnCounter++}', m.contenido)));
+      }
+      _scrollToBottom();
+    } catch (err) {
+      _handleError(err, 'No se pudo cargar esta conversación, intenta de nuevo.');
+    }
+  }
+
   // Dictado por voz (STT): al detectar el final del habla se manda el
   // mensaje directo, igual que si el usuario lo hubiera escrito y enviado.
   Future<void> _handleToggleMic() async {
@@ -218,21 +275,25 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // Lectura en voz alta (TTS) de la respuesta de un turno.
-  Future<void> _handleSpeakTurn(AgentTurn turn) async {
-    if (_speakingTurnId == turn.id) {
+  // Lectura en voz alta (TTS) de la respuesta de un turno — tanto una
+  // tarjeta A2UI en vivo/reabierta (AgentTurn) como un turno de historial
+  // viejo que ya no parsea como A2UI (AgentTextTurn, texto plano).
+  Future<void> _handleSpeakId(String id, String texto) async {
+    if (_speakingTurnId == id) {
       await _speechService.stopSpeaking();
       if (mounted) setState(() => _speakingTurnId = null);
       return;
     }
-    final texto = extractSurfaceText(turn.rawMessages);
     if (texto.isEmpty) return;
     _speechService.onSpeakComplete = () {
       if (mounted) setState(() => _speakingTurnId = null);
     };
-    setState(() => _speakingTurnId = turn.id);
+    setState(() => _speakingTurnId = id);
     await _speechService.speak(texto, lang: 'es-MX');
   }
+
+  Future<void> _handleSpeakTurn(AgentTurn turn) =>
+      _handleSpeakId(turn.id, extractSurfaceText(turn.rawMessages));
 
   // Cada turno nuevo debe dejar visible la última línea. Se agenda para
   // después del frame porque el ListView todavía no midió el item nuevo.
@@ -250,6 +311,15 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: ConversacionesDrawer(
+        future: _conversacionesFuture,
+        activeId: _conversacionId,
+        onSelect: _cargarConversacion,
+        onNueva: _nuevoHilo,
+      ),
+      onDrawerChanged: (opened) {
+        if (opened) _reloadConversaciones();
+      },
       appBar: BrandAppBar(
         seccion: 'Asistente',
         onLogout: widget.authController.logout,
@@ -302,6 +372,39 @@ class _ChatScreenState extends State<ChatScreen> {
                               ),
                               child: Text(turn.text, style: const TextStyle(color: Colors.white)),
                             ),
+                          ),
+                        );
+                      }
+                      if (turn is AgentTextTurn) {
+                        final hablando = _speakingTurnId == turn.id;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Image(image: AssetImage('assets/icon/icon.png'), width: 32, height: 32),
+                              const SizedBox(width: Space.s),
+                              Flexible(
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(turn.text),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                iconSize: 20,
+                                color: hablando ? BrandColors.rojo : BrandColors.gris,
+                                icon: Icon(hablando ? Icons.stop_circle_outlined : Icons.volume_up_outlined),
+                                tooltip: hablando ? 'Detener lectura' : 'Escuchar en voz alta',
+                                onPressed: () => _handleSpeakId(turn.id, turn.text),
+                              ),
+                            ],
                           ),
                         );
                       }
