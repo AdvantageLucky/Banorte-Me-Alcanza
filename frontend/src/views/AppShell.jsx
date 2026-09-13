@@ -6,10 +6,11 @@ import YoView from './YoView.jsx';
 // Navbar de nivel app: antes ChatView era la única pantalla tras el login y
 // traía su propio encabezado con marca + "Salir". Ahora ese encabezado vive
 // aquí, una sola vez, con tabs para cambiar entre Asistente y Yo.
-// El tab "Dashboard" (lista estática de sugerencias, sin nada que la
-// disparara sola) se eliminó: su contenido (NotificacionesPanel) ahora vive
-// dentro de Asistente, donde sí se muestra sin que el usuario tenga que ir a
-// buscarlo.
+// El tab "Dashboard" (lista estática de sugerencias en HTML aparte, sin
+// nada que la disparara sola) se eliminó: las sugerencias pendientes ahora
+// se inyectan como tarjetas A2UI más en el mismo feed de Asistente (ver
+// AsistenteView), con el mismo catálogo visual que cualquier respuesta del
+// chat en vez de un componente de React aparte.
 const TABS = [
   { id: 'asistente', label: 'Asistente' },
   { id: 'yo', label: 'Yo' },

@@ -12,13 +12,13 @@ import { apiClient } from '../api/client.js';
 import { useApiResource } from '../api/useApiResource.js';
 import { createActionHandler } from '../chat/actionHandler.js';
 import { createConfirmActionWithModal } from '../chat/confirmWithModal.js';
+import { createSugerenciaActionHandler } from '../chat/sugerenciaActionHandler.js';
 import { buildTurnsFromHistorial } from '../chat/buildTurnsFromHistorial.js';
 import { dropDuplicateCreateSurface } from '../chat/messageFilter.js';
 import { extractSurfaceId } from '../chat/extractSurfaceId.js';
 import Typewriter from '../components/typewritter.jsx';
 import ConfirmActionModal from '../components/ConfirmActionModal.jsx';
 import ConversationSidebar from '../components/ConversationSidebar.jsx';
-import NotificacionesPanel from '../components/NotificacionesPanel.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import logo from '../assets/images/logo.svg';
 
@@ -32,6 +32,12 @@ export default function AsistenteView() {
   // ocurrieron — el backend le da a cada turno del agente su propio
   // surfaceId único (tanto en vivo como al reabrir un historial pasado).
   const [turns, setTurns] = useState([]);
+  // Tarjetas de sugerencias pendientes: se cargan una vez al entrar (no
+  // dependen de la conversación activa) y se muestran arriba del feed como
+  // si el asistente las hubiera generado sin que nadie preguntara nada.
+  // Cada entrada es un turno normal (kind:'agent') + el sugerenciaId que le
+  // dio origen, para poder quitarlo del feed cuando se atiende/descarta.
+  const [notificaciones, setNotificaciones] = useState([]);
   // null = todavía no hay conversación real: el próximo mensaje que se
   // mande hace que el backend cree una y devuelva su id (ver handleSubmit).
   const [conversacionId, setConversacionId] = useState(null);
@@ -66,6 +72,17 @@ export default function AsistenteView() {
     [token],
   );
 
+  const sugerenciaActionHandler = useMemo(
+    () =>
+      createSugerenciaActionHandler({
+        atenderSugerencia: (id) => apiClient.atenderSugerencia(token, id),
+        descartarSugerencia: (id) => apiClient.descartarSugerencia(token, id),
+        onResuelta: (id) => setNotificaciones((prev) => prev.filter((n) => n.sugerenciaId !== id)),
+        onError: (err) => handleApiError(err, 'No se pudo actualizar la notificación, intenta de nuevo.'),
+      }),
+    [token],
+  );
+
   function appendAgentTurn(messages) {
     const surfaceId = extractSurfaceId(messages);
     if (surfaceId) {
@@ -75,7 +92,7 @@ export default function AsistenteView() {
 
   const processor = useMemo(() => {
     let proc;
-    const handleAction = createActionHandler({
+    const confirmActionHandler = createActionHandler({
       confirmAction: confirmActionWithModal,
       onMessages: (messages) => {
         setErrorMessage(null);
@@ -86,6 +103,13 @@ export default function AsistenteView() {
       },
       onError: (err) => handleApiError(err, 'No se pudo confirmar la acción, intenta de nuevo.'),
     });
+    // Cada handler ignora los eventos que no le tocan (por nombre), así que
+    // encadenarlos aquí es seguro: nunca se ejecutan los dos para la misma
+    // acción.
+    const handleAction = async (action) => {
+      await confirmActionHandler(action);
+      await sugerenciaActionHandler(action);
+    };
     proc = new MessageProcessor([basicCatalog], handleAction);
     return proc;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,6 +119,37 @@ export default function AsistenteView() {
     injectStyles();
     return () => removeStyles();
   }, []);
+
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        const sugerencias = await apiClient.getSugerencias(token);
+        const pendientes = sugerencias.filter((s) => s.estado === 'pendiente' && s.a2ui_json);
+        const nuevasNotificaciones = [];
+        for (const sugerencia of pendientes) {
+          processor.processMessages(
+            dropDuplicateCreateSurface(sugerencia.a2ui_json, new Set(processor.model.surfacesMap.keys())),
+          );
+          const surfaceId = extractSurfaceId(sugerencia.a2ui_json);
+          if (surfaceId) {
+            nuevasNotificaciones.push({ kind: 'agent', id: surfaceId, surfaceId, sugerenciaId: sugerencia.id });
+          }
+        }
+        if (!cancelado) {
+          setNotificaciones(nuevasNotificaciones);
+        }
+      } catch (err) {
+        if (!cancelado) {
+          handleApiError(err, 'No se pudieron cargar las notificaciones.');
+        }
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, processor]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -157,6 +212,11 @@ export default function AsistenteView() {
     }
   }
 
+  // Las notificaciones van siempre primero, sin importar qué conversación
+  // esté activa: no son "parte" de un hilo, son avisos del asistente que
+  // conviven con cualquier conversación en el mismo feed.
+  const feed = [...notificaciones, ...turns];
+
   return (
     <div className="asistente-view">
       <ConversationSidebar
@@ -165,55 +225,52 @@ export default function AsistenteView() {
         onSelect={handleSelectConversacion}
         onNueva={handleNuevaConversacion}
       />
-      <div className="asistente-main">
-        <NotificacionesPanel />
-        <div className="chat-view">
-          <main className="chat-surfaces">
-            {turns.length === 0 && (
-              <Typewriter />
-            )}
-            {turns.map((turn) => {
-              if (turn.kind === 'user') {
-                return (
-                  <p key={turn.id} className="chat-message-user">
-                    {turn.text}
-                  </p>
-                );
-              }
-              if (turn.kind === 'agent-text') {
-                return (
-                  <div className="chat-bot" key={turn.id}>
-                    <img className="chat-logo" src={logo} alt="Logo" width="40" height="40" />
-                    <p className="chat-message-agent-text">{turn.text}</p>
-                  </div>
-                );
-              }
-              const surface = processor.model.getSurface(turn.surfaceId);
-              if (!surface) {
-                return null;
-              }
+      <div className="chat-view">
+        <main className="chat-surfaces">
+          {feed.length === 0 && (
+            <Typewriter />
+          )}
+          {feed.map((turn) => {
+            if (turn.kind === 'user') {
+              return (
+                <p key={turn.id} className="chat-message-user">
+                  {turn.text}
+                </p>
+              );
+            }
+            if (turn.kind === 'agent-text') {
               return (
                 <div className="chat-bot" key={turn.id}>
                   <img className="chat-logo" src={logo} alt="Logo" width="40" height="40" />
-                  <A2uiSurface key={turn.id} surface={surface} />
+                  <p className="chat-message-agent-text">{turn.text}</p>
                 </div>
               );
-            })}
-          </main>
-          {errorMessage && <p className="chat-error">{errorMessage}</p>}
-          <form className="chat-input" onSubmit={handleSubmit}>
-            <input
-              type="text"
-              value={mensaje}
-              onChange={(event) => setMensaje(event.target.value)}
-              placeholder="Escribe tu mensaje..."
-              disabled={sending}
-            />
-            <button type="submit" disabled={sending}>
-              {sending ? 'Enviando...' : 'Enviar'}
-            </button>
-          </form>
-        </div>
+            }
+            const surface = processor.model.getSurface(turn.surfaceId);
+            if (!surface) {
+              return null;
+            }
+            return (
+              <div className="chat-bot" key={turn.id}>
+                <img className="chat-logo" src={logo} alt="Logo" width="40" height="40" />
+                <A2uiSurface key={turn.id} surface={surface} />
+              </div>
+            );
+          })}
+        </main>
+        {errorMessage && <p className="chat-error">{errorMessage}</p>}
+        <form className="chat-input" onSubmit={handleSubmit}>
+          <input
+            type="text"
+            value={mensaje}
+            onChange={(event) => setMensaje(event.target.value)}
+            placeholder="Escribe tu mensaje..."
+            disabled={sending}
+          />
+          <button type="submit" disabled={sending}>
+            {sending ? 'Enviando...' : 'Enviar'}
+          </button>
+        </form>
       </div>
       {pendingConfirmation && (
         <ConfirmActionModal

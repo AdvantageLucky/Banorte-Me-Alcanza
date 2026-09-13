@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from . import auth
+from . import auth, sugerencias_a2ui
 from .dtos import (
     ApartadoCreate,
     ApartadoResponse,
@@ -504,7 +504,13 @@ async def list_sugerencias(
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return [SugerenciaResponse(**s) for s in sugerencias]
+    return [
+        SugerenciaResponse(
+            **s,
+            a2ui_json=sugerencias_a2ui.construir_tarjeta_sugerencia(s) if s["estado"] == "pendiente" else None,
+        )
+        for s in sugerencias
+    ]
 
 
 @router.post("/sugerencias/{sugerencia_id}/atender", response_model=SugerenciaResponse)

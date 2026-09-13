@@ -527,6 +527,17 @@ def test_get_sugerencias_no_duplica_entre_llamadas(app):
         assert len(segunda) == len(primera)
 
 
+def test_get_sugerencias_pendientes_traen_su_tarjeta_a2ui(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        sugerencias = client.get("/api/sugerencias", headers={"Authorization": f"Bearer {token}"}).json()
+        assert len(sugerencias) > 0
+        for s in sugerencias:
+            assert s["estado"] == "pendiente"
+            assert s["a2ui_json"] is not None
+            assert "createSurface" in s["a2ui_json"][0]
+
+
 def test_atender_sugerencia(app):
     with TestClient(app) as client:
         token = _login(client)

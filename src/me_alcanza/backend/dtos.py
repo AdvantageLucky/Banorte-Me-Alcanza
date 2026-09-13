@@ -160,6 +160,10 @@ class SugerenciaResponse(BaseModel):
     estado: str
     created_at: str
     resuelta_at: str | None
+    # Solo se arma para estado="pendiente" (ver sugerencias_a2ui.py): la
+    # misma tarjeta A2UI que renderiza cualquier respuesta del chat, no un
+    # componente de React aparte.
+    a2ui_json: list[dict] | None = None
 
 
 class ScoreSaludResponse(BaseModel):
