@@ -254,10 +254,12 @@ body {
 }
 
 .login-form input {
+  background: var(--color-input);
   padding: var(--a2ui-spacing-s);
   border: var(--a2ui-border-width) solid var(--a2ui-color-border);
   border-radius: calc(var(--a2ui-border-radius) / 2);
   font-size: var(--a2ui-font-size-m);
+  color: var(--color-on-input);
 }
 
 .login-form button,
@@ -417,6 +419,7 @@ body {
   font-size: var(--a2ui-font-size-m);
   font-family: var(--a2ui-font-family-title);
   background: var(--color-on-primary);
+  color: var(--color-on-input);
 }
 
 .chat-bot {
