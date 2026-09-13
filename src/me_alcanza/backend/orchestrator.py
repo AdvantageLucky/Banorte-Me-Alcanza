@@ -162,6 +162,72 @@ def _confirmation_a2ui_block(mensaje: str, surface_id: str | None = None) -> lis
     ]
 
 
+# Campos que el usuario puede corregir en la tarjeta de confirmación antes de
+# aceptarla (ver `Orchestrator.confirm_action`) — nunca incluye `account_id`
+# ni identificadores de referencia (meta_id, contacto_id): esos no vienen de
+# un campo de texto editable, y aceptar un override ahí sería el mismo hueco
+# de seguridad que el patrón proponer/confirmar (ADR 0009) existe para evitar.
+_CAMPOS_EDITABLES_AL_CONFIRMAR: dict[str, tuple[str, ...]] = {
+    "contacto": ("nombre", "alias", "cuenta_destino", "relacion"),
+    "gasto_fijo": ("concepto", "monto", "frecuencia", "proxima_fecha"),
+    "ingreso_programado": ("descripcion", "monto", "frecuencia", "proxima_fecha"),
+    "meta": ("descripcion", "monto_objetivo", "fecha_objetivo"),
+}
+
+
+def _validar_datos_creacion(tipo: str, payload: dict) -> str | None:
+    """Valida un payload de creación (contacto/gasto_fijo/ingreso_programado/
+    meta) con la MISMA regla tanto cuando el modelo lo propone por primera vez
+    como cuando el usuario lo edita en la tarjeta de confirmación — así una
+    edición nunca puede colar un dato que `proponer_*` ya habría rechazado.
+    Coacciona los campos de monto a `float` in-place cuando son válidos, para
+    que el llamador guarde/reenvíe el mismo tipo sin importar si el valor
+    vino de la tool del modelo (ya numérico) o de un TextField editado a mano
+    (string)."""
+    if tipo == "contacto":
+        for campo in ("nombre", "alias", "cuenta_destino", "relacion"):
+            if not payload.get(campo):
+                return f"Falta el argumento requerido: {campo}"
+        return None
+
+    if tipo in ("gasto_fijo", "ingreso_programado"):
+        campo_nombre = "concepto" if tipo == "gasto_fijo" else "descripcion"
+        if not payload.get(campo_nombre):
+            return f"Falta el argumento requerido: {campo_nombre}"
+        if payload.get("monto") is None:
+            return "Falta el argumento requerido: monto"
+        if not payload.get("frecuencia"):
+            return "Falta el argumento requerido: frecuencia"
+        if not payload.get("proxima_fecha"):
+            return "Falta el argumento requerido: proxima_fecha"
+        try:
+            monto = float(payload["monto"])
+        except (TypeError, ValueError):
+            return "El monto debe ser un número válido"
+        if monto <= 0:
+            return "El monto debe ser mayor a cero"
+        payload["monto"] = monto
+        return None
+
+    if tipo == "meta":
+        if not payload.get("descripcion"):
+            return "Falta el argumento requerido: descripcion"
+        if payload.get("monto_objetivo") is None:
+            return "Falta el argumento requerido: monto_objetivo"
+        if not payload.get("fecha_objetivo"):
+            return "Falta el argumento requerido: fecha_objetivo"
+        try:
+            monto_objetivo = float(payload["monto_objetivo"])
+        except (TypeError, ValueError):
+            return "El monto_objetivo debe ser un número válido"
+        if monto_objetivo <= 0:
+            return "El monto_objetivo debe ser mayor a cero"
+        payload["monto_objetivo"] = monto_objetivo
+        return None
+
+    return None
+
+
 def read_only_tool_declarations() -> list[types.Tool]:
     return [
         types.Tool(
@@ -518,9 +584,11 @@ def build_system_prompt() -> str:
             "Todo componente de entrada (TextField, CheckBox, ChoicePicker, Slider, DateTimeInput) "
             "SIEMPRE debe enlazar su 'value' a un path del data model (ej. {\"path\": \"/monto\"}), "
             "nunca a un literal fijo, y ESE MISMO path debe inicializarse en updateDataModel con un "
-            "valor por default. El Button que confirma el formulario debe leer esos valores en su "
-            "'action.event.context' usando el mismo binding, nunca copiándolos como texto fijo — así "
-            "el backend recibe lo que el usuario realmente ajustó, no lo que el modelo cree que puso. "
+            "valor por default. El botón que confirma SIEMPRE dispara el evento 'confirmar_accion' "
+            "(nunca inventes otro nombre de evento — el backend solo reconoce ese), y su "
+            "'action.event.context' debe incluir 'proposalId' JUNTO CON cada campo editable enlazado "
+            "a su path, nunca copiado como texto fijo — así el backend recibe lo que el usuario "
+            "realmente ajustó, no lo que el modelo cree que puso. "
             "Ejemplo completo (un Slider que ajusta un monto a apartar, con su botón de confirmar):\n"
             '{"version": "v0.9", "createSurface": {"surfaceId": "<id>", "catalogId": "..."}}\n'
             '{"version": "v0.9", "updateComponents": {"surfaceId": "<id>", "components": ['
@@ -529,14 +597,30 @@ def build_system_prompt() -> str:
             '{"id": "slider", "component": "Slider", "label": "Monto a apartar", "min": 0, '
             '"max": 2000, "value": {"path": "/montoApartar"}}, '
             '{"id": "btn", "component": "Button", "child": "btnLabel", "variant": "primary", '
-            '"action": {"event": {"name": "confirmar_apartado", '
-            '"context": {"monto": {"path": "/montoApartar"}}}}}, '
+            '"action": {"event": {"name": "confirmar_accion", '
+            '"context": {"proposalId": "abc-123", "monto": {"path": "/montoApartar"}}}}}, '
             '{"id": "btnLabel", "component": "Text", "text": "Confirmar"}]}}\n'
             '{"version": "v0.9", "updateDataModel": {"surfaceId": "<id>", "path": "/", '
             '"value": {"montoApartar": 500}}}\n'
             "No inventes datos que el usuario deba ajustar si no tienes un rango o valor inicial "
             "razonable: si no sabes min/max, pide el dato por texto en vez de mostrar un Slider a "
             "ciegas. "
+            "OBLIGATORIO para 'proponer_contacto', 'proponer_gasto_fijo', 'proponer_ingreso_programado' "
+            "y 'proponer_meta': la tarjeta de confirmación NUNCA muestra los datos propuestos como "
+            "texto estático — cada campo va en un TextField (o DateTimeInput para una fecha, "
+            "ChoicePicker para 'frecuencia') enlazado al data model, inicializado con tu propuesta "
+            "como valor por default, para que el usuario pueda corregirlo antes de confirmar (nunca "
+            "asumas que tu propuesta es correcta, en especial una cuenta destino o un monto). El "
+            "'context' del botón debe usar EXACTAMENTE estas llaves además de 'proposalId', o el "
+            "backend ignora la edición: contacto → nombre, alias, cuenta_destino, relacion; "
+            "gasto_fijo → concepto, monto, frecuencia, proxima_fecha; ingreso_programado → "
+            "descripcion, monto, frecuencia, proxima_fecha; meta → descripcion, monto_objetivo, "
+            "fecha_objetivo. Además, agrega 'checks' al botón para que se deshabilite mientras falte "
+            "un campo requerido: {\"condition\": {\"functionCall\": {\"call\": \"required\", \"args\": "
+            "{\"value\": {\"path\": \"/nombre\"}}}}, \"message\": \"Falta el nombre\"} — uno por cada "
+            "campo requerido de ese tipo. Nunca omitas 'checks' en estas 4 tarjetas: sin eso, el "
+            "usuario puede confirmar con un campo vacío y el backend lo rechaza sin explicar por qué "
+            "en la propia tarjeta. "
             "8) Además tienes 7 componentes propios de dominio financiero (no son parte del "
             "catálogo básico del protocolo, los diseñó este equipo) — úsalos para presentar datos "
             "reales de forma mucho más clara que un Text plano: "
@@ -784,122 +868,77 @@ class Orchestrator:
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
     def _proponer_contacto(self, account_id: str, args: dict) -> dict:
-        args = args or {}
-        nombre = args.get("nombre")
-        alias = args.get("alias")
-        cuenta_destino = args.get("cuenta_destino")
-        relacion = args.get("relacion")
-        if not nombre:
-            return {"error": "Falta el argumento requerido: nombre"}
-        if not alias:
-            return {"error": "Falta el argumento requerido: alias"}
-        if not cuenta_destino:
-            return {"error": "Falta el argumento requerido: cuenta_destino"}
-        if not relacion:
-            return {"error": "Falta el argumento requerido: relacion"}
+        payload = {
+            "nombre": (args or {}).get("nombre"),
+            "alias": (args or {}).get("alias"),
+            "cuenta_destino": (args or {}).get("cuenta_destino"),
+            "relacion": (args or {}).get("relacion"),
+        }
+        error = _validar_datos_creacion("contacto", payload)
+        if error:
+            return {"error": error}
 
         proposal = proposals.crear_propuesta(
             account_id=account_id,
             tipo="contacto",
-            payload={
-                "nombre": nombre,
-                "alias": alias,
-                "cuenta_destino": cuenta_destino,
-                "relacion": relacion,
-            },
-            resumen=f"Agregar a {nombre} ({alias}) como contacto",
+            payload=payload,
+            resumen=f"Agregar a {payload['nombre']} ({payload['alias']}) como contacto",
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
     def _proponer_gasto_fijo(self, account_id: str, args: dict) -> dict:
-        args = args or {}
-        concepto = args.get("concepto")
-        monto = args.get("monto")
-        frecuencia = args.get("frecuencia")
-        proxima_fecha = args.get("proxima_fecha")
-        if not concepto:
-            return {"error": "Falta el argumento requerido: concepto"}
-        if monto is None:
-            return {"error": "Falta el argumento requerido: monto"}
-        if not frecuencia:
-            return {"error": "Falta el argumento requerido: frecuencia"}
-        if not proxima_fecha:
-            return {"error": "Falta el argumento requerido: proxima_fecha"}
-
-        monto = float(monto)
-        if monto <= 0:
-            return {"error": "El monto debe ser mayor a cero"}
+        payload = {
+            "concepto": (args or {}).get("concepto"),
+            "monto": (args or {}).get("monto"),
+            "frecuencia": (args or {}).get("frecuencia"),
+            "proxima_fecha": (args or {}).get("proxima_fecha"),
+        }
+        error = _validar_datos_creacion("gasto_fijo", payload)
+        if error:
+            return {"error": error}
 
         proposal = proposals.crear_propuesta(
             account_id=account_id,
             tipo="gasto_fijo",
-            payload={
-                "concepto": concepto,
-                "monto": monto,
-                "frecuencia": frecuencia,
-                "proxima_fecha": proxima_fecha,
-            },
-            resumen=f"Agregar gasto fijo: {concepto} (${monto:.2f} {frecuencia})",
+            payload=payload,
+            resumen=f"Agregar gasto fijo: {payload['concepto']} (${payload['monto']:.2f} {payload['frecuencia']})",
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
     def _proponer_ingreso_programado(self, account_id: str, args: dict) -> dict:
-        args = args or {}
-        descripcion = args.get("descripcion")
-        monto = args.get("monto")
-        frecuencia = args.get("frecuencia")
-        proxima_fecha = args.get("proxima_fecha")
-        if not descripcion:
-            return {"error": "Falta el argumento requerido: descripcion"}
-        if monto is None:
-            return {"error": "Falta el argumento requerido: monto"}
-        if not frecuencia:
-            return {"error": "Falta el argumento requerido: frecuencia"}
-        if not proxima_fecha:
-            return {"error": "Falta el argumento requerido: proxima_fecha"}
-
-        monto = float(monto)
-        if monto <= 0:
-            return {"error": "El monto debe ser mayor a cero"}
+        payload = {
+            "descripcion": (args or {}).get("descripcion"),
+            "monto": (args or {}).get("monto"),
+            "frecuencia": (args or {}).get("frecuencia"),
+            "proxima_fecha": (args or {}).get("proxima_fecha"),
+        }
+        error = _validar_datos_creacion("ingreso_programado", payload)
+        if error:
+            return {"error": error}
 
         proposal = proposals.crear_propuesta(
             account_id=account_id,
             tipo="ingreso_programado",
-            payload={
-                "descripcion": descripcion,
-                "monto": monto,
-                "frecuencia": frecuencia,
-                "proxima_fecha": proxima_fecha,
-            },
-            resumen=f"Agregar ingreso programado: {descripcion} (${monto:.2f} {frecuencia})",
+            payload=payload,
+            resumen=f"Agregar ingreso programado: {payload['descripcion']} (${payload['monto']:.2f} {payload['frecuencia']})",
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
     def _proponer_meta(self, account_id: str, args: dict) -> dict:
-        args = args or {}
-        descripcion = args.get("descripcion")
-        monto_objetivo = args.get("monto_objetivo")
-        fecha_objetivo = args.get("fecha_objetivo")
-        if not descripcion:
-            return {"error": "Falta el argumento requerido: descripcion"}
-        if monto_objetivo is None:
-            return {"error": "Falta el argumento requerido: monto_objetivo"}
-        if not fecha_objetivo:
-            return {"error": "Falta el argumento requerido: fecha_objetivo"}
-
-        monto_objetivo = float(monto_objetivo)
-        if monto_objetivo <= 0:
-            return {"error": "El monto_objetivo debe ser mayor a cero"}
+        payload = {
+            "descripcion": (args or {}).get("descripcion"),
+            "monto_objetivo": (args or {}).get("monto_objetivo"),
+            "fecha_objetivo": (args or {}).get("fecha_objetivo"),
+        }
+        error = _validar_datos_creacion("meta", payload)
+        if error:
+            return {"error": error}
 
         proposal = proposals.crear_propuesta(
             account_id=account_id,
             tipo="meta",
-            payload={
-                "descripcion": descripcion,
-                "monto_objetivo": monto_objetivo,
-                "fecha_objetivo": fecha_objetivo,
-            },
-            resumen=f"Crear meta: {descripcion} (${monto_objetivo:.2f})",
+            payload=payload,
+            resumen=f"Crear meta: {payload['descripcion']} (${payload['monto_objetivo']:.2f})",
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
@@ -943,12 +982,36 @@ class Orchestrator:
         )
         return (response.text or "").strip()
 
-    async def confirm_action(self, account_id: str, proposal_id: str) -> list[dict]:
+    async def confirm_action(
+        self, account_id: str, proposal_id: str, context: dict | None = None
+    ) -> list[dict]:
         proposal = proposals.obtener_propuesta_valida(proposal_id, account_id)
         if proposal is None:
             return error_a2ui_block(
                 "La propuesta no existe, no te pertenece, o expiró. Pídela de nuevo."
             )
+
+        # `context` trae lo que el usuario haya corregido en la tarjeta (ej. un
+        # TextField con el nombre o la cuenta destino) antes de tocar
+        # "Confirmar" — ver ADR 0009. Solo se aceptan los campos editables de
+        # ESE tipo de propuesta (_CAMPOS_EDITABLES_AL_CONFIRMAR): nunca
+        # account_id ni ids de referencia como meta_id/contacto_id, que no
+        # vienen de un campo de texto y aceptar un override ahí reabriría el
+        # hueco que proponer/confirmar existe para cerrar. Se valida ANTES de
+        # descartar la propuesta: si el usuario borró un campo requerido, la
+        # tarjeta sigue viva para que lo corrija y confirme de nuevo, en vez
+        # de quemar la propuesta por un error que el botón ya debería haber
+        # bloqueado del lado del cliente (ver `checks` en el system prompt).
+        payload = proposal.payload
+        campos_editables = _CAMPOS_EDITABLES_AL_CONFIRMAR.get(proposal.tipo)
+        if campos_editables and context:
+            payload = dict(proposal.payload)
+            for campo in campos_editables:
+                if campo in context:
+                    payload[campo] = context[campo]
+            error = _validar_datos_creacion(proposal.tipo, payload)
+            if error:
+                return error_a2ui_block(error)
 
         # Descartar la propuesta ANTES de llamar al MCP: si dos confirmaciones
         # concurrentes de la misma propuesta llegaran a pasar la validación de
@@ -1004,14 +1067,14 @@ class Orchestrator:
                     "crear_contacto",
                     {
                         "account_id": account_id,
-                        "nombre": proposal.payload["nombre"],
-                        "alias": proposal.payload["alias"],
-                        "cuenta_destino": proposal.payload["cuenta_destino"],
-                        "relacion": proposal.payload["relacion"],
+                        "nombre": payload["nombre"],
+                        "alias": payload["alias"],
+                        "cuenta_destino": payload["cuenta_destino"],
+                        "relacion": payload["relacion"],
                     },
                 )
                 return _confirmation_a2ui_block(
-                    f"Contacto {proposal.payload['nombre']} agregado correctamente."
+                    f"Contacto {payload['nombre']} agregado correctamente."
                 )
 
             if proposal.tipo == "gasto_fijo":
@@ -1019,14 +1082,14 @@ class Orchestrator:
                     "crear_gasto_fijo",
                     {
                         "account_id": account_id,
-                        "concepto": proposal.payload["concepto"],
-                        "monto": proposal.payload["monto"],
-                        "frecuencia": proposal.payload["frecuencia"],
-                        "proxima_fecha": proposal.payload["proxima_fecha"],
+                        "concepto": payload["concepto"],
+                        "monto": payload["monto"],
+                        "frecuencia": payload["frecuencia"],
+                        "proxima_fecha": payload["proxima_fecha"],
                     },
                 )
                 return _confirmation_a2ui_block(
-                    f"Gasto fijo '{proposal.payload['concepto']}' agregado correctamente."
+                    f"Gasto fijo '{payload['concepto']}' agregado correctamente."
                 )
 
             if proposal.tipo == "ingreso_programado":
@@ -1034,14 +1097,14 @@ class Orchestrator:
                     "crear_ingreso_programado",
                     {
                         "account_id": account_id,
-                        "descripcion": proposal.payload["descripcion"],
-                        "monto": proposal.payload["monto"],
-                        "frecuencia": proposal.payload["frecuencia"],
-                        "proxima_fecha": proposal.payload["proxima_fecha"],
+                        "descripcion": payload["descripcion"],
+                        "monto": payload["monto"],
+                        "frecuencia": payload["frecuencia"],
+                        "proxima_fecha": payload["proxima_fecha"],
                     },
                 )
                 return _confirmation_a2ui_block(
-                    f"Ingreso programado '{proposal.payload['descripcion']}' agregado correctamente."
+                    f"Ingreso programado '{payload['descripcion']}' agregado correctamente."
                 )
 
             if proposal.tipo == "meta":
@@ -1049,13 +1112,13 @@ class Orchestrator:
                     "crear_meta",
                     {
                         "account_id": account_id,
-                        "descripcion": proposal.payload["descripcion"],
-                        "monto_objetivo": proposal.payload["monto_objetivo"],
-                        "fecha_objetivo": proposal.payload["fecha_objetivo"],
+                        "descripcion": payload["descripcion"],
+                        "monto_objetivo": payload["monto_objetivo"],
+                        "fecha_objetivo": payload["fecha_objetivo"],
                     },
                 )
                 return _confirmation_a2ui_block(
-                    f"Meta '{proposal.payload['descripcion']}' creada correctamente."
+                    f"Meta '{payload['descripcion']}' creada correctamente."
                 )
 
             return error_a2ui_block(f"Tipo de propuesta desconocido: {proposal.tipo}")

@@ -27,6 +27,11 @@ class ChatResponse(BaseModel):
 
 class ConfirmActionRequest(BaseModel):
     proposal_id: str
+    # Valores que el usuario editó en la tarjeta de confirmación (ej. un
+    # TextField con el nombre de un contacto nuevo) antes de confirmar. Solo
+    # se aplican a los campos editables del tipo de propuesta correspondiente
+    # — ver `_CAMPOS_EDITABLES_AL_CONFIRMAR` en orchestrator.py.
+    context: dict[str, object] | None = None
 
 
 class ConfirmActionResponse(BaseModel):

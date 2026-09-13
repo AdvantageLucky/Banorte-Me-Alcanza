@@ -81,8 +81,11 @@ class _ChatScreenState extends State<ChatScreen> {
   late final StreamSubscription<Object> _errorSub;
 
   late final ActionRouter _actionRouter = ActionRouter(
-    confirmAction: (proposalId) =>
-        widget.apiClient.confirmAction(widget.authController.token!, proposalId),
+    confirmAction: (proposalId, context) => widget.apiClient.confirmAction(
+      widget.authController.token!,
+      proposalId,
+      context,
+    ),
     onMessages: _feedMessages,
     onError: (err) => _handleError(err, 'No se pudo confirmar la acción, intenta de nuevo.'),
   );

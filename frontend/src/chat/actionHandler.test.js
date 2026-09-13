@@ -34,9 +34,23 @@ describe('createActionHandler', () => {
 
     await handleAction(makeAction());
 
-    expect(confirmAction).toHaveBeenCalledWith('prop-1');
+    expect(confirmAction).toHaveBeenCalledWith('prop-1', undefined);
     expect(onMessages).toHaveBeenCalledWith([{ foo: 'bar' }]);
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('forwards any edited fields alongside proposalId as a separate context argument', async () => {
+    const confirmAction = vi.fn().mockResolvedValue({ a2ui_messages: [] });
+    const handleAction = createActionHandler({ confirmAction, onMessages: vi.fn(), onError: vi.fn() });
+
+    await handleAction(
+      makeAction({ context: { proposalId: 'prop-1', nombre: 'Mamá', cuenta_destino: '1234567890' } }),
+    );
+
+    expect(confirmAction).toHaveBeenCalledWith('prop-1', {
+      nombre: 'Mamá',
+      cuenta_destino: '1234567890',
+    });
   });
 
   it('reports an error when confirming the proposal fails, without touching onMessages', async () => {

@@ -74,7 +74,24 @@ void main() {
 
       final sentBody =
           jsonDecode((captured! as http.Request).body) as Map<String, dynamic>;
-      expect(sentBody, {'proposal_id': 'prop-1'});
+      expect(sentBody, {'proposal_id': 'prop-1', 'context': null});
+    });
+
+    test('sends the edited fields as context on /api/confirm-action when provided', () async {
+      http.BaseRequest? captured;
+      final client = ApiClient(
+        'http://api.test',
+        httpClient: _FakeHttpClient((request) async {
+          captured = request;
+          return _jsonResponse(200, {'a2ui_messages': []});
+        }),
+      );
+
+      await client.confirmAction('jwt-123', 'prop-1', {'nombre': 'Mamá'});
+
+      final sentBody =
+          jsonDecode((captured! as http.Request).body) as Map<String, dynamic>;
+      expect(sentBody, {'proposal_id': 'prop-1', 'context': {'nombre': 'Mamá'}});
     });
 
     test('throws an ApiException carrying the backend detail on a non-2xx response',

@@ -9,7 +9,7 @@ void main() {
       var messagesCalled = false;
       var errorCalled = false;
       final router = ActionRouter(
-        confirmAction: (id) async {
+        confirmAction: (id, context) async {
           confirmCalled = true;
           return [];
         },
@@ -31,10 +31,12 @@ void main() {
         'confirms the proposal from context.proposalId and forwards the resulting messages',
         () async {
       String? receivedId;
+      Map<String, dynamic>? receivedContext;
       List<dynamic>? receivedMessages;
       final router = ActionRouter(
-        confirmAction: (id) async {
+        confirmAction: (id, context) async {
           receivedId = id;
+          receivedContext = context;
           return [
             {'foo': 'bar'}
           ];
@@ -49,9 +51,34 @@ void main() {
       });
 
       expect(receivedId, 'prop-1');
+      expect(receivedContext, isNull);
       expect(receivedMessages, [
         {'foo': 'bar'}
       ]);
+    });
+
+    test('forwards any edited fields alongside proposalId as a separate context argument',
+        () async {
+      Map<String, dynamic>? receivedContext;
+      final router = ActionRouter(
+        confirmAction: (id, context) async {
+          receivedContext = context;
+          return [];
+        },
+        onMessages: (_) {},
+        onError: (_) => fail('should not be called'),
+      );
+
+      await router.handle({
+        'name': confirmActionName,
+        'context': {
+          'proposalId': 'prop-1',
+          'nombre': 'Mamá',
+          'cuenta_destino': '1234567890',
+        },
+      });
+
+      expect(receivedContext, {'nombre': 'Mamá', 'cuenta_destino': '1234567890'});
     });
 
     test('reports an error when confirming the proposal fails, without touching onMessages',
@@ -59,7 +86,7 @@ void main() {
       final failure = Exception('boom');
       Object? receivedError;
       final router = ActionRouter(
-        confirmAction: (id) async => throw failure,
+        confirmAction: (id, context) async => throw failure,
         onMessages: (_) => fail('should not be called'),
         onError: (err) => receivedError = err,
       );
@@ -75,7 +102,7 @@ void main() {
     test('does nothing when proposalId is missing from context', () async {
       var confirmCalled = false;
       final router = ActionRouter(
-        confirmAction: (id) async {
+        confirmAction: (id, context) async {
           confirmCalled = true;
           return [];
         },

@@ -43,7 +43,29 @@ describe('createConfirmActionWithModal', () => {
     await captured.onConfirm();
 
     await expect(resultPromise).resolves.toEqual({ a2ui_messages: [{ foo: 'bar' }] });
-    expect(confirmAction).toHaveBeenCalledWith('prop-1');
+    expect(confirmAction).toHaveBeenCalledWith('prop-1', undefined);
+  });
+
+  it('reenvía el context editado a confirmAction al confirmar', async () => {
+    const getPropuesta = vi.fn().mockResolvedValue({ tipo: 'contacto', resumen: 'Agregar a Mamá' });
+    const confirmAction = vi.fn().mockResolvedValue({ a2ui_messages: [] });
+    let captured;
+    const requestConfirmation = vi.fn((payload) => {
+      captured = payload;
+    });
+    const confirmActionWithModal = createConfirmActionWithModal({
+      getPropuesta,
+      confirmAction,
+      requestConfirmation,
+    });
+
+    const resultPromise = confirmActionWithModal('prop-1', { nombre: 'Mamá' });
+    await Promise.resolve();
+    await Promise.resolve();
+    await captured.onConfirm();
+    await resultPromise;
+
+    expect(confirmAction).toHaveBeenCalledWith('prop-1', { nombre: 'Mamá' });
   });
 
   it('rechaza con un error silencioso cuando el usuario cancela, sin llamar confirmAction', async () => {

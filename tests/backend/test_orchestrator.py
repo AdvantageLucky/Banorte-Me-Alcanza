@@ -852,6 +852,136 @@ async def test_confirm_action_contacto_llama_crear_contacto_en_mcp():
 
 
 @pytest.mark.asyncio
+async def test_confirm_action_contacto_usa_los_valores_editados_del_context():
+    # El usuario corrigió el nombre y agregó la cuenta destino en la tarjeta
+    # (ver ADR sobre edición en confirmación) antes de tocar "Confirmar" — el
+    # dato real ejecutado debe ser el editado, no el que el modelo propuso.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1, "nombre": "Mamá"})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "contacto",
+        {"nombre": "Mama", "alias": "Mama", "cuenta_destino": "0000000000", "relacion": "Familia"},
+        "Agregar a Mama (Mama) como contacto",
+    )
+    messages = await orchestrator.confirm_action(
+        "ana",
+        proposal.id,
+        context={"nombre": "Mamá", "cuenta_destino": "1234567890"},
+    )
+    mcp_client.call.assert_awaited_once_with(
+        "crear_contacto",
+        {
+            "account_id": "ana",
+            "nombre": "Mamá",
+            "alias": "Mama",
+            "cuenta_destino": "1234567890",
+            "relacion": "Familia",
+        },
+    )
+    assert "createSurface" in messages[0]
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_contacto_context_no_puede_sobreescribir_account_id():
+    # `account_id` nunca es un campo editable: si el context lo trae, se
+    # ignora — el candado de proponer/confirmar (ADR 0009) no debe poder
+    # abrirse editando un campo que la tarjeta nunca expuso como TextField.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "contacto",
+        {"nombre": "Sofía López", "alias": "Sofi", "cuenta_destino": "5566778899", "relacion": "amiga"},
+        "Agregar a Sofía López (Sofi) como contacto",
+    )
+    await orchestrator.confirm_action(
+        "ana", proposal.id, context={"account_id": "luis", "nombre": "Sofía López"}
+    )
+    mcp_client.call.assert_awaited_once_with(
+        "crear_contacto",
+        {
+            "account_id": "ana",
+            "nombre": "Sofía López",
+            "alias": "Sofi",
+            "cuenta_destino": "5566778899",
+            "relacion": "amiga",
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_contacto_context_con_campo_requerido_vacio_no_ejecuta_y_conserva_la_propuesta():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "contacto",
+        {"nombre": "Sofía López", "alias": "Sofi", "cuenta_destino": "5566778899", "relacion": "amiga"},
+        "Agregar a Sofía López (Sofi) como contacto",
+    )
+    messages = await orchestrator.confirm_action(
+        "ana", proposal.id, context={"cuenta_destino": ""}
+    )
+    mcp_client.call.assert_not_awaited()
+    mensajes_texto = [
+        m["updateDataModel"]["value"].get("mensaje", "") for m in messages if "updateDataModel" in m
+    ]
+    assert any("cuenta_destino" in texto for texto in mensajes_texto)
+    # La propuesta sigue viva: el usuario puede corregir el campo en la misma
+    # tarjeta y confirmar de nuevo sin tener que pedirle al modelo que la
+    # rehaga desde cero.
+    assert proposal.id in proposals.PROPOSALS
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_gasto_fijo_usa_el_monto_editado_del_context():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "gasto_fijo",
+        {"concepto": "Internet", "monto": 600.0, "frecuencia": "mensual", "proxima_fecha": "2026-10-05"},
+        "Agregar gasto fijo: Internet ($600.00 mensual)",
+    )
+    await orchestrator.confirm_action("ana", proposal.id, context={"monto": "750.50"})
+    mcp_client.call.assert_awaited_once_with(
+        "crear_gasto_fijo",
+        {
+            "account_id": "ana",
+            "concepto": "Internet",
+            "monto": 750.50,
+            "frecuencia": "mensual",
+            "proxima_fecha": "2026-10-05",
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_gasto_fijo_context_con_monto_no_numerico_no_ejecuta():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "gasto_fijo",
+        {"concepto": "Internet", "monto": 600.0, "frecuencia": "mensual", "proxima_fecha": "2026-10-05"},
+        "Agregar gasto fijo: Internet ($600.00 mensual)",
+    )
+    await orchestrator.confirm_action("ana", proposal.id, context={"monto": "no-es-un-numero"})
+    mcp_client.call.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_handle_message_proponer_gasto_fijo_crea_propuesta_sin_tocar_mcp():
     mcp_client = MagicMock()
     mcp_client.call = AsyncMock(side_effect=[[], None, None])

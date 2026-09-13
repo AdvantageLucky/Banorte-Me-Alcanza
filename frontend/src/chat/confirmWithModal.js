@@ -6,14 +6,14 @@
 // error "silencioso" (err.silent === true) para que el llamador no lo trate
 // como una falla real.
 export function createConfirmActionWithModal({ getPropuesta, confirmAction, requestConfirmation }) {
-  return async function confirmActionWithModal(proposalId) {
+  return async function confirmActionWithModal(proposalId, context) {
     const { resumen } = await getPropuesta(proposalId);
     return new Promise((resolve, reject) => {
       requestConfirmation({
         resumen,
         onConfirm: async () => {
           try {
-            resolve(await confirmAction(proposalId));
+            resolve(await confirmAction(proposalId, context));
           } catch (err) {
             reject(err);
           }

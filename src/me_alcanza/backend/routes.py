@@ -84,7 +84,7 @@ async def confirm_action(
     account_id: str = Depends(auth.get_current_account_id),
 ) -> ConfirmActionResponse:
     messages = await request.app.state.orchestrator.confirm_action(
-        account_id, payload.proposal_id
+        account_id, payload.proposal_id, payload.context
     )
     return ConfirmActionResponse(a2ui_messages=messages)
 

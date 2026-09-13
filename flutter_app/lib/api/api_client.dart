@@ -59,10 +59,14 @@ class ApiClient {
     );
   }
 
-  Future<List<dynamic>> confirmAction(String token, String proposalId) async {
+  Future<List<dynamic>> confirmAction(
+    String token,
+    String proposalId, [
+    Map<String, dynamic>? context,
+  ]) async {
     final body = await _post(
       '/api/confirm-action',
-      body: {'proposal_id': proposalId},
+      body: {'proposal_id': proposalId, 'context': context},
       token: token,
     );
     return body['a2ui_messages'] as List<dynamic>;

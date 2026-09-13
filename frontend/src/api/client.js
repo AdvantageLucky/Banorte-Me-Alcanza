@@ -81,8 +81,11 @@ export function createApiClient(baseUrl) {
     getConversaciones: (token) => get('/api/conversaciones', { token }),
     getMensajesConversacion: (token, conversacionId) =>
       get(`/api/conversaciones/${conversacionId}/mensajes`, { token }),
-    confirmAction: (token, proposalId) =>
-      post('/api/confirm-action', { token, body: { proposal_id: proposalId } }),
+    confirmAction: (token, proposalId, context) =>
+      post('/api/confirm-action', {
+        token,
+        body: { proposal_id: proposalId, context: context ?? null },
+      }),
     getPropuesta: (token, proposalId) => get(`/api/propuestas/${proposalId}`, { token }),
     getCuenta: (token) => get('/api/cuenta', { token }),
     getMovimientos: (token) => get('/api/movimientos', { token }),

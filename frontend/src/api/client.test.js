@@ -105,7 +105,24 @@ describe('createApiClient', () => {
       'http://api.test/api/confirm-action',
       expect.objectContaining({
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer jwt-123' },
-        body: JSON.stringify({ proposal_id: 'prop-1' }),
+        body: JSON.stringify({ proposal_id: 'prop-1', context: null }),
+      }),
+    );
+  });
+
+  it('sends the edited fields as context on /api/confirm-action when provided', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ a2ui_messages: [] }),
+    });
+    const client = createApiClient('http://api.test');
+
+    await client.confirmAction('jwt-123', 'prop-1', { nombre: 'Mamá' });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://api.test/api/confirm-action',
+      expect.objectContaining({
+        body: JSON.stringify({ proposal_id: 'prop-1', context: { nombre: 'Mamá' } }),
       }),
     );
   });
