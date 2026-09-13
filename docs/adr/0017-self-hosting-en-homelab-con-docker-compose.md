@@ -19,8 +19,9 @@ reto.
 
 Desplegar con `docker compose` en un homelab propio: servicio `backend` (imagen
 con backend + MCP, puerto 10000, SQLite en volumen `banco-db`) y servicio
-`frontend` (build multi-stage Node → nginx, puerto 8080, con
-`VITE_API_BASE_URL` horneado en build). `restart: unless-stopped` en ambos.
+`frontend` (build multi-stage Node → nginx, puerto 8081 — el 8080 lo ocupa
+`glance`, otro servicio del mismo homelab —, con `VITE_API_BASE_URL` horneado
+en build). `restart: unless-stopped` en ambos.
 
 ## Consecuencias
 

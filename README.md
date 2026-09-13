@@ -150,7 +150,7 @@ docker compose up -d --build
 ```
 
 - Backend: puerto `10000`, DB en volumen (`banco-db`, persiste entre reinicios).
-- Frontend: puerto `8080`, build estático servido por nginx.
+- Frontend: puerto `8081` (el 8080 lo ocupa `glance` en el homelab), build estático servido por nginx.
 - `VITE_API_BASE_URL` (en `.env`) se hornea en el build del frontend y
   debe ser una URL que el **navegador** del cliente pueda resolver (IP
   o hostname del homelab, tailnet, etc.) — no `backend`, que solo
