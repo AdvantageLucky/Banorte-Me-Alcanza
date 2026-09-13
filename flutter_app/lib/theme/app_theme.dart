@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 
 import 'tokens.dart';
 
-/// Estilos de display en BankGothic. Se exponen aparte del TextTheme
-/// porque Material los reutiliza internamente (AppBar, diálogos) y ahí
-/// queremos la sans del sistema, no la fuente de marca.
+/// Estilos de display. BankGothic (`displayFontFamily`) queda reservado
+/// SOLO para 'marca' (la palabra "Banorte" del AppBar) — igual que en
+/// React, donde ese font-face solo se aplica a .app-navbar-brand /
+/// .login-navbar-brand y en ningún otro lado (ni saldos, ni títulos de
+/// sección, ni el riel de quincena usan una fuente distinta a la del
+/// sistema). Antes 'saldo'/'cifra'/'seccion'/'etiquetaRiel' también
+/// usaban BankGothic, lo que hacía que la app se viera con fuentes
+/// distintas entre sí y distintas a la web.
 abstract final class DisplayText {
   static const TextStyle saldo = TextStyle(
     fontWeight: FontWeight.w700,
@@ -23,10 +28,9 @@ abstract final class DisplayText {
   );
 
   static const TextStyle seccion = TextStyle(
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     fontSize: 18,
     height: 1.2,
-    letterSpacing: 0.2,
     color: BrandColors.tinta,
   );
 
@@ -39,8 +43,7 @@ abstract final class DisplayText {
   );
 
   static const TextStyle etiquetaRiel = TextStyle(
-    fontFamily: displayFontFamily,
-    fontWeight: FontWeight.w300,
+    fontWeight: FontWeight.w500,
     fontSize: 11,
     height: 1.0,
     color: BrandColors.gris,

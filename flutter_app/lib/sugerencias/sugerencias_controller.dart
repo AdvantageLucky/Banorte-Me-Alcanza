@@ -59,6 +59,8 @@ class SugerenciasController extends ChangeNotifier {
     return actualizada;
   }
 
+  Future<String> generarPropuesta(int id) => _api.getPropuestaSugerencia(_token(), id);
+
   void _reemplazar(Sugerencia actualizada) {
     _todas = [
       for (final s in _todas) s.id == actualizada.id ? actualizada : s,

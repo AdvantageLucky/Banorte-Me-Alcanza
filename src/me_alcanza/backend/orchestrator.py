@@ -151,8 +151,14 @@ def error_a2ui_block(mensaje: str, surface_id: str | None = None) -> list[dict]:
     ]
 
 
-def _confirmation_a2ui_block(mensaje: str, surface_id: str | None = None) -> list[dict]:
+def _confirmation_a2ui_block(mensaje: str, tono: str = "positive", surface_id: str | None = None) -> list[dict]:
+    # Determinista (nunca pasa por el LLM: confirm_action/reject_action no
+    # le vuelven a preguntar nada al modelo, el resultado ya se conoce con
+    # certeza), pero usa el mismo StatCard que el resto de la app en vez de
+    # un Text plano sin tono — antes esto se veía idéntico para un éxito,
+    # una cancelación o (antes del fix de confirm_action) un error real.
     surface_id = surface_id or _new_surface_id()
+    label = "Confirmado" if tono == "positive" else "Cancelado"
     return [
         {
             "version": "v0.9",
@@ -163,8 +169,14 @@ def _confirmation_a2ui_block(mensaje: str, surface_id: str | None = None) -> lis
             "updateComponents": {
                 "surfaceId": surface_id,
                 "components": [
-                    {"id": "root", "component": "Card", "child": "msg"},
-                    {"id": "msg", "component": "Text", "text": {"path": "/mensaje"}},
+                    {"id": "root", "component": "Card", "child": "stat"},
+                    {
+                        "id": "stat",
+                        "component": "StatCard",
+                        "label": label,
+                        "value": {"path": "/mensaje"},
+                        "tone": tono,
+                    },
                 ],
             },
         },
@@ -1229,10 +1241,12 @@ class Orchestrator:
                 "La propuesta no existe, no te pertenece, o expiró. Pídela de nuevo."
             )
         proposals.descartar_propuesta(proposal_id)
-        return await self._responder_confirmacion(account_id, proposal, f"Cancelado: {proposal.resumen}.")
+        return await self._responder_confirmacion(
+            account_id, proposal, f"Cancelado: {proposal.resumen}.", tono="neutral"
+        )
 
     async def _responder_confirmacion(
-        self, account_id: str, proposal: proposals.Proposal, mensaje: str
+        self, account_id: str, proposal: proposals.Proposal, mensaje: str, tono: str = "positive"
     ) -> list[dict]:
         # La acción real (crear_contacto, ejecutar_transferencia, etc.) ya se
         # ejecutó cuando esto se llama. Persistir el resultado en el hilo
@@ -1244,7 +1258,7 @@ class Orchestrator:
         # verdad: nunca se convierte ese fallo en un error de vuelta al
         # usuario, solo se registra (mismo criterio que handle_message usa
         # para sus propios `agregar_mensaje_conversacion`).
-        bloque = _confirmation_a2ui_block(mensaje)
+        bloque = _confirmation_a2ui_block(mensaje, tono=tono)
         if proposal.conversacion_id is not None:
             try:
                 await self._mcp.call(

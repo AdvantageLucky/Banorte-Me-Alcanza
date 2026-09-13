@@ -8,11 +8,13 @@
   :root {
     --rojo: #ec0029;
     --rojo-oscuro: #b8001f;
-    --tinta: #1f1f1f;
+    --tinta: #17171a;
     --gris: #6a6867;
-    --plata: #c7c9c9;
-    --fondo: #f5f5f5;
+    --gris-claro: #9a9896;
+    --plata: #e4e2e0;
+    --fondo: #faf9f7;
     --superficie: #ffffff;
+    --verde: #1a8f4c;
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -21,52 +23,81 @@
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: var(--fondo);
     color: var(--tinta);
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px; }
+  section { padding: 64px 0; }
+  h2.titulo-seccion {
+    font-size: clamp(22px, 4vw, 30px);
+    font-weight: 800;
+    margin: 0 0 10px;
+    text-align: center;
+    letter-spacing: -0.01em;
+  }
+  p.subtitulo-seccion {
+    text-align: center;
+    color: var(--gris);
+    font-size: 15px;
+    max-width: 520px;
+    margin: 0 auto 40px;
+    line-height: 1.55;
+  }
 
   /* ---------- Hero ---------- */
   .hero {
-    background: linear-gradient(160deg, var(--rojo) 0%, var(--rojo-oscuro) 100%);
+    position: relative;
+    background: radial-gradient(120% 140% at 15% -10%, var(--rojo) 0%, var(--rojo-oscuro) 62%, #7a0016 100%);
     color: #fff;
-    padding: 20px 0 56px;
+    padding: 22px 0 72px;
     text-align: center;
     overflow: hidden;
   }
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(60% 50% at 85% 8%, rgba(255,255,255,0.12), transparent 60%);
+    pointer-events: none;
+  }
+  .hero-inner { position: relative; }
   .hero-badge {
     display: inline-block;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
-    background: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     padding: 6px 14px;
     border-radius: 999px;
-    margin-bottom: 20px;
+    margin-bottom: 22px;
   }
   .hero img.mascota {
-    width: 168px;
-    height: 168px;
+    width: 152px;
+    height: 152px;
     border-radius: 50%;
     background: #fff;
-    padding: 10px;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
-    margin-bottom: 20px;
+    padding: 8px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.3);
+    margin-bottom: 22px;
   }
   .hero h1 {
-    margin: 0 0 8px;
-    font-size: clamp(28px, 6vw, 42px);
+    margin: 0 0 10px;
+    font-size: clamp(30px, 6.4vw, 46px);
     font-weight: 800;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+    line-height: 1.08;
   }
   .hero p.lead {
     margin: 0 auto;
-    max-width: 480px;
-    font-size: 16px;
-    opacity: 0.92;
-    line-height: 1.5;
+    max-width: 460px;
+    font-size: 16.5px;
+    opacity: 0.94;
+    line-height: 1.55;
   }
   .hero .ctas {
-    margin-top: 28px;
+    margin-top: 30px;
     display: flex;
     gap: 12px;
     justify-content: center;
@@ -74,71 +105,125 @@
   }
   .btn {
     display: inline-block;
-    padding: 13px 26px;
+    padding: 14px 28px;
     border-radius: 999px;
     text-decoration: none;
     font-weight: 700;
     font-size: 14px;
-    transition: transform 0.15s ease, opacity 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
   }
   .btn:hover { transform: translateY(-1px); }
-  .btn.claro {
-    background: #fff;
-    color: var(--rojo);
+  .btn.claro { background: #fff; color: var(--rojo); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+  .btn.oscuro { background: rgba(255, 255, 255, 0.12); color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.55); }
+
+  /* ---------- Prueba viva (bocado de chat) ---------- */
+  .chatcard {
+    max-width: 480px;
+    margin: 40px auto 0;
+    background: var(--superficie);
+    border-radius: 18px;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.28);
+    overflow: hidden;
+    text-align: left;
   }
-  .btn.oscuro {
-    background: rgba(255, 255, 255, 0.14);
+  .chatcard-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--fondo);
+    border-bottom: 1px solid var(--plata);
+  }
+  .chatcard-header img { width: 22px; height: 22px; border-radius: 50%; }
+  .chatcard-header span { font-size: 12.5px; font-weight: 700; color: var(--tinta); }
+  .chatcard-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .bubble-user {
+    align-self: flex-end;
+    background: var(--tinta);
     color: #fff;
-    border: 1.5px solid rgba(255, 255, 255, 0.5);
+    padding: 9px 14px;
+    border-radius: 14px 14px 3px 14px;
+    font-size: 13.5px;
+    max-width: 85%;
   }
+  .bubble-card {
+    background: var(--fondo);
+    border: 1px solid var(--plata);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .bubble-card .veredicto { font-size: 12px; color: var(--gris); margin: 0 0 4px; }
+  .bubble-card .monto { font-size: 26px; font-weight: 800; color: var(--rojo); margin: 0; line-height: 1.1; }
+  .bubble-card .detalle { font-size: 12.5px; color: var(--gris); margin: 4px 0 12px; }
+  .bubble-card .accion {
+    display: inline-block;
+    background: var(--rojo);
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: 999px;
+  }
+
+  /* ---------- Cómo funciona ---------- */
+  .pasos {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  @media (max-width: 700px) {
+    .pasos { grid-template-columns: 1fr; }
+  }
+  .paso { text-align: center; }
+  .paso .num {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--rojo);
+    color: #fff;
+    font-weight: 800;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px;
+  }
+  .paso h3 { font-size: 15.5px; margin: 0 0 6px; }
+  .paso p { font-size: 13.5px; color: var(--gris); line-height: 1.55; margin: 0; }
 
   /* ---------- Propuesta de valor ---------- */
   .props {
-    max-width: 880px;
-    margin: -32px auto 0;
-    padding: 0 20px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    position: relative;
-    z-index: 2;
+    gap: 16px;
   }
-  @media (max-width: 680px) {
+  @media (max-width: 700px) {
     .props { grid-template-columns: 1fr; }
   }
   .prop-card {
     background: var(--superficie);
+    border: 1px solid var(--plata);
     border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    padding: 24px 20px;
+  }
+  .prop-card .emoji { font-size: 26px; }
+  .prop-card h3 { margin: 12px 0 6px; font-size: 15.5px; }
+  .prop-card p { margin: 0; font-size: 13.5px; color: var(--gris); line-height: 1.55; }
+
+  /* ---------- Por dentro (credibilidad técnica) ---------- */
+  .porDentro { background: var(--tinta); color: #fff; }
+  .porDentro h2.titulo-seccion, .porDentro p.subtitulo-seccion { color: #fff; }
+  .porDentro p.subtitulo-seccion { opacity: 0.7; }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
     text-align: center;
   }
-  .prop-card .emoji { font-size: 28px; }
-  .prop-card h3 {
-    margin: 10px 0 6px;
-    font-size: 15px;
+  @media (max-width: 700px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
   }
-  .prop-card p {
-    margin: 0;
-    font-size: 13px;
-    color: var(--gris);
-    line-height: 1.5;
-  }
+  .stat .n { font-size: clamp(26px, 5vw, 34px); font-weight: 800; color: #ff8fa1; }
+  .stat .l { font-size: 12px; opacity: 0.75; margin-top: 4px; line-height: 1.4; }
 
   /* ---------- Descarga ---------- */
-  .descarga {
-    padding: 64px 0 24px;
-    text-align: center;
-  }
-  .descarga h2 {
-    font-size: 24px;
-    margin: 0 0 6px;
-  }
-  .descarga p.lead {
-    margin: 0 0 32px;
-    color: var(--gris);
-    font-size: 14px;
-  }
   .cards {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -168,41 +253,29 @@
   .card h3 { margin: 0; font-size: 18px; }
   .card p.desc { margin: 0; color: var(--gris); font-size: 13px; }
   .card img.qr {
-    width: 170px;
-    height: 170px;
+    width: 168px;
+    height: 168px;
     max-width: 100%;
     border: 8px solid #fff;
     border-radius: 12px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
   }
-  .card .btn {
-    margin-top: 4px;
-    background: var(--rojo);
-    color: #fff;
-  }
-  .card.secundaria .btn {
-    background: transparent;
-    color: var(--rojo);
-    border: 1.5px solid var(--rojo);
-  }
+  .card .btn { margin-top: 4px; background: var(--rojo); color: #fff; }
+  .card.secundaria .btn { background: transparent; color: var(--rojo); border: 1.5px solid var(--rojo); }
 
   footer {
     text-align: center;
-    padding: 40px 20px 48px;
+    padding: 40px 20px 52px;
     font-size: 12px;
     color: var(--gris);
   }
   footer a { color: var(--gris); }
-  footer .creado-por {
-    margin-top: 4px;
-    font-weight: 600;
-    color: var(--tinta);
-  }
+  footer .creado-por { margin-top: 4px; font-weight: 600; color: var(--tinta); }
 </style>
 </head>
 <body>
   <section class="hero">
-    <div class="wrap">
+    <div class="wrap hero-inner">
       <span class="hero-badge">HackMTY 2026 · Reto UI Generativa de Banorte</span>
       <br />
       <img class="mascota" src="banorberto.png" alt="Banorberto, la mascota de ¿Me Alcanza?" />
@@ -216,31 +289,90 @@
         <a class="btn claro" href="#descarga">Pruébala ahora</a>
         <a class="btn oscuro" href="https://github.com/AdvantageLucky/Banorte-Me-Alcanza">Ver el código</a>
       </div>
+
+      <div class="chatcard">
+        <div class="chatcard-header">
+          <img src="banorberto.png" alt="" />
+          <span>Banorberto</span>
+        </div>
+        <div class="chatcard-body">
+          <div class="bubble-user">¿Me alcanza para el concierto del 13 de octubre?</div>
+          <div class="bubble-card">
+            <p class="veredicto">Saldo proyectado al 13 oct</p>
+            <p class="monto">-$570.00</p>
+            <p class="detalle">No alcanza — te faltan $570 el día del evento.</p>
+            <span class="accion">Activar apartado: $142.50 × 4 semanas</span>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <div class="props">
-    <div class="prop-card">
-      <div class="emoji">💬</div>
-      <h3>Habla, no llenes formularios</h3>
-      <p>"¿Me alcanza para el concierto?" — así de simple. Banorberto entiende la intención y arma la interfaz que esa pregunta necesita.</p>
+  <section>
+    <div class="wrap">
+      <h2 class="titulo-seccion">Así funciona</h2>
+      <p class="subtitulo-seccion">Tres pasos, sin formularios ni menús que memorizar.</p>
+      <div class="pasos">
+        <div class="paso">
+          <div class="num">1</div>
+          <h3>Preguntas en tu idioma</h3>
+          <p>"¿Me alcanza para...?", "Deposítale 500 a...", "¿En qué gasté este mes?" — como le hablarías a una persona.</p>
+        </div>
+        <div class="paso">
+          <div class="num">2</div>
+          <h3>Banorberto arma la pantalla</h3>
+          <p>Gráficas, tarjetas, sliders — la interfaz se genera para esa pregunta exacta, calculada por motores reales, no por el modelo de IA.</p>
+        </div>
+        <div class="paso">
+          <div class="num">3</div>
+          <h3>Actúas con un toque</h3>
+          <p>Si hay que mover dinero, confirmas en la misma tarjeta. La acción ocurre de verdad en la cuenta, nunca en automático.</p>
+        </div>
+      </div>
     </div>
-    <div class="prop-card">
-      <div class="emoji">🧩</div>
-      <h3>La interfaz se genera sola</h3>
-      <p>Cada respuesta es una superficie distinta: tarjetas, gráficas interactivas, sliders — construida en tiempo real, no una plantilla fija.</p>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2 class="titulo-seccion">No es un chatbot con dashboard pegado</h2>
+      <p class="subtitulo-seccion">La mayoría de los asistentes bancarios responden con texto y te mandan a otra pantalla. Banorberto construye la pantalla que tu pregunta necesita.</p>
+      <div class="props">
+        <div class="prop-card">
+          <div class="emoji">🧩</div>
+          <h3>La interfaz se genera sola</h3>
+          <p>Cada respuesta es una superficie distinta, armada en tiempo real — nunca una plantilla fija ni la misma tarjeta reciclada.</p>
+        </div>
+        <div class="prop-card">
+          <div class="emoji">🔒</div>
+          <h3>El dinero nunca lo calcula la IA</h3>
+          <p>Banorberto decide qué mostrarte; un motor determinista decide cuánto. Ninguna cifra de dinero sale directo del modelo.</p>
+        </div>
+        <div class="prop-card">
+          <div class="emoji">📱</div>
+          <h3>Web y celular, misma conversación</h3>
+          <p>La app web y la app de Android renderizan exactamente la misma interfaz generada — no son dos productos distintos.</p>
+        </div>
+      </div>
     </div>
-    <div class="prop-card">
-      <div class="emoji">🔒</div>
-      <h3>El dinero nunca lo calcula la IA</h3>
-      <p>Banorberto decide qué mostrarte; un motor determinista decide cuánto. Ninguna cifra de dinero sale directo del modelo.</p>
+  </section>
+
+  <section class="porDentro">
+    <div class="wrap">
+      <h2 class="titulo-seccion">Por dentro</h2>
+      <p class="subtitulo-seccion">Para quien quiera ver más allá de la demo.</p>
+      <div class="stats">
+        <div class="stat"><div class="n">3</div><div class="l">proveedores de IA intercambiables</div></div>
+        <div class="stat"><div class="n">2</div><div class="l">clientes reales (web + Android) sobre el mismo protocolo</div></div>
+        <div class="stat"><div class="n">500+</div><div class="l">pruebas automatizadas en los tres lados</div></div>
+        <div class="stat"><div class="n">24</div><div class="l">decisiones de arquitectura documentadas</div></div>
+      </div>
     </div>
-  </div>
+  </section>
 
   <section class="descarga" id="descarga">
     <div class="wrap">
-      <h2>Escanea o toca para entrar</h2>
-      <p class="lead">Misma cuenta, misma conversación, en el navegador o en tu celular.</p>
+      <h2 class="titulo-seccion">Escanea o toca para entrar</h2>
+      <p class="subtitulo-seccion">Misma cuenta, misma conversación, en el navegador o en tu celular.</p>
 
       <div class="cards">
         <div class="card">

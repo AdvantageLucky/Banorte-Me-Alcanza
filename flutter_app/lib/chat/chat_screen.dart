@@ -361,12 +361,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: _turns.isEmpty
-                ? _Sugeridas(
-                    onPick: (p) {
-                      _messageController.text = p;
-                      _handleSubmit();
-                    },
-                  )
+                ? const _EstadoVacio()
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(Space.m),
@@ -621,18 +616,11 @@ class _AgentAvatarColumn extends StatelessWidget {
   }
 }
 
-/// Estado vacío del chat: tres preguntas reales que disparan los flujos
-/// de la demo. Tocar una la escribe y la manda.
-class _Sugeridas extends StatelessWidget {
-  const _Sugeridas({required this.onPick});
-
-  final void Function(String) onPick;
-
-  static const _preguntas = [
-    '¿Me alcanza para el concierto del 13 de octubre?',
-    'Deposítale 500 a mi hermano Pepe',
-    '¿En qué gasté este mes?',
-  ];
+/// Estado vacío del chat: solo la explicación de qué hace el asistente.
+/// Sin ejemplos hardcodeados (fechas o nombres fijos que no significan
+/// nada para el usuario real que los ve).
+class _EstadoVacio extends StatelessWidget {
+  const _EstadoVacio();
 
   @override
   Widget build(BuildContext context) {
@@ -649,25 +637,6 @@ class _Sugeridas extends StatelessWidget {
           'No respondo con texto: te muestro el veredicto, cómo se calculó y el botón para actuar.',
           style: texto.bodyMedium?.copyWith(color: BrandColors.gris),
         ),
-        const SizedBox(height: Space.l),
-        for (final p in _preguntas)
-          Padding(
-            padding: const EdgeInsets.only(bottom: Space.s),
-            child: OutlinedButton(
-              onPressed: () => onPick(p),
-              style: OutlinedButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Space.m,
-                  vertical: 14,
-                ),
-              ),
-              child: Text(
-                p,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ),
-          ),
       ],
     );
   }

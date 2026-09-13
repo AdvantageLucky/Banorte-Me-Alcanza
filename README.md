@@ -9,7 +9,7 @@ Reto *Interfaces que la IA construye en tiempo real* — Banorte × Tec de Monte
 | **LLM** | Gemini, OpenAI o Anthropic Claude intercambiables por `LLM_PROVIDER` (mismo tool-loop, cero cambios al orquestador — [ADR 0022](docs/adr/0022-adaptador-openai-sin-tocar-el-orquestador.md), [ADR 0023](docs/adr/0023-tercer-adaptador-anthropic-claude.md)) |
 | **MCP** | Servidor propio `core-bancario` sobre stdio — 36 tools, SQLite sembrado |
 | **A2UI** | Protocolo v0.9 (`a2ui-agent-sdk`), **catálogo propio** (`StatCard`/`BarChart`/`PlanDePago`/`LineChart`/`ApartadoPlanner`/`DonutChart`/`BudgetAllocator` + primitivos base — [ADR 0011](docs/adr/0011-a2ui-con-catalogo-basico-del-sdk.md)); la misma superficie se renderiza en **React** y en **Flutter** |
-| **Tests** | 291 en Python (backend + MCP) · 93 en React · 72 en Flutter |
+| **Tests** | 315 en Python (backend + MCP) · 99 en React · 86 en Flutter |
 
 ---
 
@@ -277,7 +277,7 @@ src/me_alcanza/
 frontend/        React + Vite · @a2ui/react · catálogo propio en src/a2ui-custom/
 flutter_app/     Flutter · a2ui_core + genui · mismo catálogo propio en lib/a2ui/
 docs/adr/        23 decisiones de arquitectura (Nygard)
-tests/           backend/ (291, incluye mcp_bank)
+tests/           backend/ (315, incluye mcp_bank)
 ```
 
 Cada feature se construyó con TDD; el *por qué* de cada pieza está en [`docs/adr/`](docs/adr/README.md).
@@ -285,9 +285,9 @@ Cada feature se construyó con TDD; el *por qué* de cada pieza está en [`docs/
 ## Tests
 
 ```bash
-uv run pytest tests/ -q          # 291 — incluye el servidor MCP real por stdio
-cd frontend && npm test          # 93
-cd flutter_app && flutter test   # 72
+uv run pytest tests/ -q          # 315 — incluye el servidor MCP real por stdio
+cd frontend && npm test          # 99
+cd flutter_app && flutter test   # 86
 ```
 
 Sin red: el LLM se mockea en los tests del orquestador (los tres adaptadores tienen su propia suite); el MCP se levanta de verdad contra una DB temporal.
@@ -296,6 +296,6 @@ Sin red: el LLM se mockea en los tests del orquestador (los tres adaptadores tie
 
 ## Estado
 
-- **Hecho:** afford-check + apartado, transferencia con desambiguación, alta de contactos/gastos/ingresos/metas por chat con confirmación, CRUD REST completo, resumen por categoría con detección de picos de gasto, sugerencias proactivas con propuesta de solución del LLM bajo demanda (pestaña *Atención*), score de salud, explicabilidad por modal, hilos de conversación con memoria, modo offline de respaldo, **tres proveedores de LLM intercambiables**, **catálogo A2UI propio** con 7 componentes de dominio (`StatCard`/`BarChart`/`PlanDePago`/`LineChart`/`ApartadoPlanner`/`DonutChart`/`BudgetAllocator`; `ApartadoPlanner` y `BudgetAllocator` con recálculo instantáneo en el cliente) en los dos clientes, TTS/STT en el chat, dos clientes A2UI, despliegue público.
-- **Pendiente:** seguir ampliando el catálogo propio (7 componentes hoy) — rivales conocidos ya muestran 14+, aunque muchos de los suyos son átomos genéricos que nuestro catálogo básico ya cubre; verificar en producción (no solo en desarrollo) que el historial de conversación resuelve bien pedidos de "repite la acción anterior" (el contexto se reenvía, pero no hay prueba end-to-end confirmada); `confirm_action` sigue devolviendo una tarjeta fija sin pasar por el modelo.
-- **Riesgo conocido:** el tier gratuito de Gemini se agota fácil el día del evento. `LLM_PROVIDER=openai`/`anthropic` son el respaldo de pago real (no solo el [modo offline](docs/adr/0016-modo-offline-determinista.md)); ver [ADR 0022](docs/adr/0022-adaptador-openai-sin-tocar-el-orquestador.md) y [ADR 0023](docs/adr/0023-tercer-adaptador-anthropic-claude.md).
+- **Hecho:** afford-check + apartado, transferencia con desambiguación, alta de contactos/gastos/ingresos/metas por chat con confirmación, CRUD REST completo, resumen por categoría con detección de picos de gasto, sugerencias proactivas con propuesta de solución del LLM bajo demanda (pestaña *Atención*, modal HITL en los **dos** clientes), score de salud, explicabilidad por modal, hilos de conversación con memoria, modo offline de respaldo, **tres proveedores de LLM intercambiables**, **catálogo A2UI propio** con 7 componentes de dominio (`StatCard`/`BarChart`/`PlanDePago`/`LineChart`/`ApartadoPlanner`/`DonutChart`/`BudgetAllocator`; `ApartadoPlanner` y `BudgetAllocator` con recálculo instantáneo en el cliente) en los dos clientes, confirmar/rechazar una propuesta responde con un `StatCard` de tono positivo/neutral (no un Text plano sin distinguir éxito de cancelación), TTS/STT en el chat, dos clientes A2UI, despliegue público.
+- **Pendiente:** seguir ampliando el catálogo propio (7 componentes hoy) — rivales conocidos ya muestran 14+, aunque muchos de los suyos son átomos genéricos que nuestro catálogo básico ya cubre.
+- **Verificado en producción (2026-09-13):** "repite la acción anterior" funciona end-to-end (re-propone y confirma con un `proposalId` nuevo, saldo actualizado correcto); el ciclo proponer→confirmar de `BudgetAllocator`; billing activo en la key de Gemini (el tier gratuito se agotaba en minutos — ver commit `92d643f`).

@@ -1,15 +1,11 @@
 // flutter_app/lib/sugerencias/sugerencias_screen.dart
 //
-// Pestaña Sugerencias: el sistema detecta situaciones de riesgo (reglas
+// Pestaña Atención: el sistema detecta situaciones de riesgo (reglas
 // deterministas en el backend) y las presenta como tarjetas A2UI que
-// llegan ya armadas — el usuario no teclea nada para recibir UI.
-//
-// PENDIENTE (concepto bandera): debajo de cada tarjeta irá la propuesta
-// de solución generada por el LLM para esa situación concreta (p. ej.
-// "aparta $107 semanales para cubrir la colegiatura"), con su botón de
-// confirmación. El punto de extensión es `_PendienteTile`; la tarjeta
-// determinista de arriba se mantiene tal cual para que Atender/Descartar
-// nunca dependan de texto que el modelo pudo alucinar.
+// llegan ya armadas — el usuario no teclea nada para recibir UI. Tocar
+// "Atender" pasa por un modal HITL (título/descripción deterministas +
+// propuesta del LLM bajo demanda) antes de marcarla, igual que en React
+// (ver AtencionView.jsx / AtenderSugerenciaModal.jsx).
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -23,6 +19,8 @@ import '../shared/formatters.dart';
 import '../shared/widgets.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
+import 'atender_sugerencia_modal.dart';
+import 'extract_sugerencia_copy.dart';
 import 'sugerencia_action_router.dart';
 import 'sugerencias_controller.dart';
 
@@ -60,6 +58,7 @@ class _SugerenciasScreenState extends State<SugerenciasScreen> {
     _router = SugerenciaActionRouter(
       atender: widget.controller.atender,
       descartar: widget.controller.descartar,
+      requestConfirmacion: _mostrarModalAtender,
       onResuelta: _onResuelta,
       onError: (err) => _onError(err, 'No se pudo actualizar la sugerencia.'),
     );
@@ -108,6 +107,34 @@ class _SugerenciasScreenState extends State<SugerenciasScreen> {
     _tarjetas.sort((a, b) => (orden[a.sugerenciaId] ?? 0).compareTo(orden[b.sugerenciaId] ?? 0));
 
     if (mounted) setState(() {});
+  }
+
+  Sugerencia? _buscarSugerencia(int id) {
+    for (final s in widget.controller.pendientes) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  /// requestConfirmacion del router: modal HITL con título/descripción
+  /// deterministas + "Ver propuesta del asistente" bajo demanda. Solo
+  /// ejecuta `onConfirm` (la acción real) si el usuario toca "Marcar como
+  /// atendida"; si cancela o cierra el modal, no pasa nada.
+  Future<void> _mostrarModalAtender(int sugerenciaId, Future<void> Function() onConfirm) async {
+    final sugerencia = _buscarSugerencia(sugerenciaId);
+    final copy = extraerTituloDescripcion(sugerencia?.a2uiJson);
+    if (!mounted) return;
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (_) => AtenderSugerenciaModal(
+        titulo: copy.titulo,
+        descripcion: copy.descripcion,
+        onGenerarPropuesta: () => widget.controller.generarPropuesta(sugerenciaId),
+      ),
+    );
+    if (confirmado == true) {
+      await onConfirm();
+    }
   }
 
   Future<void> _onAction(Map<String, dynamic> action) async {
@@ -203,7 +230,11 @@ class _Encabezado extends StatelessWidget {
               padding: EdgeInsets.only(top: 4),
               child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             )
-          else
+          // Con 0 pendientes, "Todo en orden" (abajo) ya lo dice: un "0"
+          // gigante aquí es ruido, no información — antes además se
+          // renderizaba en BankGothic, donde el glifo del cero se ve como
+          // un recuadro hueco sin nada adentro.
+          else if (pendientes > 0)
             Text('$pendientes', style: DisplayText.saldo.copyWith(fontSize: 36, color: BrandColors.rojo)),
         ],
       ),
@@ -243,7 +274,8 @@ class _TodoEnOrden extends StatelessWidget {
 }
 
 /// Una sugerencia pendiente: la tarjeta A2UI determinista del backend.
-/// Aquí debajo irá la propuesta generada por el LLM (pendiente).
+/// "Atender" abre el modal HITL (ver _mostrarModalAtender) con la
+/// propuesta del LLM bajo demanda, no la muestra aquí.
 class _PendienteTile extends StatelessWidget {
   const _PendienteTile({super.key, required this.surface});
 
