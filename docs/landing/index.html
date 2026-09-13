@@ -223,6 +223,38 @@
   .stat .n { font-size: clamp(26px, 5vw, 34px); font-weight: 800; color: #ff8fa1; }
   .stat .l { font-size: 12px; opacity: 0.75; margin-top: 4px; line-height: 1.4; }
 
+  /* ---------- Roadmap ---------- */
+  .roadmap {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .roadmap-item {
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    gap: 18px;
+    align-items: start;
+    padding: 18px 20px;
+    background: var(--superficie);
+    border: 1px solid var(--plata);
+    border-radius: 14px;
+  }
+  @media (max-width: 560px) {
+    .roadmap-item { grid-template-columns: 1fr; gap: 6px; }
+  }
+  .roadmap-item .cuando {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--rojo);
+    padding-top: 2px;
+  }
+  .roadmap-item h3 { margin: 0 0 4px; font-size: 15px; }
+  .roadmap-item p { margin: 0; font-size: 13.5px; color: var(--gris); line-height: 1.55; }
+
   /* ---------- Descarga ---------- */
   .cards {
     display: grid;
@@ -365,6 +397,36 @@
         <div class="stat"><div class="n">2</div><div class="l">clientes reales (web + Android) sobre el mismo protocolo</div></div>
         <div class="stat"><div class="n">500+</div><div class="l">pruebas automatizadas en los tres lados</div></div>
         <div class="stat"><div class="n">24</div><div class="l">decisiones de arquitectura documentadas</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2 class="titulo-seccion">Lo que sigue</h2>
+      <p class="subtitulo-seccion">Esto es lo que ya funciona hoy. Esto es hacia dónde vamos.</p>
+      <div class="roadmap">
+        <div class="roadmap-item">
+          <span class="cuando">Próximo</span>
+          <div>
+            <h3>Más componentes de dominio</h3>
+            <p>Hoy son 7 (StatCard, BarChart, PlanDePago, LineChart, ApartadoPlanner, DonutChart, BudgetAllocator). Cada categoría financiera nueva — tarjetas de crédito, inversiones — suma su propio componente, no un formulario genérico.</p>
+          </div>
+        </div>
+        <div class="roadmap-item">
+          <span class="cuando">Próximo</span>
+          <div>
+            <h3>Alertas que te buscan, no que esperas</h3>
+            <p>La pestaña Atención ya detecta riesgos solo, sin que preguntes — el siguiente paso es que te avisen como notificación push, no solo cuando abres la app.</p>
+          </div>
+        </div>
+        <div class="roadmap-item">
+          <span class="cuando">Visión</span>
+          <div>
+            <h3>Una cuenta no es todo tu dinero</h3>
+            <p>Tarjetas de crédito, inversiones, más de un banco — la misma pregunta ("¿me alcanza?") debería poder ver todo tu panorama financiero real, no solo una cuenta.</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
