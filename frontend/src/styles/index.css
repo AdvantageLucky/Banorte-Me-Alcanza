@@ -27,19 +27,31 @@ html:root {
      marca, tanto para el chrome hecho a mano como para las tarjetas que
      genera el LLM vía A2UI. El fallback tras la coma es solo para el
      primer frame antes de que main.jsx corra la inyección. */
-  --a2ui-color-primary: var(--color-primary, #ec0029);
-  --a2ui-color-secondary: var(--color-secondary, #6a6867);
-  --a2ui-color-background: var(--color-background, #f5f5f5);
+  --a2ui-color-primary: var(--color-primary, #eb0029);
+  --a2ui-color-secondary: var(--color-secondary, #64748b);
+  --a2ui-color-background: var(--color-background, #f8fafc);
   --a2ui-color-surface: var(--color-surface, #ffffff);
-  --a2ui-color-border: var(--color-border, #c7c9c9);
+  --a2ui-color-border: var(--color-border, #e2e8f0);
   --a2ui-color-input: var(--color-input, #ffffff);
-  --a2ui-color-on-background: var(--color-on-background, #1f1f1f);
-  --a2ui-color-on-surface: var(--color-on-surface, #1f1f1f);
+  --a2ui-color-on-background: var(--color-on-background, #0f172a);
+  --a2ui-color-on-surface: var(--color-on-surface, #0f172a);
   --a2ui-color-on-primary: var(--color-on-primary, #ffffff);
   --a2ui-color-on-secondary: var(--color-on-secondary, #ffffff);
-  --a2ui-color-on-input: var(--color-on-input, #1f1f1f);
-  --a2ui-border-radius: 12px;
+  --a2ui-color-on-input: var(--color-on-input, #0f172a);
+  --a2ui-color-success: var(--color-success, #059669);
+  --a2ui-color-warning: var(--color-warning, #b45309);
+  --a2ui-border-radius: 14px;
   --a2ui-border-width: 1px;
+
+  /* Tokens de "frescura" (sombras, radios grandes, texto tenue) tomados del
+     rediseño de referencia — se suman a los --a2ui-* de arriba, no los
+     reemplazan, y se usan directo en las clases de más abajo. */
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 10px -2px rgba(15, 23, 42, 0.12), 0 2px 4px -2px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 20px 25px -8px rgba(15, 23, 42, 0.18), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
   --a2ui-font-family-title:
     -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --a2ui-font-family-monospace: "SFMono-Regular", Consolas, monospace;
@@ -76,6 +88,7 @@ body {
   font-family: var(--a2ui-font-family-title);
   background: var(--a2ui-color-background);
   color: var(--a2ui-color-on-background);
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
@@ -126,8 +139,8 @@ body {
   width: 100%;
   max-width: 400px;
   background: var(--color-surface);
-  border-radius: var(--a2ui-border-radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
 }
 
 .login-form {
@@ -260,6 +273,13 @@ body {
   border-radius: calc(var(--a2ui-border-radius) / 2);
   font-size: var(--a2ui-font-size-m);
   color: var(--color-on-input);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-form input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #eb0029) 15%, transparent);
 }
 
 .login-form button,
@@ -271,6 +291,19 @@ body {
   color: var(--a2ui-color-on-primary);
   font-size: var(--a2ui-font-size-m);
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.login-form button:hover:not(:disabled),
+.chat-input button:hover:not(:disabled) {
+  background: var(--color-primary-dark, #b8001f);
+  box-shadow: var(--shadow-md);
+}
+
+.login-form button:active:not(:disabled),
+.chat-input button:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .login-form button {
@@ -282,11 +315,12 @@ body {
 .chat-input button:disabled {
   opacity: 0.6;
   cursor: default;
+  box-shadow: none;
 }
 
 .login-error,
 .chat-error {
-  color: #b3261e;
+  color: var(--color-danger, #c5221f);
   font-size: var(--a2ui-font-size-s);
 }
 
@@ -309,9 +343,12 @@ body {
   gap: var(--a2ui-spacing-l);
   padding: var(--a2ui-spacing-m) var(--a2ui-spacing-l);
   background-color: var(--color-primary);
-  border-bottom: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  box-shadow: var(--shadow-md);
   font-size: var(--a2ui-font-size-l);
   font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
 
 .app-navbar-brand {
@@ -341,21 +378,30 @@ body {
   font-size: var(--a2ui-font-size-s);
   font-weight: 600;
   color: var(--color-on-primary);
-  opacity: 0.75;
+  opacity: 0.85;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.app-navbar-tab:hover {
+  opacity: 1;
+  background: var(--color-primary-dark, #b8001f);
 }
 
 .logout {
   opacity: 1 !important;
 }
 
-.app-navbar-tab-active {
+.app-navbar-tab-active,
+.app-navbar-tab-active:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--color-on-primary);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .app-navbar-logout {
   background: none;
-  border: var(--a2ui-border-width) solid var(--color-on-primary);
+  border: var(--a2ui-border-width) solid rgba(255, 255, 255, 0.6);
   border-radius: calc(var(--a2ui-border-radius) / 2);
   padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
   cursor: pointer;
@@ -363,6 +409,11 @@ body {
   font-size: var(--a2ui-font-size-s);
   color: var(--color-on-primary);
   white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+.app-navbar-logout:hover {
+  background: var(--color-primary-dark, #b8001f);
 }
 
 .chat-view {
@@ -396,11 +447,12 @@ body {
   padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
   background: var(--color-message-user);
   color: var(--a2ui-color-on-primary);
-  border-radius: var(--a2ui-border-radius);
+  border-radius: var(--radius-lg);
   border-bottom-right-radius: calc(var(--a2ui-border-radius) / 4);
   font-size: var(--a2ui-font-size-m);
   white-space: pre-wrap;
   word-break: break-word;
+  box-shadow: var(--shadow-sm);
 }
 
 .chat-input {
@@ -469,9 +521,15 @@ body {
   font-weight: 600;
   color: var(--color-secondary);
   white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.yo-subnav-tab-active {
+.yo-subnav-tab:hover {
+  color: var(--color-on-surface);
+}
+
+.yo-subnav-tab-active,
+.yo-subnav-tab-active:hover {
   color: var(--color-primary);
   border-bottom-color: var(--color-primary);
 }
@@ -495,7 +553,7 @@ body {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--a2ui-spacing-s);
-  color: #c5221f;
+  color: var(--color-danger, #c5221f);
 }
 
 .yo-state-error button {
@@ -512,8 +570,9 @@ body {
 .yo-card {
   background: var(--color-surface);
   border: var(--a2ui-border-width) solid var(--a2ui-color-border);
-  border-radius: var(--a2ui-border-radius);
+  border-radius: var(--radius-lg);
   padding: var(--a2ui-spacing-m);
+  box-shadow: var(--shadow-sm);
 }
 
 .yo-list {
@@ -556,11 +615,11 @@ body {
 }
 
 .yo-monto-negativo {
-  color: #c5221f;
+  color: var(--color-danger, #c5221f);
 }
 
 .yo-monto-positivo {
-  color: #1e8e3e;
+  color: var(--color-success, #059669);
 }
 
 .yo-cuenta-card {
@@ -583,7 +642,8 @@ body {
 .yo-cuenta-saldo {
   margin: var(--a2ui-spacing-xs) 0 0;
   font-size: var(--a2ui-font-size-xl);
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: var(--color-primary);
 }
 
@@ -601,14 +661,16 @@ body {
 .yo-meta-progreso-track {
   width: 100%;
   height: 8px;
-  border-radius: 4px;
-  background: var(--color-background);
+  border-radius: var(--radius-full);
+  background: var(--a2ui-color-background);
   overflow: hidden;
 }
 
 .yo-meta-progreso-fill {
   height: 100%;
+  border-radius: var(--radius-full);
   background: var(--color-primary);
+  transition: width 0.5s ease-in-out;
 }
 
 .yo-meta-montos,
@@ -620,23 +682,26 @@ body {
 
 .yo-badge {
   padding: var(--a2ui-spacing-xs) var(--a2ui-spacing-s);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   font-size: var(--a2ui-font-size-xs);
   font-weight: 700;
   text-transform: capitalize;
   white-space: nowrap;
   background: var(--color-background);
   color: var(--color-secondary);
+  border: var(--a2ui-border-width) solid var(--color-border);
 }
 
 .yo-badge-activo {
-  background: #1e8e3e;
-  color: var(--color-on-primary);
+  background: color-mix(in srgb, var(--color-success, #059669) 12%, var(--color-surface, #fff));
+  color: var(--color-success, #059669);
+  border-color: color-mix(in srgb, var(--color-success, #059669) 35%, transparent);
 }
 
 .yo-badge-cancelado {
-  background: var(--color-border);
+  background: var(--color-background);
   color: var(--color-secondary);
+  border-color: var(--color-border);
 }
 
 /* CRUD del core bancario (crear/editar/eliminar contactos, metas, apartados,
@@ -669,22 +734,36 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
   font-weight: 600;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .yo-btn-primary {
   background: var(--color-primary);
   color: var(--color-on-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.yo-btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark, #b8001f);
+  box-shadow: var(--shadow-md);
 }
 
 .yo-btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .yo-btn-danger {
   background: none;
-  border: var(--a2ui-border-width) solid #c5221f;
-  color: #c5221f;
+  border: var(--a2ui-border-width) solid var(--color-danger, #c5221f);
+  color: var(--color-danger, #c5221f);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.yo-btn-danger:hover {
+  background: var(--color-danger, #c5221f);
+  color: var(--color-on-primary, #fff);
 }
 
 .yo-card-actions {
@@ -702,6 +781,12 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-xs);
   color: var(--color-secondary);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.yo-card-actions button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .yo-form {
@@ -710,8 +795,9 @@ body {
   gap: var(--a2ui-spacing-s);
   background: var(--color-surface);
   border: var(--a2ui-border-width) solid var(--a2ui-color-border);
-  border-radius: var(--a2ui-border-radius);
+  border-radius: var(--radius-lg);
   padding: var(--a2ui-spacing-m);
+  box-shadow: var(--shadow-sm);
 }
 
 .yo-form-row {
@@ -739,11 +825,19 @@ body {
   font-size: var(--a2ui-font-size-m);
   background: var(--color-input);
   color: var(--color-on-input);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.yo-form-row input:focus,
+.yo-form-row select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #eb0029) 15%, transparent);
 }
 
 .yo-form-error {
   margin: 0;
-  color: #c5221f;
+  color: var(--color-danger, #c5221f);
   font-size: var(--a2ui-font-size-s);
 }
 
@@ -762,6 +856,12 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
   color: var(--color-secondary);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.yo-form-actions button:not(.yo-btn-primary):hover {
+  border-color: var(--color-secondary);
+  color: var(--color-on-surface);
 }
 
 .yo-contacto {
@@ -813,6 +913,12 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.conversation-nueva:hover {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
 }
 
 .conversation-list {
@@ -836,14 +942,16 @@ body {
   background: none;
   cursor: pointer;
   text-align: left;
+  transition: background-color 0.15s ease;
 }
 
 .conversation-item:hover {
   background: var(--color-background);
 }
 
-.conversation-item-active {
-  background: var(--color-background);
+.conversation-item-active,
+.conversation-item-active:hover {
+  background: color-mix(in srgb, var(--color-primary, #eb0029) 8%, var(--color-background, #f8fafc));
   font-weight: 600;
 }
 
@@ -877,6 +985,11 @@ body {
   font-size: var(--a2ui-font-size-m);
   line-height: 1;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.mic-button:hover {
+  border-color: var(--color-primary);
 }
 
 .mic-button-active {
@@ -915,25 +1028,38 @@ body {
   background: var(--a2ui-color-border);
 }
 
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-scale-up {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
 .confirm-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--a2ui-spacing-l);
   z-index: 1000;
+  animation: modal-fade-in 0.2s ease-out;
 }
 
 .confirm-modal-card {
   background: var(--color-surface);
   color: var(--color-on-surface);
-  border-radius: var(--a2ui-border-radius);
+  border-radius: var(--radius-xl);
   padding: var(--a2ui-spacing-xl);
   max-width: 420px;
   width: 100%;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-lg);
+  animation: modal-scale-up 0.2s ease-out;
 }
 
 .confirm-modal-title {
@@ -967,6 +1093,7 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
   font-weight: 600;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .confirm-modal-cancel {
@@ -975,10 +1102,19 @@ body {
   color: var(--color-on-surface);
 }
 
+.confirm-modal-cancel:hover {
+  background: var(--color-background);
+}
+
 .confirm-modal-confirm {
   background: var(--color-primary);
   color: var(--color-on-primary);
   border: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.confirm-modal-confirm:hover {
+  background: var(--color-primary-dark, #b8001f);
 }
 
 .atencion-modal-propuesta,
@@ -996,6 +1132,11 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
   font-weight: 600;
+  transition: background-color 0.15s ease;
+}
+
+.atender-modal-generar:hover {
+  background: var(--color-primary-soft, #fff1f2);
 }
 
 .atender-modal-propuesta-loading {
@@ -1038,28 +1179,42 @@ body {
   overflow-y: auto;
 }
 
+/* Contenedor tipo "segmented control" — el filtro activo flota como pill
+   blanco sobre un fondo gris, igual que en la referencia, en vez de botones
+   sueltos con borde. */
 .atencion-filtros {
   display: flex;
-  gap: var(--a2ui-spacing-s);
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--a2ui-color-background);
+  border-radius: calc(var(--a2ui-border-radius) + 4px);
   flex-wrap: wrap;
+  align-self: flex-start;
 }
 
 .atencion-filtro {
   background: none;
-  border: var(--a2ui-border-width) solid var(--color-border);
-  color: var(--color-on-surface);
+  border: none;
+  color: var(--color-secondary);
   padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
-  border-radius: 999px;
+  border-radius: calc(var(--a2ui-border-radius) / 2);
   cursor: pointer;
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
   font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.atencion-filtro:hover:not(.atencion-filtro-activo) {
+  color: var(--color-on-surface);
+  background: color-mix(in srgb, var(--color-surface, #fff) 60%, transparent);
 }
 
 .atencion-filtro-activo {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: var(--color-on-primary);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .atencion-vacio {
@@ -1073,13 +1228,27 @@ body {
   max-width: 640px;
 }
 
+.atencion-tarjeta {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.atencion-tarjeta:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
 .atencion-historial-item {
   display: flex;
   align-items: center;
   gap: var(--a2ui-spacing-m);
   padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
-  border-radius: calc(var(--a2ui-border-radius) / 2);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
   border: var(--a2ui-border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sm);
   font-size: var(--a2ui-font-size-s);
 }
 
@@ -1091,13 +1260,15 @@ body {
 .atencion-historial-estado {
   text-transform: capitalize;
   font-size: var(--a2ui-font-size-xs);
-  padding: 2px 8px;
-  border-radius: 999px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
   background: var(--a2ui-color-background);
 }
 
 .atencion-historial-estado-atendida {
-  color: #1a8f4c;
+  color: var(--color-success, #059669);
+  background: color-mix(in srgb, var(--color-success, #059669) 12%, transparent);
 }
 
 .atencion-historial-estado-descartada {

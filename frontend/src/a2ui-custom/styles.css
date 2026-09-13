@@ -8,14 +8,15 @@
   gap: 4px;
   padding: var(--a2ui-spacing-m, 16px);
   border-radius: var(--a2ui-border-radius, 12px);
-  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #e2e8f0);
   background: var(--a2ui-color-surface, #fff);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .stat-card-label {
   margin: 0;
   font-size: var(--a2ui-font-size-s, 14px);
-  color: var(--a2ui-color-secondary, #6a6867);
+  color: var(--a2ui-color-secondary, #64748b);
 }
 
 .stat-card-value {
@@ -23,7 +24,7 @@
   font-size: var(--a2ui-font-size-2xl, 32px);
   font-weight: 700;
   line-height: 1.1;
-  color: var(--a2ui-color-on-surface, #1f1f1f);
+  color: var(--a2ui-color-on-surface, #0f172a);
 }
 
 .stat-card-trend {
@@ -40,17 +41,17 @@
 
 .stat-card-positive .stat-card-value,
 .stat-card-positive .stat-card-trend {
-  color: #1a8f4c;
+  color: var(--a2ui-color-success, #059669);
 }
 
 .stat-card-negative .stat-card-value,
 .stat-card-negative .stat-card-trend {
-  color: var(--a2ui-color-primary, #ec0029);
+  color: var(--a2ui-color-primary, #eb0029);
 }
 
 .stat-card-warning .stat-card-value,
 .stat-card-warning .stat-card-trend {
-  color: #b9770e;
+  color: var(--a2ui-color-warning, #b45309);
 }
 
 .bar-chart {
@@ -59,8 +60,9 @@
   gap: var(--a2ui-spacing-s, 8px);
   padding: var(--a2ui-spacing-m, 16px);
   border-radius: var(--a2ui-border-radius, 12px);
-  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #e2e8f0);
   background: var(--a2ui-color-surface, #fff);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .bar-chart-title {
@@ -84,7 +86,7 @@
 
 .bar-chart-row-label {
   font-size: var(--a2ui-font-size-s, 14px);
-  color: var(--a2ui-color-on-surface, #1f1f1f);
+  color: var(--a2ui-color-on-surface, #0f172a);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -93,26 +95,26 @@
 .bar-chart-row-track {
   height: 10px;
   border-radius: 999px;
-  background: var(--a2ui-color-background, #f5f5f5);
+  background: var(--a2ui-color-background, #f8fafc);
   overflow: hidden;
 }
 
 .bar-chart-row-fill {
   height: 100%;
   border-radius: 999px;
-  background: var(--a2ui-color-primary, #ec0029);
+  background: var(--a2ui-color-primary, #eb0029);
 }
 
 .bar-chart-row-fill-positive {
-  background: #1a8f4c;
+  background: var(--a2ui-color-success, #059669);
 }
 
 .bar-chart-row-fill-warning {
-  background: #b9770e;
+  background: var(--a2ui-color-warning, #b45309);
 }
 
 .bar-chart-row-fill-negative {
-  background: var(--a2ui-color-primary, #ec0029);
+  background: var(--a2ui-color-primary, #eb0029);
 }
 
 .bar-chart-row-value {
@@ -127,8 +129,9 @@
   gap: var(--a2ui-spacing-s, 8px);
   padding: var(--a2ui-spacing-m, 16px);
   border-radius: var(--a2ui-border-radius, 12px);
-  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #e2e8f0);
   background: var(--a2ui-color-surface, #fff);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .plan-de-pago-title {
@@ -140,7 +143,7 @@
 .plan-de-pago-subtitle {
   margin: 0 0 4px;
   font-size: var(--a2ui-font-size-s, 14px);
-  color: var(--a2ui-color-secondary, #6a6867);
+  color: var(--a2ui-color-secondary, #64748b);
 }
 
 .plan-de-pago-options {
@@ -156,7 +159,7 @@
   gap: var(--a2ui-spacing-m, 16px);
   padding: var(--a2ui-spacing-s, 8px) var(--a2ui-spacing-m, 16px);
   border-radius: var(--a2ui-border-radius, 12px);
-  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #e2e8f0);
   background: var(--a2ui-color-input, #fff);
   cursor: pointer;
   font: inherit;
@@ -166,13 +169,13 @@
 }
 
 .plan-de-pago-option:hover {
-  border-color: var(--a2ui-color-primary, #ec0029);
+  border-color: var(--a2ui-color-primary, #eb0029);
 }
 
 .plan-de-pago-option-selected {
-  border-color: var(--a2ui-color-primary, #ec0029);
+  border-color: var(--a2ui-color-primary, #eb0029);
   border-width: 2px;
-  background: color-mix(in srgb, var(--a2ui-color-primary, #ec0029) 6%, var(--a2ui-color-input, #fff));
+  background: color-mix(in srgb, var(--a2ui-color-primary, #eb0029) 6%, var(--a2ui-color-input, #fff));
 }
 
 .plan-de-pago-option-highlighted:not(.plan-de-pago-option-selected) {
@@ -185,7 +188,7 @@
 
 .plan-de-pago-option-detail {
   font-size: var(--a2ui-font-size-s, 14px);
-  color: var(--a2ui-color-secondary, #6a6867);
+  color: var(--a2ui-color-secondary, #64748b);
 }
 
 .plan-de-pago-option-amount {
@@ -199,8 +202,9 @@
   gap: var(--a2ui-spacing-s, 8px);
   padding: var(--a2ui-spacing-m, 16px);
   border-radius: var(--a2ui-border-radius, 12px);
-  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #e2e8f0);
   background: var(--a2ui-color-surface, #fff);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .line-chart-title {
@@ -216,58 +220,58 @@
 }
 
 .line-chart-area {
-  fill: color-mix(in srgb, var(--a2ui-color-primary, #ec0029) 10%, transparent);
+  fill: color-mix(in srgb, var(--a2ui-color-primary, #eb0029) 10%, transparent);
   stroke: none;
 }
 
 .line-chart-line {
   fill: none;
-  stroke: var(--a2ui-color-primary, #ec0029);
+  stroke: var(--a2ui-color-primary, #eb0029);
   stroke-width: 2.5;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 
 .line-chart-threshold {
-  stroke: var(--a2ui-color-secondary, #6a6867);
+  stroke: var(--a2ui-color-secondary, #64748b);
   stroke-width: 1;
   stroke-dasharray: 4 4;
 }
 
 .line-chart-threshold-label {
   font-size: 10px;
-  fill: var(--a2ui-color-secondary, #6a6867);
+  fill: var(--a2ui-color-secondary, #64748b);
   text-anchor: end;
 }
 
 .line-chart-dot {
-  fill: var(--a2ui-color-primary, #ec0029);
+  fill: var(--a2ui-color-primary, #eb0029);
   stroke: var(--a2ui-color-surface, #fff);
   stroke-width: 2;
 }
 
 .line-chart-dot-negative {
-  fill: var(--a2ui-color-primary, #ec0029);
+  fill: var(--a2ui-color-primary, #eb0029);
 }
 
 .line-chart-dot-warning {
-  fill: #b9770e;
+  fill: var(--a2ui-color-warning, #b45309);
 }
 
 .line-chart-dot-positive {
-  fill: #1a8f4c;
+  fill: var(--a2ui-color-success, #059669);
 }
 
 .line-chart-value-label {
   font-size: 12px;
   font-weight: 700;
-  fill: var(--a2ui-color-on-surface, #1f1f1f);
+  fill: var(--a2ui-color-on-surface, #0f172a);
   text-anchor: middle;
 }
 
 .line-chart-x-label {
   font-size: 10px;
-  fill: var(--a2ui-color-secondary, #6a6867);
+  fill: var(--a2ui-color-secondary, #64748b);
   text-anchor: middle;
 }
 
@@ -277,8 +281,9 @@
   gap: var(--a2ui-spacing-s, 8px);
   padding: var(--a2ui-spacing-m, 16px);
   border-radius: var(--a2ui-border-radius, 12px);
-  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #e2e8f0);
   background: var(--a2ui-color-surface, #fff);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .apartado-planner-title {
@@ -290,7 +295,7 @@
 .apartado-planner-subtitle {
   margin: 0 0 4px;
   font-size: var(--a2ui-font-size-s, 14px);
-  color: var(--a2ui-color-secondary, #6a6867);
+  color: var(--a2ui-color-secondary, #64748b);
 }
 
 .apartado-planner-result {
@@ -303,18 +308,18 @@
 .apartado-planner-periodos {
   font-size: var(--a2ui-font-size-2xl, 32px);
   font-weight: 700;
-  color: var(--a2ui-color-primary, #ec0029);
+  color: var(--a2ui-color-primary, #eb0029);
   line-height: 1;
 }
 
 .apartado-planner-periodos-label {
   font-size: var(--a2ui-font-size-s, 14px);
-  color: var(--a2ui-color-secondary, #6a6867);
+  color: var(--a2ui-color-secondary, #64748b);
 }
 
 .apartado-planner-slider {
   width: 100%;
-  accent-color: var(--a2ui-color-primary, #ec0029);
+  accent-color: var(--a2ui-color-primary, #eb0029);
   cursor: pointer;
 }
 
@@ -322,7 +327,7 @@
   display: flex;
   justify-content: space-between;
   font-size: var(--a2ui-font-size-xs, 12px);
-  color: var(--a2ui-color-secondary, #6a6867);
+  color: var(--a2ui-color-secondary, #64748b);
   margin-top: -8px;
 }
 
@@ -333,11 +338,11 @@
 }
 
 .apartado-planner-total-ok {
-  color: #1a8f4c;
+  color: var(--a2ui-color-success, #059669);
 }
 
 .apartado-planner-total-corto {
-  color: #b9770e;
+  color: var(--a2ui-color-warning, #b45309);
 }
 
 .donut-chart {
@@ -346,8 +351,9 @@
   gap: var(--a2ui-spacing-s, 8px);
   padding: var(--a2ui-spacing-m, 16px);
   border-radius: var(--a2ui-border-radius, 12px);
-  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #e2e8f0);
   background: var(--a2ui-color-surface, #fff);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .donut-chart-title {
@@ -370,12 +376,12 @@
 .donut-chart-center-value {
   font-size: 20px;
   font-weight: 700;
-  fill: var(--a2ui-color-on-surface, #1f1f1f);
+  fill: var(--a2ui-color-on-surface, #0f172a);
 }
 
 .donut-chart-center-label {
   font-size: 11px;
-  fill: var(--a2ui-color-secondary, #6a6867);
+  fill: var(--a2ui-color-secondary, #64748b);
 }
 
 .donut-chart-legend {
@@ -407,11 +413,11 @@
 }
 
 .donut-chart-legend-row:hover {
-  background: var(--a2ui-color-background, #f5f5f5);
+  background: var(--a2ui-color-background, #f8fafc);
 }
 
 .donut-chart-legend-row-selected {
-  background: color-mix(in srgb, var(--a2ui-color-primary, #ec0029) 8%, transparent);
+  background: color-mix(in srgb, var(--a2ui-color-primary, #eb0029) 8%, transparent);
 }
 
 .donut-chart-legend-swatch {
@@ -429,7 +435,7 @@
 
 .donut-chart-legend-pct {
   font-size: var(--a2ui-font-size-xs, 12px);
-  color: var(--a2ui-color-secondary, #6a6867);
+  color: var(--a2ui-color-secondary, #64748b);
 }
 
 .donut-chart-legend-value {
@@ -444,8 +450,9 @@
   gap: var(--a2ui-spacing-s, 8px);
   padding: var(--a2ui-spacing-m, 16px);
   border-radius: var(--a2ui-border-radius, 12px);
-  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #e2e8f0);
   background: var(--a2ui-color-surface, #fff);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .budget-allocator-title {
@@ -457,7 +464,7 @@
 .budget-allocator-subtitle {
   margin: 0 0 4px;
   font-size: var(--a2ui-font-size-s, 14px);
-  color: var(--a2ui-color-secondary, #6a6867);
+  color: var(--a2ui-color-secondary, #64748b);
 }
 
 .budget-allocator-chips {
@@ -469,7 +476,7 @@
 .budget-allocator-chip {
   padding: 6px 12px;
   border-radius: 999px;
-  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #e2e8f0);
   background: var(--a2ui-color-input, #fff);
   font: inherit;
   font-size: var(--a2ui-font-size-s, 14px);
@@ -478,9 +485,9 @@
 }
 
 .budget-allocator-chip-selected {
-  border-color: var(--a2ui-color-primary, #ec0029);
+  border-color: var(--a2ui-color-primary, #eb0029);
   border-width: 2px;
-  background: color-mix(in srgb, var(--a2ui-color-primary, #ec0029) 6%, var(--a2ui-color-input, #fff));
+  background: color-mix(in srgb, var(--a2ui-color-primary, #eb0029) 6%, var(--a2ui-color-input, #fff));
   font-weight: 600;
 }
 
@@ -494,18 +501,18 @@
 .budget-allocator-monto {
   font-size: var(--a2ui-font-size-2xl, 32px);
   font-weight: 700;
-  color: var(--a2ui-color-primary, #ec0029);
+  color: var(--a2ui-color-primary, #eb0029);
   line-height: 1;
 }
 
 .budget-allocator-monto-label {
   font-size: var(--a2ui-font-size-s, 14px);
-  color: var(--a2ui-color-secondary, #6a6867);
+  color: var(--a2ui-color-secondary, #64748b);
 }
 
 .budget-allocator-slider {
   width: 100%;
-  accent-color: var(--a2ui-color-primary, #ec0029);
+  accent-color: var(--a2ui-color-primary, #eb0029);
   cursor: pointer;
 }
 
@@ -513,7 +520,7 @@
   display: flex;
   justify-content: space-between;
   font-size: var(--a2ui-font-size-xs, 12px);
-  color: var(--a2ui-color-secondary, #6a6867);
+  color: var(--a2ui-color-secondary, #64748b);
   margin-top: -8px;
 }
 

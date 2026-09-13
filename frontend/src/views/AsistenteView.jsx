@@ -342,7 +342,7 @@ function SpeakButton({ speaking, onClick }) {
       aria-label={speaking ? 'Detener lectura en voz alta' : 'Escuchar esta respuesta en voz alta'}
       title={speaking ? 'Detener lectura' : 'Escuchar en voz alta'}
     >
-      {speaking ? <Square color="#5b6570" size={16} /> : <Volume2 color="#5b6570" size={18} />}
+      {speaking ? <Square color="#64748b" size={16} /> : <Volume2 color="#64748b" size={18} />}
     </button>
   );
 }
