@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>¿Me Alcanza? — descarga</title>
+<style>
+  :root {
+    --rojo: #ec0029;
+    --tinta: #1f1f1f;
+    --gris: #6a6867;
+    --plata: #c7c9c9;
+    --fondo: #f5f5f5;
+    --superficie: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--fondo);
+    color: var(--tinta);
+    padding: 24px 16px 48px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 32px; }
+  header .logo {
+    display: inline-block;
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    background: var(--rojo);
+    color: #fff;
+    font-weight: 800;
+    font-size: 26px;
+    line-height: 56px;
+    margin-bottom: 12px;
+  }
+  h1 { margin: 0 0 4px; font-size: 26px; }
+  p.lead { margin: 0; color: var(--gris); font-size: 15px; }
+  .cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 32px;
+  }
+  @media (max-width: 560px) {
+    .cards { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--superficie);
+    border: 1px solid var(--plata);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .card h2 { margin: 0; font-size: 18px; }
+  .card p { margin: 0; color: var(--gris); font-size: 13px; }
+  .card img {
+    width: 180px;
+    height: 180px;
+    max-width: 100%;
+    border: 8px solid #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  }
+  .btn {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 10px 20px;
+    border-radius: 999px;
+    background: var(--rojo);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .btn:hover { opacity: 0.92; }
+  .btn.secundario {
+    background: transparent;
+    color: var(--rojo);
+    border: 1.5px solid var(--rojo);
+  }
+  footer {
+    text-align: center;
+    margin-top: 40px;
+    font-size: 12px;
+    color: var(--gris);
+  }
+  footer a { color: var(--gris); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <span class="logo">$</span>
+      <h1>¿Me Alcanza?</h1>
+      <p class="lead">Tu asistente financiero con interfaz generativa. Escanea o toca para entrar.</p>
+    </header>
+
+    <div class="cards">
+      <div class="card">
+        <h2>Web</h2>
+        <p>Ábrela directo en el navegador, sin instalar nada.</p>
+        <img src="qr-web.png" alt="Código QR hacia la app web" />
+        <a class="btn" href="https://frontend.jzackarias.lat" target="_blank" rel="noopener">
+          Abrir la app web
+        </a>
+      </div>
+
+      <div class="card">
+        <h2>Android</h2>
+        <p>Descarga el APK e instálalo en tu celular (permite "orígenes desconocidos" si Android lo pide).</p>
+        <img src="qr-apk.png" alt="Código QR hacia la descarga del APK" />
+        <a
+          class="btn secundario"
+          href="https://github.com/AdvantageLucky/Banorte-Me-Alcanza/releases/download/latest-apk/me-alcanza.apk"
+        >
+          Descargar APK
+        </a>
+      </div>
+    </div>
+
+    <footer>
+      Proyecto para HackMTY 2026 — reto de UI Generativa de Banorte.
+      <br />
+      <a href="https://github.com/AdvantageLucky/Banorte-Me-Alcanza">Código fuente en GitHub</a>
+    </footer>
+  </div>
+</body>
+</html>

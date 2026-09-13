@@ -31,6 +31,7 @@ reemplazada y se escribe una nueva.
 | [0021](0021-estrategia-de-pruebas.md) | Pruebas: MCP real por stdio, LLM mockeado, TDD por feature | Aceptada |
 | [0022](0022-adaptador-openai-sin-tocar-el-orquestador.md) | Soporte multi-proveedor de LLM vía adaptador, sin reescribir el orquestador | Aceptada |
 | [0023](0023-tercer-adaptador-anthropic-claude.md) | Tercer adaptador de LLM: Anthropic Claude | Aceptada |
+| [0024](0024-repo-publico-y-distribucion-del-apk.md) | Repo público y distribución del APK por Release + landing page | Aceptada |
 
 ## Cómo agregar una
 
