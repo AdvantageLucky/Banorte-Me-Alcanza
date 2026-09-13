@@ -29,7 +29,11 @@ services:
         # up --build frontend).
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:10000}
     ports:
-      - "8080:80"
+      # 8080 ya lo usa 'glance' en el homelab (otro servicio, no de este
+      # proyecto) — si el túnel público hacia frontend.jzackarias.lat apunta
+      # a 8080 específicamente, hay que actualizarlo también del lado del
+      # túnel al cambiar este puerto.
+      - "8081:80"
     depends_on:
       - backend
     restart: unless-stopped
