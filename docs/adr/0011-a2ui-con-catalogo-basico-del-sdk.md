@@ -29,3 +29,10 @@ catálogo cuando el ciclo ya esté cerrado.
   visible del proyecto y afecta el 20 % de "calidad y adaptabilidad de la UI".
 - Cualquier componente propio debe existir en ambos renderers o romper
   [ADR 0012](0012-dos-clientes-mismo-stream-a2ui.md).
+
+*Actualización 2026-09-13:* el backend ya emite un catálogo propio
+(`a2ui_custom_catalog.py`: básico + `StatCard`, `BarChart`, `PlanDePago`) bajo
+un `catalogId` distinto. La consecuencia anterior se cumplió tal cual: el
+cliente Flutter rompió hasta que registró el mismo catálogo
+(`flutter_app/lib/a2ui/me_alcanza_catalog.dart`). Los tres lados se mantienen
+en sync a mano; no hay generación automática.

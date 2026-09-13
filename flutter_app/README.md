@@ -23,6 +23,7 @@ marcado en `lib/sugerencias/sugerencias_screen.dart` (`_PendienteTile`).
 ```
 lib/
 ├── a2ui/a2ui_host.dart        plomería genui compartida (chat y sugerencias)
+├── a2ui/me_alcanza_catalog.dart  catálogo propio: básico + StatCard, BarChart, PlanDePago
 ├── api/api_client.dart        un método por endpoint REST
 ├── models/models.dart         formas de los recursos
 ├── theme/                     tokens de marca + ThemeData (BankGothic para cifras)
@@ -33,6 +34,17 @@ lib/
 ├── login/  shell/  auth/
 └── config.dart                API_BASE_URL
 ```
+
+## Catálogo A2UI propio
+
+El backend emite superficies con el `catalogId`
+`https://me-alcanza.hackmty.dev/catalogs/v1/catalog.json` y tres componentes
+de dominio además de los básicos. `genui` renderiza **"Catalog not found"**
+si ese id no está registrado, así que `lib/a2ui/me_alcanza_catalog.dart`
+debe mantenerse en sync a mano con `src/me_alcanza/backend/a2ui_custom_catalog.py`
+y `frontend/src/a2ui-custom/`: mismo id, mismos nombres, mismas props. El
+test `test/a2ui/me_alcanza_catalog_test.dart` levanta un `SurfaceController`
+real con ese id y falla si algo se desalinea.
 
 ## Requisitos
 
@@ -73,7 +85,9 @@ flutter test
 Unitarios sobre los módulos puros: `ApiClient` (todos los endpoints,
 incluidos errores 400/422), formateadores, validadores, el modelo del
 riel de la quincena, `SugerenciasController` y los routers de acciones.
-Las pantallas se verifican a mano en un emulador o dispositivo.
+Widget tests del riel y de los tres componentes del catálogo propio
+(renderizados por un `SurfaceController` real). Las pantallas se
+verifican a mano en un emulador, dispositivo o con `flutter build web`.
 
 ## Verificación manual antes de la demo
 

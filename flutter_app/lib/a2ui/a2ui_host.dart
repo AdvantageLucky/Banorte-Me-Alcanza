@@ -14,13 +14,19 @@ import 'package:a2ui_core/a2ui_core.dart' as core;
 import 'package:flutter/foundation.dart';
 import 'package:genui/genui.dart';
 
+import 'me_alcanza_catalog.dart';
+
 /// Callback con la acción de usuario tal cual la emite el catálogo:
 /// `{surfaceId, name, sourceComponentId, timestamp, context}`.
 typedef A2uiActionHandler = Future<void> Function(Map<String, dynamic> action);
 
 class A2uiHost {
   A2uiHost({required this._onAction}) {
-    controller = SurfaceController(catalogs: [BasicCatalogItems.asCatalog()]);
+    // El básico (id de a2ui.org) sigue registrado para el modo offline; el
+    // propio es el que emiten el orquestador y las sugerencias.
+    controller = SurfaceController(
+      catalogs: [BasicCatalogItems.asCatalog(), buildMeAlcanzaCatalog()],
+    );
     _transport = A2uiTransportAdapter(onSend: _handleSend);
     _conversation = Conversation(controller: controller, transport: _transport);
     _eventsSubscription = _conversation.events.listen(_onEvent);
