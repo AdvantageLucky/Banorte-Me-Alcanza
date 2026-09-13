@@ -1,13 +1,14 @@
 // flutter_app/lib/chat/chat_screen.dart
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:a2ui_core/a2ui_core.dart' as core;
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 
+import '../a2ui/a2ui_host.dart';
 import '../api/api_client.dart';
 import '../auth/auth_controller.dart';
+import '../shared/widgets.dart';
+import '../theme/tokens.dart';
 import 'action_router.dart';
 import 'extract_surface_text.dart';
 import 'speech_service.dart';
@@ -28,8 +29,7 @@ class ChatScreen extends StatefulWidget {
 
 // Un turno de la transcripción: o bien un mensaje del usuario (texto
 // plano), o bien la superficie A2UI que armó el agente para ese turno.
-// Mismo patrón de "cada turno es una entrada nueva" que ya aplicamos
-// en React — nunca se sobrescribe un turno anterior.
+// Cada turno es una entrada nueva — nunca se sobrescribe uno anterior.
 sealed class ChatTurn {
   const ChatTurn(this.id);
   final String id;
@@ -43,10 +43,10 @@ class UserTurn extends ChatTurn {
 class AgentTurn extends ChatTurn {
   AgentTurn(super.id, this.surfaceId, this.rawMessages);
   final String surfaceId;
-  // El a2ui crudo de este turno (ver ApiClient.sendMessage), guardado
-  // además del surfaceId para que el botón de "escuchar en voz alta" (ver
-  // extractSurfaceText) tenga de dónde sacar texto sin tener que
-  // reconstruirlo leyendo el SurfaceController.
+
+  // El a2ui crudo de este turno, guardado además del surfaceId para que el
+  // botón de "escuchar en voz alta" (extractSurfaceText) tenga de dónde
+  // sacar texto sin reconstruirlo desde el SurfaceController.
   final List<dynamic> rawMessages;
 }
 
@@ -59,10 +59,13 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _awaitingResponse = false;
   String? _errorMessage;
   int _turnCounter = 0;
-  // El a2ui crudo del envío en curso, a la espera de que
-  // ConversationSurfaceAdded confirme el surfaceId real para poder
-  // adjuntarlo al AgentTurn correspondiente (ver _feedMessagesToConversation
-  // y el listener de _conversation.events más abajo).
+
+  /// Hilo de conversación actual. El backend lo devuelve en el primer
+  /// turno; reenviarlo es lo que le da memoria al asistente.
+  int? _conversacionId;
+
+  // El a2ui crudo del envío en curso, a la espera de que el host confirme
+  // el surfaceId real para adjuntarlo al AgentTurn correspondiente.
   List<dynamic> _pendingRawMessages = const [];
 
   // Accesibilidad: dictado por voz (STT) y lectura en voz alta (TTS). Ver
@@ -73,117 +76,61 @@ class _ChatScreenState extends State<ChatScreen> {
   String _interimTranscript = '';
   String? _speakingTurnId;
 
-  late final SurfaceController _surfaceController;
-  late final A2uiTransportAdapter _transport;
-  late final Conversation _conversation;
-  late final StreamSubscription<ConversationEvent> _eventsSubscription;
+  late final A2uiHost _host;
+  late final StreamSubscription<String> _surfaceSub;
+  late final StreamSubscription<Object> _errorSub;
+
+  late final ActionRouter _actionRouter = ActionRouter(
+    confirmAction: (proposalId) =>
+        widget.apiClient.confirmAction(widget.authController.token!, proposalId),
+    onMessages: _feedMessages,
+    onError: (err) => _handleError(err, 'No se pudo confirmar la acción, intenta de nuevo.'),
+  );
 
   @override
   void initState() {
     super.initState();
-
-    _surfaceController = SurfaceController(
-      catalogs: [BasicCatalogItems.asCatalog()],
-    );
-
-    _transport = A2uiTransportAdapter(onSend: _handleSend);
-
-    _conversation = Conversation(
-      controller: _surfaceController,
-      transport: _transport,
-    );
-
-    _eventsSubscription = _conversation.events.listen((event) {
-      if (event is ConversationSurfaceAdded) {
-        setState(() {
-          _awaitingResponse = false;
-          _turns.add(
-            AgentTurn('turn-${_turnCounter++}', event.surfaceId, _pendingRawMessages),
-          );
-        });
-        _scrollToBottom();
-      } else if (event is ConversationError) {
-        // Cubre, entre otros casos, el error interno que
-        // SurfaceController.reportError empuja por el mismo stream
-        // onSubmit que las acciones de botón (payload
-        // {"version": "v0.9", "error": {...}}, sin clave "action"): ese
-        // caso hace que A2uiTransportAdapter.sendRequest falle dentro de
-        // _handleSend (ver más abajo), y Conversation.sendRequest
-        // convierte esa excepción en este evento en vez de dejarla
-        // propagar sin control.
-        debugPrint('ConversationError: ${event.error}');
-        setState(() {
-          _awaitingResponse = false;
-          _errorMessage = 'Ocurrió un error inesperado. Intenta de nuevo.';
-        });
-      }
+    _host = A2uiHost(onAction: _onAction);
+    _surfaceSub = _host.surfaceAdded.listen((surfaceId) {
+      setState(() {
+        _awaitingResponse = false;
+        _turns.add(AgentTurn('turn-${_turnCounter++}', surfaceId, _pendingRawMessages));
+      });
+      _scrollToBottom();
     });
-
-    // Chequeo único al entrar al chat: si el dispositivo no trae
-    // reconocimiento de voz (falta el servicio de Google en Android,
-    // permiso denegado, etc.) el botón de mic ni se muestra — igual que en
-    // React con `supported` (ver useSpeechRecognition.js).
+    _errorSub = _host.errors.listen((_) {
+      setState(() {
+        _awaitingResponse = false;
+        _errorMessage = 'Ocurrió un error inesperado. Intenta de nuevo.';
+      });
+    });
+    // Chequeo único: si el dispositivo no trae reconocimiento de voz, el
+    // botón de mic ni se muestra — igual que en React con `supported`.
     _speechService.sttAvailable.then((available) {
       if (mounted) setState(() => _sttSupported = available);
     });
   }
 
-  late final ActionRouter _actionRouter = ActionRouter(
-    confirmAction: (proposalId) =>
-        widget.apiClient.confirmAction(widget.authController.token!, proposalId),
-    onMessages: _feedMessagesToConversation,
-    onError: (err) => _handleError(err, 'No se pudo confirmar la acción, intenta de nuevo.'),
-  );
-
-  void _feedMessagesToConversation(List<dynamic> messages) {
-    if (_errorMessage != null) {
-      setState(() => _errorMessage = null);
-    }
-    // Se guarda ANTES de alimentar el transporte: ConversationSurfaceAdded
-    // puede disparar de forma síncrona dentro de addMessage, y para
-    // entonces ya necesita estar disponible (ver el listener en initState).
-    _pendingRawMessages = messages;
-    for (final message in messages) {
-      _transport.addMessage(core.A2uiMessage.fromJson(message as Map<String, dynamic>));
-    }
+  @override
+  void dispose() {
+    _surfaceSub.cancel();
+    _errorSub.cancel();
+    _host.dispose();
+    _messageController.dispose();
+    _scrollController.dispose();
+    _speechService.dispose();
+    super.dispose();
   }
 
-  Future<void> _handleSend(ChatMessage message) async {
-    // Cualquier acción de botón (incluyendo confirmar_accion) llega aquí
-    // automáticamente: Conversation suscribe internamente
-    // controller.onSubmit.listen(sendRequest), y sendRequest reenvía al
-    // onSend del transporte el ChatMessage que armó
-    // SurfaceController.handleUiEvent (ver GENUI_API_NOTES.md). Los
-    // mensajes de texto del usuario NO pasan por aquí — ver
-    // _handleSubmit abajo, que llama a la API propia directamente sin
-    // pasar por _conversation.sendRequest.
-    //
-    // Nota: `message.parts` es `List<StandardPart>` — los parts reales
-    // que llegan aquí son `DataPart` con
-    // mimeType == UiPartConstants.interactionMimeType, no instancias de
-    // `UiInteractionPart` (esa clase es solo una "vista" sobre un
-    // DataPart, ver genui-0.10.3/lib/src/model/parts/ui.dart). Por eso
-    // no se puede usar `whereType<UiInteractionPart>()`; hay que usar la
-    // extensión `uiInteractionParts` (sobre Iterable<StandardPart>), que
-    // filtra por mimeType y construye la vista vía
-    // UiInteractionPart.fromDataPart. El campo con el JSON crudo se
-    // llama `.interaction` (verificado leyendo
-    // genui-0.10.3/lib/src/model/parts/ui.dart línea 130), no `.data`.
-    final interactionPart = message.parts.uiInteractionParts.firstOrNull;
-    if (interactionPart == null) {
-      return;
-    }
-    final decoded = jsonDecode(interactionPart.interaction) as Map<String, dynamic>;
-    // No todo UiInteractionPart representa una acción de usuario: por
-    // ejemplo, SurfaceController.reportError empuja por este mismo canal
-    // un payload {"version": "v0.9", "error": {...}} sin clave "action"
-    // (ver genui-0.10.3/lib/src/engine/surface_controller.dart:296-309).
-    // Forzar el cast a Map no-nulable lanzaría un TypeError en ese caso;
-    // en vez de eso, simplemente ignoramos interacciones sin acción.
-    final action = decoded['action'] as Map<String, dynamic>?;
-    if (action == null) {
-      return;
-    }
+  void _feedMessages(List<dynamic> messages) {
+    if (_errorMessage != null) setState(() => _errorMessage = null);
+    // Antes de alimentar el host: surfaceAdded puede disparar de forma
+    // síncrona y para entonces ya debe estar disponible.
+    _pendingRawMessages = messages;
+    _host.feed(messages);
+  }
+
+  Future<void> _onAction(Map<String, dynamic> action) async {
     if (mounted) setState(() => _confirmingAction = true);
     try {
       await _actionRouter.handle(action);
@@ -197,16 +144,12 @@ class _ChatScreenState extends State<ChatScreen> {
       widget.authController.logout();
       return;
     }
-    setState(() {
-      _errorMessage = err is ApiException ? (err.detail ?? fallback) : fallback;
-    });
+    setState(() => _errorMessage = describirError(err, fallback: fallback));
   }
 
   Future<void> _handleSubmit() async {
     final texto = _messageController.text.trim();
-    if (texto.isEmpty || _sending) {
-      return;
-    }
+    if (texto.isEmpty || _sending) return;
     setState(() {
       _sending = true;
       _awaitingResponse = true;
@@ -217,21 +160,30 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
     try {
       final token = widget.authController.token!;
-      final messages = await widget.apiClient.sendMessage(token, texto);
-      _feedMessagesToConversation(messages);
+      final turno = await widget.apiClient.sendMessage(token, texto, conversacionId: _conversacionId);
+      _conversacionId = turno.conversacionId ?? _conversacionId;
+      _feedMessages(turno.a2uiMessages);
     } catch (err) {
       if (mounted) setState(() => _awaitingResponse = false);
       _handleError(err, 'No se pudo enviar el mensaje, intenta de nuevo.');
     } finally {
-      if (mounted) {
-        setState(() => _sending = false);
-      }
+      if (mounted) setState(() => _sending = false);
     }
   }
 
-  // Dictado por voz (STT, accesibilidad): al detectar el final del habla se
-  // manda el mensaje directo, igual que si el usuario lo hubiera escrito y
-  // presionado enviar.
+  Future<void> _nuevoHilo() async {
+    await _speechService.stopSpeaking();
+    if (!mounted) return;
+    setState(() {
+      _conversacionId = null;
+      _turns.clear();
+      _errorMessage = null;
+      _speakingTurnId = null;
+    });
+  }
+
+  // Dictado por voz (STT): al detectar el final del habla se manda el
+  // mensaje directo, igual que si el usuario lo hubiera escrito y enviado.
   Future<void> _handleToggleMic() async {
     if (_listening) {
       await _speechService.stopListening();
@@ -263,17 +215,15 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // Lectura en voz alta (TTS, accesibilidad) de la respuesta de un turno.
+  // Lectura en voz alta (TTS) de la respuesta de un turno.
   Future<void> _handleSpeakTurn(AgentTurn turn) async {
     if (_speakingTurnId == turn.id) {
       await _speechService.stopSpeaking();
-      setState(() => _speakingTurnId = null);
+      if (mounted) setState(() => _speakingTurnId = null);
       return;
     }
     final texto = extractSurfaceText(turn.rawMessages);
-    if (texto.isEmpty) {
-      return;
-    }
+    if (texto.isEmpty) return;
     _speechService.onSpeakComplete = () {
       if (mounted) setState(() => _speakingTurnId = null);
     };
@@ -281,23 +231,8 @@ class _ChatScreenState extends State<ChatScreen> {
     await _speechService.speak(texto, lang: 'es-MX');
   }
 
-  @override
-  void dispose() {
-    _eventsSubscription.cancel();
-    _conversation.dispose();
-    _surfaceController.dispose();
-    _messageController.dispose();
-    _scrollController.dispose();
-    _transport.dispose();
-    _speechService.dispose();
-    super.dispose();
-  }
-
-  // Como en cualquier chat (WhatsApp, Messenger), cada turno nuevo debe
-  // dejar visible la última línea sin que el usuario tenga que
-  // scrollear manualmente. Se agenda para después del frame porque el
-  // ListView todavía no midió el nuevo item cuando se dispara este
-  // callback desde setState.
+  // Cada turno nuevo debe dejar visible la última línea. Se agenda para
+  // después del frame porque el ListView todavía no midió el item nuevo.
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -312,41 +247,33 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Banorte',
-              style: TextStyle(fontFamily: 'BankGothic', fontWeight: FontWeight.w700),
-            ),
-            const Text(' — ¿Me Alcanza?'),
-          ],
-        ),
+      appBar: BrandAppBar(
+        seccion: 'Asistente',
+        onLogout: widget.authController.logout,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: widget.authController.logout,
-          ),
+          if (_turns.isNotEmpty)
+            IconButton(
+              tooltip: 'Nueva conversación',
+              icon: const Icon(Icons.add_comment_outlined),
+              onPressed: _nuevoHilo,
+            ),
         ],
       ),
       body: Column(
         children: [
           Expanded(
             child: _turns.isEmpty
-                ? const Center(child: Text('Escribe tu primer mensaje para empezar.'))
+                ? _Sugeridas(onPick: (p) {
+                    _messageController.text = p;
+                    _handleSubmit();
+                  })
                 : ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(Space.m),
                     itemCount: _turns.length + (_awaitingResponse ? 1 : 0),
                     itemBuilder: (context, index) {
                       final maxBubbleWidth = MediaQuery.of(context).size.width * 0.78;
                       if (index == _turns.length) {
-                        // Fila de "el agente está pensando", visible entre
-                        // que se manda el mensaje y que llega la primera
-                        // superficie A2UI de la respuesta — sin esto el
-                        // usuario no tiene ninguna señal de que el mensaje
-                        // sí se envió y algo está en proceso.
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 4),
                           child: _TypingIndicator(),
@@ -360,62 +287,44 @@ class _ChatScreenState extends State<ChatScreen> {
                             constraints: BoxConstraints(maxWidth: maxBubbleWidth),
                             child: Container(
                               margin: const EdgeInsets.symmetric(vertical: 4),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.tertiary,
-                                borderRadius: const BorderRadius.only(
+                              padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: 10),
+                              decoration: const BoxDecoration(
+                                color: BrandColors.burbujaUsuario,
+                                borderRadius: BorderRadius.only(
                                   topLeft: Radius.circular(12),
                                   topRight: Radius.circular(12),
                                   bottomLeft: Radius.circular(12),
                                   bottomRight: Radius.circular(3),
                                 ),
                               ),
-                              child: Text(
-                                turn.text,
-                                style: TextStyle(color: Theme.of(context).colorScheme.onTertiary),
-                              ),
+                              child: Text(turn.text, style: const TextStyle(color: Colors.white)),
                             ),
                           ),
                         );
                       }
                       turn as AgentTurn;
-                      // Misma convención que WhatsApp/Messenger: los
-                      // mensajes entrantes llevan la foto de perfil del
-                      // remitente a la izquierda; los salientes (arriba)
-                      // no llevan avatar y quedan alineados a la derecha.
+                      final hablando = _speakingTurnId == turn.id;
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Image.asset en vez de CircleAvatar: el
-                            // recorte circular de CircleAvatar le cortaba
-                            // la colita del globo de comic a la mascota
-                            // (ver frontend/src/assets/images/banorberto.png,
-                            // el sticker ya trae su propio contorno).
-                            const Image(
-                              image: AssetImage('assets/icon/icon.png'),
-                              width: 32,
-                              height: 32,
-                            ),
-                            const SizedBox(width: 8),
+                            // Image.asset y no CircleAvatar: el recorte
+                            // circular le cortaba la colita a la mascota.
+                            const Image(image: AssetImage('assets/icon/icon.png'), width: 32, height: 32),
+                            const SizedBox(width: Space.s),
                             Flexible(
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                                child: Surface(
-                                  surfaceContext: _surfaceController.contextFor(turn.surfaceId),
-                                ),
+                                child: Surface(surfaceContext: _host.contextFor(turn.surfaceId)),
                               ),
                             ),
-                            // Accesibilidad: lectura en voz alta (TTS) de
-                            // esta respuesta — ver extractSurfaceText.dart.
+                            // Accesibilidad: lectura en voz alta de esta respuesta.
                             IconButton(
-                              icon: Icon(
-                                _speakingTurnId == turn.id ? Icons.stop_circle_outlined : Icons.volume_up,
-                              ),
-                              tooltip: _speakingTurnId == turn.id
-                                  ? 'Detener lectura'
-                                  : 'Escuchar en voz alta',
+                              iconSize: 20,
+                              color: hablando ? BrandColors.rojo : BrandColors.gris,
+                              icon: Icon(hablando ? Icons.stop_circle_outlined : Icons.volume_up_outlined),
+                              tooltip: hablando ? 'Detener lectura' : 'Escuchar en voz alta',
                               onPressed: () => _handleSpeakTurn(turn),
                             ),
                           ],
@@ -424,31 +333,42 @@ class _ChatScreenState extends State<ChatScreen> {
                     },
                   ),
           ),
-          if (_confirmingAction) const LinearProgressIndicator(),
+          if (_confirmingAction) const LinearProgressIndicator(minHeight: 2),
           if (_errorMessage != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+              padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.xs),
+              child: Text(_errorMessage!, style: const TextStyle(color: BrandColors.error)),
             ),
           if (_listening)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                '🎙️ Escuchando… $_interimTranscript',
-                style: TextStyle(color: Theme.of(context).colorScheme.secondary),
+              padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.xs),
+              child: Row(
+                children: [
+                  const Icon(Icons.graphic_eq, size: 18, color: BrandColors.rojo),
+                  const SizedBox(width: Space.s),
+                  Expanded(
+                    child: Text(
+                      _interimTranscript.isEmpty ? 'Escuchando…' : _interimTranscript,
+                      style: const TextStyle(color: BrandColors.gris),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
           SafeArea(
+            top: false,
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(Space.s),
               child: Row(
                 children: [
-                  // Accesibilidad: dictado por voz (STT) — se oculta solo
-                  // si el dispositivo no lo soporta (ver initState).
+                  // Accesibilidad: dictado por voz — se oculta si el
+                  // dispositivo no lo soporta (ver initState).
                   if (_sttSupported)
                     IconButton(
-                      icon: Icon(_listening ? Icons.stop_circle : Icons.mic),
-                      color: _listening ? Theme.of(context).colorScheme.primary : null,
+                      icon: Icon(_listening ? Icons.stop_circle : Icons.mic_none),
+                      color: _listening ? BrandColors.rojo : BrandColors.gris,
                       tooltip: _listening ? 'Detener dictado' : 'Dictar por voz',
                       onPressed: _sending ? null : _handleToggleMic,
                     ),
@@ -456,14 +376,21 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: TextField(
                       controller: _messageController,
                       enabled: !_sending,
-                      decoration: const InputDecoration(hintText: 'Escribe tu mensaje...'),
+                      textInputAction: TextInputAction.send,
+                      decoration: const InputDecoration(hintText: 'Pregunta si te alcanza…'),
                       onSubmitted: (_) => _handleSubmit(),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
+                  const SizedBox(width: Space.xs),
+                  IconButton.filled(
+                    tooltip: 'Enviar',
                     onPressed: _sending ? null : _handleSubmit,
-                    child: Text(_sending ? 'Enviando...' : 'Enviar'),
+                    style: IconButton.styleFrom(
+                      backgroundColor: BrandColors.rojo,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(48, 48),
+                    ),
+                    icon: const Icon(Icons.arrow_upward),
                   ),
                 ],
               ),
@@ -475,9 +402,51 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-// Tres puntos con opacidad animada en cascada, misma composición
-// avatar+burbuja que un AgentTurn real para que la fila no salte de
-// posición cuando la respuesta de verdad la reemplaza.
+/// Estado vacío del chat: tres preguntas reales que disparan los flujos
+/// de la demo. Tocar una la escribe y la manda.
+class _Sugeridas extends StatelessWidget {
+  const _Sugeridas({required this.onPick});
+
+  final void Function(String) onPick;
+
+  static const _preguntas = [
+    '¿Me alcanza para el concierto del 13 de octubre?',
+    'Deposítale 500 a mi hermano Pepe',
+    '¿En qué gasté este mes?',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final texto = Theme.of(context).textTheme;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(Space.m, Space.xl, Space.m, Space.m),
+      children: [
+        Text('Pregunta y te armo la pantalla', style: texto.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: Space.xs),
+        Text(
+          'No respondo con texto: te muestro el veredicto, cómo se calculó y el botón para actuar.',
+          style: texto.bodyMedium?.copyWith(color: BrandColors.gris),
+        ),
+        const SizedBox(height: Space.l),
+        for (final p in _preguntas)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.s),
+            child: OutlinedButton(
+              onPressed: () => onPick(p),
+              style: OutlinedButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: 14),
+              ),
+              child: Text(p, style: const TextStyle(fontWeight: FontWeight.w500)),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// Tres puntos con opacidad animada en cascada, con la misma composición
+// avatar+burbuja que un AgentTurn para que la fila no salte de posición.
 class _TypingIndicator extends StatefulWidget {
   const _TypingIndicator();
 
@@ -485,8 +454,7 @@ class _TypingIndicator extends StatefulWidget {
   State<_TypingIndicator> createState() => _TypingIndicatorState();
 }
 
-class _TypingIndicatorState extends State<_TypingIndicator>
-    with SingleTickerProviderStateMixin {
+class _TypingIndicatorState extends State<_TypingIndicator> with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 900),
@@ -503,14 +471,10 @@ class _TypingIndicatorState extends State<_TypingIndicator>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Image(
-          image: AssetImage('assets/icon/icon.png'),
-          width: 32,
-          height: 32,
-        ),
-        const SizedBox(width: 8),
+        const Image(image: AssetImage('assets/icon/icon.png'), width: 32, height: 32),
+        const SizedBox(width: Space.s),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: 14),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
@@ -530,10 +494,7 @@ class _TypingIndicatorState extends State<_TypingIndicator>
                       child: Container(
                         width: 7,
                         height: 7,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          shape: BoxShape.circle,
-                        ),
+                        decoration: const BoxDecoration(color: BrandColors.gris, shape: BoxShape.circle),
                       ),
                     ),
                   );

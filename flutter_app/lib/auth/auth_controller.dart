@@ -6,10 +6,9 @@ import 'auth_repository.dart';
 
 class AuthController extends ChangeNotifier {
   AuthController({
-    required ApiClient apiClient,
-    required AuthRepository authRepository,
-  })  : _apiClient = apiClient,
-        _authRepository = authRepository;
+    required this._apiClient,
+    required this._authRepository,
+  });
 
   final ApiClient _apiClient;
   final AuthRepository _authRepository;
