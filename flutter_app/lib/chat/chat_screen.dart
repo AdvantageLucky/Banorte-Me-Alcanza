@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:video_player/video_player.dart';
 
 import '../a2ui/a2ui_host.dart';
 import '../api/api_client.dart';
@@ -104,18 +105,23 @@ class _ChatScreenState extends State<ChatScreen> {
     rejectAction: (proposalId) =>
         widget.apiClient.rejectAction(widget.authController.token!, proposalId),
     onMessages: _feedMessages,
-    onError: (err) => _handleError(err, 'No se pudo confirmar la acción, intenta de nuevo.'),
+    onError: (err) =>
+        _handleError(err, 'No se pudo confirmar la acción, intenta de nuevo.'),
   );
 
   @override
   void initState() {
     super.initState();
-    _conversacionesFuture = widget.apiClient.getConversaciones(widget.authController.token!);
+    _conversacionesFuture = widget.apiClient.getConversaciones(
+      widget.authController.token!,
+    );
     _host = A2uiHost(onAction: _onAction);
     _surfaceSub = _host.surfaceAdded.listen((surfaceId) {
       setState(() {
         _awaitingResponse = false;
-        _turns.add(AgentTurn('turn-${_turnCounter++}', surfaceId, _pendingRawMessages));
+        _turns.add(
+          AgentTurn('turn-${_turnCounter++}', surfaceId, _pendingRawMessages),
+        );
       });
       _scrollToBottom();
     });
@@ -181,7 +187,11 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
     try {
       final token = widget.authController.token!;
-      final turno = await widget.apiClient.sendMessage(token, texto, conversacionId: _conversacionId);
+      final turno = await widget.apiClient.sendMessage(
+        token,
+        texto,
+        conversacionId: _conversacionId,
+      );
       _conversacionId = turno.conversacionId ?? _conversacionId;
       _feedMessages(turno.a2uiMessages);
     } catch (err) {
@@ -205,7 +215,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _reloadConversaciones() {
     setState(() {
-      _conversacionesFuture = widget.apiClient.getConversaciones(widget.authController.token!);
+      _conversacionesFuture = widget.apiClient.getConversaciones(
+        widget.authController.token!,
+      );
     });
   }
 
@@ -225,22 +237,33 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     try {
       final token = widget.authController.token!;
-      final mensajes = await widget.apiClient.getMensajesConversacion(token, id);
+      final mensajes = await widget.apiClient.getMensajesConversacion(
+        token,
+        id,
+      );
       for (final m in mensajes) {
         if (!mounted) return;
         if (m.rol == 'user') {
-          setState(() => _turns.add(UserTurn('turn-${_turnCounter++}', m.contenido)));
+          setState(
+            () => _turns.add(UserTurn('turn-${_turnCounter++}', m.contenido)),
+          );
           continue;
         }
         if (m.a2uiJson != null) {
           _feedMessages(m.a2uiJson!);
           continue;
         }
-        setState(() => _turns.add(AgentTextTurn('turn-${_turnCounter++}', m.contenido)));
+        setState(
+          () =>
+              _turns.add(AgentTextTurn('turn-${_turnCounter++}', m.contenido)),
+        );
       }
       _scrollToBottom();
     } catch (err) {
-      _handleError(err, 'No se pudo cargar esta conversación, intenta de nuevo.');
+      _handleError(
+        err,
+        'No se pudo cargar esta conversación, intenta de nuevo.',
+      );
     }
   }
 
@@ -338,16 +361,19 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: _turns.isEmpty
-                ? _Sugeridas(onPick: (p) {
-                    _messageController.text = p;
-                    _handleSubmit();
-                  })
+                ? _Sugeridas(
+                    onPick: (p) {
+                      _messageController.text = p;
+                      _handleSubmit();
+                    },
+                  )
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(Space.m),
                     itemCount: _turns.length + (_awaitingResponse ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final maxBubbleWidth = MediaQuery.of(context).size.width * 0.78;
+                      final maxBubbleWidth =
+                          MediaQuery.of(context).size.width * 0.78;
                       if (index == _turns.length) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 4),
@@ -359,10 +385,15 @@ class _ChatScreenState extends State<ChatScreen> {
                         return Align(
                           alignment: Alignment.centerRight,
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                            constraints: BoxConstraints(
+                              maxWidth: maxBubbleWidth,
+                            ),
                             child: Container(
                               margin: const EdgeInsets.symmetric(vertical: 4),
-                              padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Space.m,
+                                vertical: 10,
+                              ),
                               decoration: const BoxDecoration(
                                 color: BrandColors.burbujaUsuario,
                                 borderRadius: BorderRadius.only(
@@ -372,7 +403,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                   bottomRight: Radius.circular(3),
                                 ),
                               ),
-                              child: Text(turn.text, style: const TextStyle(color: Colors.white)),
+                              child: Text(
+                                turn.text,
+                                style: const TextStyle(color: Colors.white),
+                              ),
                             ),
                           ),
                         );
@@ -386,16 +420,24 @@ class _ChatScreenState extends State<ChatScreen> {
                             children: [
                               _AgentAvatarColumn(
                                 hablando: hablando,
-                                onSpeak: () => _handleSpeakId(turn.id, turn.text),
+                                onSpeak: () =>
+                                    _handleSpeakId(turn.id, turn.text),
                               ),
                               const SizedBox(width: Space.s),
                               Flexible(
                                 child: ConstrainedBox(
-                                  constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                                  constraints: BoxConstraints(
+                                    maxWidth: maxBubbleWidth,
+                                  ),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: 10),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: Space.m,
+                                      vertical: 10,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerHighest,
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(turn.text),
@@ -420,8 +462,14 @@ class _ChatScreenState extends State<ChatScreen> {
                             const SizedBox(width: Space.s),
                             Flexible(
                               child: ConstrainedBox(
-                                constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                                child: Surface(surfaceContext: _host.contextFor(turn.surfaceId)),
+                                constraints: BoxConstraints(
+                                  maxWidth: maxBubbleWidth,
+                                ),
+                                child: Surface(
+                                  surfaceContext: _host.contextFor(
+                                    turn.surfaceId,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -433,19 +481,34 @@ class _ChatScreenState extends State<ChatScreen> {
           if (_confirmingAction) const LinearProgressIndicator(minHeight: 2),
           if (_errorMessage != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.xs),
-              child: Text(_errorMessage!, style: const TextStyle(color: BrandColors.error)),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.m,
+                vertical: Space.xs,
+              ),
+              child: Text(
+                _errorMessage!,
+                style: const TextStyle(color: BrandColors.error),
+              ),
             ),
           if (_listening)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.xs),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.m,
+                vertical: Space.xs,
+              ),
               child: Row(
                 children: [
-                  const Icon(Icons.graphic_eq, size: 18, color: BrandColors.rojo),
+                  const Icon(
+                    Icons.graphic_eq,
+                    size: 18,
+                    color: BrandColors.rojo,
+                  ),
                   const SizedBox(width: Space.s),
                   Expanded(
                     child: Text(
-                      _interimTranscript.isEmpty ? 'Escuchando…' : _interimTranscript,
+                      _interimTranscript.isEmpty
+                          ? 'Escuchando…'
+                          : _interimTranscript,
                       style: const TextStyle(color: BrandColors.gris),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -464,9 +527,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   // dispositivo no lo soporta (ver initState).
                   if (_sttSupported)
                     IconButton(
-                      icon: Icon(_listening ? Icons.stop_circle : Icons.mic_none),
+                      icon: Icon(
+                        _listening ? Icons.stop_circle : Icons.mic_none,
+                      ),
                       color: _listening ? BrandColors.rojo : BrandColors.gris,
-                      tooltip: _listening ? 'Detener dictado' : 'Dictar por voz',
+                      tooltip: _listening
+                          ? 'Detener dictado'
+                          : 'Dictar por voz',
                       onPressed: _sending ? null : _handleToggleMic,
                     ),
                   Expanded(
@@ -474,7 +541,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       controller: _messageController,
                       enabled: !_sending,
                       textInputAction: TextInputAction.send,
-                      decoration: const InputDecoration(hintText: 'Pregunta si te alcanza…'),
+                      decoration: const InputDecoration(
+                        hintText: 'Pregunta si te alcanza…',
+                      ),
                       onSubmitted: (_) => _handleSubmit(),
                     ),
                   ),
@@ -517,11 +586,19 @@ class _AgentAvatarColumn extends StatelessWidget {
       children: [
         // Image.asset y no CircleAvatar: el recorte circular le cortaba la
         // colita a la mascota.
-        const Image(image: AssetImage('assets/icon/icon.png'), width: 32, height: 32),
+        const Image(
+          image: AssetImage('assets/icon/icon.png'),
+          width: 32,
+          height: 32,
+        ),
         const SizedBox(height: 2),
         const Text(
           'Banorberto',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: BrandColors.gris),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: BrandColors.gris,
+          ),
         ),
         const SizedBox(height: 2),
         // Accesibilidad: lectura en voz alta de esta respuesta.
@@ -532,7 +609,9 @@ class _AgentAvatarColumn extends StatelessWidget {
             padding: EdgeInsets.zero,
             iconSize: 16,
             color: hablando ? BrandColors.rojo : BrandColors.gris,
-            icon: Icon(hablando ? Icons.stop_circle_outlined : Icons.volume_up_outlined),
+            icon: Icon(
+              hablando ? Icons.stop_circle_outlined : Icons.volume_up_outlined,
+            ),
             tooltip: hablando ? 'Detener lectura' : 'Escuchar en voz alta',
             onPressed: onSpeak,
           ),
@@ -561,7 +640,10 @@ class _Sugeridas extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(Space.m, Space.xl, Space.m, Space.m),
       children: [
-        Text('Pregunta y te armo la pantalla', style: texto.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+        Text(
+          'Pregunta y te armo la pantalla',
+          style: texto.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: Space.xs),
         Text(
           'No respondo con texto: te muestro el veredicto, cómo se calculó y el botón para actuar.',
@@ -575,9 +657,15 @@ class _Sugeridas extends StatelessWidget {
               onPressed: () => onPick(p),
               style: OutlinedButton.styleFrom(
                 alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Space.m,
+                  vertical: 14,
+                ),
               ),
-              child: Text(p, style: const TextStyle(fontWeight: FontWeight.w500)),
+              child: Text(
+                p,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
             ),
           ),
       ],
@@ -585,8 +673,10 @@ class _Sugeridas extends StatelessWidget {
   }
 }
 
-// Tres puntos con opacidad animada en cascada, con la misma composición
-// avatar+burbuja que un AgentTurn para que la fila no salte de posición.
+// Animación "pensando" en loop (mismo recurso que usa el frontend web en
+// AsistenteView.jsx). Sin avatar ni nombre mientras se muestra: el ícono
+// de la mascota y "Banorberto" vuelven a aparecer solos al reemplazarse
+// este indicador por el turno real (_AgentAvatarColumn).
 class _TypingIndicator extends StatefulWidget {
   const _TypingIndicator();
 
@@ -594,11 +684,17 @@ class _TypingIndicator extends StatefulWidget {
   State<_TypingIndicator> createState() => _TypingIndicatorState();
 }
 
-class _TypingIndicatorState extends State<_TypingIndicator> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat();
+class _TypingIndicatorState extends State<_TypingIndicator> {
+  late final VideoPlayerController _controller = VideoPlayerController.asset(
+    'assets/animations/thinking.webm',
+  );
+  late final Future<void> _initialize = _controller.initialize().then((_) {
+    _controller
+      ..setLooping(true)
+      ..setVolume(0)
+      ..play();
+    if (mounted) setState(() {});
+  });
 
   @override
   void dispose() {
@@ -606,44 +702,36 @@ class _TypingIndicatorState extends State<_TypingIndicator> with SingleTickerPro
     super.dispose();
   }
 
+  // Ancho del webm mientras "piensa": un poco más grande que los 32 del
+  // ícono de Banorberto (_AgentAvatarColumn) para que se note, sin dominar
+  // la fila. Cambiar solo este valor ajusta el tamaño del video.
+  static const double _width = 85;
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Image(image: AssetImage('assets/icon/icon.png'), width: 32, height: 32),
-        const SizedBox(width: Space.s),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: 14),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
+    return FutureBuilder<void>(
+      future: _initialize,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          // Envuelto en Align
+          return Align(
+            alignment: Alignment.centerLeft, // Ajusta según necesites
+            child: const SizedBox(width: _width, height: _width * 848 / 760),
+          );
+        }
+
+        // Envuelto en Align
+        return Align(
+          alignment: Alignment.centerLeft, // Ajusta según necesites
+          child: SizedBox(
+            width: _width,
+            child: AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: VideoPlayer(_controller),
+            ),
           ),
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(3, (i) {
-                  final t = (_controller.value - i * 0.2) % 1.0;
-                  final opacity = 0.3 + 0.7 * (1 - (t - 0.5).abs() * 2).clamp(0.0, 1.0);
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: Opacity(
-                      opacity: opacity,
-                      child: Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(color: BrandColors.gris, shape: BoxShape.circle),
-                      ),
-                    ),
-                  );
-                }),
-              );
-            },
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

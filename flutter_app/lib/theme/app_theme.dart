@@ -8,7 +8,6 @@ import 'tokens.dart';
 /// queremos la sans del sistema, no la fuente de marca.
 abstract final class DisplayText {
   static const TextStyle saldo = TextStyle(
-    fontFamily: displayFontFamily,
     fontWeight: FontWeight.w700,
     fontSize: 44,
     height: 1.0,
@@ -17,7 +16,6 @@ abstract final class DisplayText {
   );
 
   static const TextStyle cifra = TextStyle(
-    fontFamily: displayFontFamily,
     fontWeight: FontWeight.w500,
     fontSize: 22,
     height: 1.1,
@@ -25,7 +23,6 @@ abstract final class DisplayText {
   );
 
   static const TextStyle seccion = TextStyle(
-    fontFamily: displayFontFamily,
     fontWeight: FontWeight.w500,
     fontSize: 18,
     height: 1.2,
@@ -36,7 +33,7 @@ abstract final class DisplayText {
   static const TextStyle marca = TextStyle(
     fontFamily: displayFontFamily,
     fontWeight: FontWeight.w700,
-    fontSize: 20,
+    fontSize: 22,
     letterSpacing: 0.5,
     color: Colors.white,
   );
@@ -86,15 +83,29 @@ ThemeData buildAppTheme() {
       space: 1,
     ),
     textTheme: base.textTheme.copyWith(
-      bodyLarge: base.textTheme.bodyLarge?.copyWith(color: BrandColors.tinta, height: 1.45),
-      bodyMedium: base.textTheme.bodyMedium?.copyWith(color: BrandColors.tinta, height: 1.45),
-      bodySmall: base.textTheme.bodySmall?.copyWith(color: BrandColors.gris, height: 1.4),
-      labelLarge: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(
+        color: BrandColors.tinta,
+        height: 1.45,
+      ),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(
+        color: BrandColors.tinta,
+        height: 1.45,
+      ),
+      bodySmall: base.textTheme.bodySmall?.copyWith(
+        color: BrandColors.gris,
+        height: 1.4,
+      ),
+      labelLarge: base.textTheme.labelLarge?.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: BrandColors.superficie,
-      contentPadding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: Space.m,
+        vertical: 14,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(Radii.control),
         borderSide: const BorderSide(color: BrandColors.plata),
@@ -118,7 +129,9 @@ ThemeData buildAppTheme() {
         backgroundColor: BrandColors.rojo,
         foregroundColor: Colors.white,
         minimumSize: const Size.fromHeight(48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.control)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.control),
+        ),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
       ),
     ),
@@ -127,7 +140,9 @@ ThemeData buildAppTheme() {
         foregroundColor: BrandColors.tinta,
         minimumSize: const Size.fromHeight(48),
         side: const BorderSide(color: BrandColors.plata),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.control)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.control),
+        ),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
       ),
     ),
@@ -151,13 +166,19 @@ ThemeData buildAppTheme() {
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           fontSize: 12,
-          fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
-          color: states.contains(WidgetState.selected) ? BrandColors.rojo : BrandColors.gris,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w700
+              : FontWeight.w500,
+          color: states.contains(WidgetState.selected)
+              ? BrandColors.rojo
+              : BrandColors.gris,
         ),
       ),
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
-          color: states.contains(WidgetState.selected) ? BrandColors.rojo : BrandColors.gris,
+          color: states.contains(WidgetState.selected)
+              ? BrandColors.rojo
+              : BrandColors.gris,
         ),
       ),
     ),
@@ -166,6 +187,8 @@ ThemeData buildAppTheme() {
       contentTextStyle: TextStyle(color: Colors.white),
       behavior: SnackBarBehavior.floating,
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(color: BrandColors.rojo),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: BrandColors.rojo,
+    ),
   );
 }
