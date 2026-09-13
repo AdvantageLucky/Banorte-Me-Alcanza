@@ -86,6 +86,8 @@ export function createApiClient(baseUrl) {
         token,
         body: { proposal_id: proposalId, context: context ?? null },
       }),
+    rejectAction: (token, proposalId) =>
+      post('/api/reject-action', { token, body: { proposal_id: proposalId } }),
     getPropuesta: (token, proposalId) => get(`/api/propuestas/${proposalId}`, { token }),
     getCuenta: (token) => get('/api/cuenta', { token }),
     getMovimientos: (token) => get('/api/movimientos', { token }),

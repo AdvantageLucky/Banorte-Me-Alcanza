@@ -72,6 +72,15 @@ class ApiClient {
     return body['a2ui_messages'] as List<dynamic>;
   }
 
+  Future<List<dynamic>> rejectAction(String token, String proposalId) async {
+    final body = await _post(
+      '/api/reject-action',
+      body: {'proposal_id': proposalId},
+      token: token,
+    );
+    return body['a2ui_messages'] as List<dynamic>;
+  }
+
   // ------------------------------------------------------- conversaciones
 
   Future<List<Conversacion>> getConversaciones(String token) async =>

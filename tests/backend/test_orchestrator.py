@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 from google.genai import types
@@ -773,6 +773,70 @@ async def test_confirm_action_propuesta_inexistente_o_ajena_cae_a_error():
     orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
 
     messages = await orchestrator.confirm_action("ana", "no-existe")
+
+    mcp_client.call.assert_not_called()
+    assert messages == error_a2ui_block(
+        messages[2]["updateDataModel"]["value"]["mensaje"],
+        surface_id=messages[0]["createSurface"]["surfaceId"],
+    )
+
+
+@pytest.mark.asyncio
+async def test_reject_action_descarta_la_propuesta_sin_ejecutar_nada():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock()
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "contacto",
+        {"nombre": "Isaac Reyes", "alias": "Isaac", "cuenta_destino": "1111111111", "relacion": "tío"},
+        "Agregar a Isaac Reyes (Isaac) como contacto",
+    )
+
+    messages = await orchestrator.reject_action("ana", proposal.id)
+
+    mcp_client.call.assert_not_called()
+    valores = next(m for m in messages if "updateDataModel" in m)["updateDataModel"]["value"]
+    assert valores == {"mensaje": "Cancelado: Agregar a Isaac Reyes (Isaac) como contacto."}
+    assert proposal.id not in proposals.PROPOSALS
+
+
+@pytest.mark.asyncio
+async def test_reject_action_persiste_la_cancelacion_en_el_hilo_donde_se_propuso():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock()
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "transferencia",
+        {"contacto_id": 1, "destino_cuenta": "2461794301", "monto": 200.0, "concepto": "regalo"},
+        "Transferir $200.00 a Isaac Reyes",
+        conversacion_id=9,
+    )
+
+    await orchestrator.reject_action("ana", proposal.id)
+
+    mcp_client.call.assert_awaited_once_with(
+        "agregar_mensaje_conversacion",
+        {
+            "account_id": "ana",
+            "conversacion_id": 9,
+            "rol": "model",
+            "contenido": ANY,
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_reject_action_propuesta_inexistente_o_ajena_cae_a_error():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock()
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+
+    messages = await orchestrator.reject_action("ana", "no-existe")
 
     mcp_client.call.assert_not_called()
     assert messages == error_a2ui_block(

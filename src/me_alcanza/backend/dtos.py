@@ -38,6 +38,10 @@ class ConfirmActionResponse(BaseModel):
     a2ui_messages: list[dict]
 
 
+class RejectActionRequest(BaseModel):
+    proposal_id: str
+
+
 class PropuestaResponse(BaseModel):
     tipo: str
     resumen: str

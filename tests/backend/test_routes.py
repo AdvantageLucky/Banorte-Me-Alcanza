@@ -162,6 +162,30 @@ def test_confirm_action_reenvia_el_context_editado_al_orquestador(app):
         app.state.orchestrator.confirm_action.assert_awaited_once_with("ana", "prop-1", {"nombre": "Mamá"})
 
 
+def test_reject_action_sin_token_devuelve_401(app):
+    with TestClient(app) as client:
+        response = client.post("/api/reject-action", json={"proposal_id": "x"})
+        assert response.status_code == 401
+
+
+def test_reject_action_con_token_llama_al_orquestador(app):
+    with TestClient(app) as client:
+        login = client.post("/api/login", json={"username": "ana", "password": "pass123"})
+        token = login.json()["token"]
+
+        fake_messages = [{"version": "v0.9", "createSurface": {"surfaceId": "cancelacion", "catalogId": "x"}}]
+        app.state.orchestrator.reject_action = AsyncMock(return_value=fake_messages)
+
+        response = client.post(
+            "/api/reject-action",
+            json={"proposal_id": "prop-1"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"a2ui_messages": fake_messages}
+        app.state.orchestrator.reject_action.assert_awaited_once_with("ana", "prop-1")
+
+
 def test_get_propuesta_sin_token_devuelve_401(app):
     with TestClient(app) as client:
         response = client.get("/api/propuestas/prop-1")

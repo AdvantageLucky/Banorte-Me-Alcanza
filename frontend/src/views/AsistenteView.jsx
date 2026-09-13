@@ -90,6 +90,9 @@ export default function AsistenteView() {
     let proc;
     const confirmActionHandler = createActionHandler({
       confirmAction: confirmActionWithModal,
+      // Rechazar no pasa por el modal nativo: ya ES la acción de decir que
+      // no, pedir una segunda confirmación para cancelar sería absurdo.
+      rejectAction: (proposalId) => apiClient.rejectAction(token, proposalId),
       onMessages: (messages) => {
         setErrorMessage(null);
         proc.processMessages(

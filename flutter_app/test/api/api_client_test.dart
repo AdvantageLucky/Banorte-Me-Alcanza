@@ -94,6 +94,23 @@ void main() {
       expect(sentBody, {'proposal_id': 'prop-1', 'context': {'nombre': 'Mamá'}});
     });
 
+    test('sends proposal_id on /api/reject-action', () async {
+      http.BaseRequest? captured;
+      final client = ApiClient(
+        'http://api.test',
+        httpClient: _FakeHttpClient((request) async {
+          captured = request;
+          return _jsonResponse(200, {'a2ui_messages': []});
+        }),
+      );
+
+      await client.rejectAction('jwt-123', 'prop-1');
+
+      final sentBody =
+          jsonDecode((captured! as http.Request).body) as Map<String, dynamic>;
+      expect(sentBody, {'proposal_id': 'prop-1'});
+    });
+
     test('throws an ApiException carrying the backend detail on a non-2xx response',
         () async {
       final client = ApiClient(

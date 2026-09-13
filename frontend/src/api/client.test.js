@@ -127,6 +127,24 @@ describe('createApiClient', () => {
     );
   });
 
+  it('sends proposal_id on /api/reject-action', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ a2ui_messages: [] }),
+    });
+    const client = createApiClient('http://api.test');
+
+    await client.rejectAction('jwt-123', 'prop-1');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://api.test/api/reject-action',
+      expect.objectContaining({
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer jwt-123' },
+        body: JSON.stringify({ proposal_id: 'prop-1' }),
+      }),
+    );
+  });
+
   it('throws an ApiError carrying the backend detail on a non-2xx response', async () => {
     fetchMock.mockResolvedValue({
       ok: false,

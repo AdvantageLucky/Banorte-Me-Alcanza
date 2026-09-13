@@ -29,6 +29,7 @@ from .dtos import (
     MovimientoResponse,
     PropuestaResponse,
     PropuestaSugerenciaResponse,
+    RejectActionRequest,
     ScoreSaludResponse,
     SugerenciaResponse,
 )
@@ -86,6 +87,16 @@ async def confirm_action(
     messages = await request.app.state.orchestrator.confirm_action(
         account_id, payload.proposal_id, payload.context
     )
+    return ConfirmActionResponse(a2ui_messages=messages)
+
+
+@router.post("/reject-action", response_model=ConfirmActionResponse)
+async def reject_action(
+    payload: RejectActionRequest,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> ConfirmActionResponse:
+    messages = await request.app.state.orchestrator.reject_action(account_id, payload.proposal_id)
     return ConfirmActionResponse(a2ui_messages=messages)
 
 

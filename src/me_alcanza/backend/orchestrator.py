@@ -583,6 +583,19 @@ def build_system_prompt() -> str:
             "de la tarjeta (ej. el botón que dispara 'confirmar_accion'), y variant='borderless' o "
             "'default' para acciones secundarias si las hay. Nunca dejes el variant del botón "
             "principal sin especificar. "
+            "4.1) OBLIGATORIO: toda tarjeta con un botón 'confirmar_accion' debe traer TAMBIÉN un "
+            "botón secundario (variant='borderless', texto 'Cancelar' o similar) con "
+            "action.event.name='rechazar_accion' y el MISMO context={'proposalId': "
+            "'<el mismo id>'} — el usuario necesita poder decir que no de forma explícita, no solo "
+            "ignorar la tarjeta. "
+            "4.2) OBLIGATORIO: inicializa en el data model de esa tarjeta un campo booleano propio "
+            "(ej. 'resuelto': false) y agrega a AMBOS botones (confirmar y cancelar) un 'checks' con "
+            "{\"condition\": {\"functionCall\": {\"call\": \"not\", \"args\": {\"value\": "
+            "{\"path\": \"/resuelto\"}}}}, \"message\": \"Esta acción ya se resolvió\"} — así, una vez "
+            "que el usuario confirma o cancela, la app deshabilita los dos botones de esa MISMA "
+            "tarjeta automáticamente (no necesitas hacer nada más, el cliente se encarga de escribir "
+            "ese campo cuando la acción se resuelve). Sin este campo y estos checks, los botones se "
+            "ven activos para siempre aunque la propuesta ya se haya usado. "
             "5) Envuelve el contenido de cada Card en un Column con algo de estructura (título, "
             "luego el contenido, nunca un solo Text suelto como único hijo) — una tarjeta con un "
             "solo dato sin título ni jerarquía se ve incompleta y debe evitarse. "
@@ -1179,6 +1192,20 @@ class Orchestrator:
             return error_a2ui_block(
                 "No se pudo completar la acción. Intenta de nuevo en unos momentos."
             )
+
+    async def reject_action(self, account_id: str, proposal_id: str) -> list[dict]:
+        # El otro lado del patrón proponer/confirmar (ADR 0009): hasta ahora
+        # "rechazar" solo era "no tocar el botón" — no había ninguna acción
+        # explícita, ni quedaba registro de que el usuario decidió NO seguir.
+        # Comparte la propuesta con confirm_action, así que el chequeo de
+        # dueño/expiración y la persistencia en el hilo son los mismos.
+        proposal = proposals.obtener_propuesta_valida(proposal_id, account_id)
+        if proposal is None:
+            return error_a2ui_block(
+                "La propuesta no existe, no te pertenece, o expiró. Pídela de nuevo."
+            )
+        proposals.descartar_propuesta(proposal_id)
+        return await self._responder_confirmacion(account_id, proposal, f"Cancelado: {proposal.resumen}.")
 
     async def _responder_confirmacion(
         self, account_id: str, proposal: proposals.Proposal, mensaje: str

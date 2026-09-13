@@ -101,6 +101,8 @@ class _ChatScreenState extends State<ChatScreen> {
       proposalId,
       context,
     ),
+    rejectAction: (proposalId) =>
+        widget.apiClient.rejectAction(widget.authController.token!, proposalId),
     onMessages: _feedMessages,
     onError: (err) => _handleError(err, 'No se pudo confirmar la acción, intenta de nuevo.'),
   );
