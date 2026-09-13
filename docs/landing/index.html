@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>¿Me Alcanza? — descarga</title>
+<title>¿Me Alcanza? — con Banorberto</title>
 <style>
   :root {
     --rojo: #ec0029;
+    --rojo-oscuro: #b8001f;
     --tinta: #1f1f1f;
     --gris: #6a6867;
     --plata: #c7c9c9;
@@ -14,33 +15,134 @@
     --superficie: #ffffff;
   }
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
     margin: 0;
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: var(--fondo);
     color: var(--tinta);
-    padding: 24px 16px 48px;
   }
-  .wrap { max-width: 720px; margin: 0 auto; }
-  header { text-align: center; margin-bottom: 32px; }
-  header .logo {
-    display: inline-block;
-    width: 56px; height: 56px;
-    border-radius: 14px;
-    background: var(--rojo);
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    background: linear-gradient(160deg, var(--rojo) 0%, var(--rojo-oscuro) 100%);
     color: #fff;
-    font-weight: 800;
-    font-size: 26px;
-    line-height: 56px;
-    margin-bottom: 12px;
+    padding: 20px 0 56px;
+    text-align: center;
+    overflow: hidden;
   }
-  h1 { margin: 0 0 4px; font-size: 26px; }
-  p.lead { margin: 0; color: var(--gris); font-size: 15px; }
+  .hero-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.16);
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  .hero img.mascota {
+    width: 168px;
+    height: 168px;
+    border-radius: 50%;
+    background: #fff;
+    padding: 10px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    margin: 0 0 8px;
+    font-size: clamp(28px, 6vw, 42px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .hero p.lead {
+    margin: 0 auto;
+    max-width: 480px;
+    font-size: 16px;
+    opacity: 0.92;
+    line-height: 1.5;
+  }
+  .hero .ctas {
+    margin-top: 28px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-block;
+    padding: 13px 26px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.claro {
+    background: #fff;
+    color: var(--rojo);
+  }
+  .btn.oscuro {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    border: 1.5px solid rgba(255, 255, 255, 0.5);
+  }
+
+  /* ---------- Propuesta de valor ---------- */
+  .props {
+    max-width: 880px;
+    margin: -32px auto 0;
+    padding: 0 20px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    position: relative;
+    z-index: 2;
+  }
+  @media (max-width: 680px) {
+    .props { grid-template-columns: 1fr; }
+  }
+  .prop-card {
+    background: var(--superficie);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    text-align: center;
+  }
+  .prop-card .emoji { font-size: 28px; }
+  .prop-card h3 {
+    margin: 10px 0 6px;
+    font-size: 15px;
+  }
+  .prop-card p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--gris);
+    line-height: 1.5;
+  }
+
+  /* ---------- Descarga ---------- */
+  .descarga {
+    padding: 64px 0 24px;
+    text-align: center;
+  }
+  .descarga h2 {
+    font-size: 24px;
+    margin: 0 0 6px;
+  }
+  .descarga p.lead {
+    margin: 0 0 32px;
+    color: var(--gris);
+    font-size: 14px;
+  }
   .cards {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
-    margin-top: 32px;
   }
   @media (max-width: 560px) {
     .cards { grid-template-columns: 1fr; }
@@ -54,80 +156,123 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
-  .card h2 { margin: 0; font-size: 18px; }
-  .card p { margin: 0; color: var(--gris); font-size: 13px; }
-  .card img {
-    width: 180px;
-    height: 180px;
+  .card .tag {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--rojo);
+  }
+  .card h3 { margin: 0; font-size: 18px; }
+  .card p.desc { margin: 0; color: var(--gris); font-size: 13px; }
+  .card img.qr {
+    width: 170px;
+    height: 170px;
     max-width: 100%;
     border: 8px solid #fff;
     border-radius: 12px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
   }
-  .btn {
-    display: inline-block;
+  .card .btn {
     margin-top: 4px;
-    padding: 10px 20px;
-    border-radius: 999px;
     background: var(--rojo);
     color: #fff;
-    text-decoration: none;
-    font-weight: 700;
-    font-size: 14px;
   }
-  .btn:hover { opacity: 0.92; }
-  .btn.secundario {
+  .card.secundaria .btn {
     background: transparent;
     color: var(--rojo);
     border: 1.5px solid var(--rojo);
   }
+
   footer {
     text-align: center;
-    margin-top: 40px;
+    padding: 40px 20px 48px;
     font-size: 12px;
     color: var(--gris);
   }
   footer a { color: var(--gris); }
+  footer .creado-por {
+    margin-top: 4px;
+    font-weight: 600;
+    color: var(--tinta);
+  }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <span class="logo">$</span>
-      <h1>¿Me Alcanza?</h1>
-      <p class="lead">Tu asistente financiero con interfaz generativa. Escanea o toca para entrar.</p>
-    </header>
-
-    <div class="cards">
-      <div class="card">
-        <h2>Web</h2>
-        <p>Ábrela directo en el navegador, sin instalar nada.</p>
-        <img src="qr-web.png" alt="Código QR hacia la app web" />
-        <a class="btn" href="https://frontend.jzackarias.lat" target="_blank" rel="noopener">
-          Abrir la app web
-        </a>
-      </div>
-
-      <div class="card">
-        <h2>Android</h2>
-        <p>Descarga el APK e instálalo en tu celular (permite "orígenes desconocidos" si Android lo pide).</p>
-        <img src="qr-apk.png" alt="Código QR hacia la descarga del APK" />
-        <a
-          class="btn secundario"
-          href="https://github.com/AdvantageLucky/Banorte-Me-Alcanza/releases/download/latest-apk/me-alcanza.apk"
-        >
-          Descargar APK
-        </a>
+  <section class="hero">
+    <div class="wrap">
+      <span class="hero-badge">HackMTY 2026 · Reto UI Generativa de Banorte</span>
+      <br />
+      <img class="mascota" src="banorberto.png" alt="Banorberto, la mascota de ¿Me Alcanza?" />
+      <h1>¿Me alcanza?</h1>
+      <p class="lead">
+        Pregúntale a Banorberto en tu propio idioma. Él arma la respuesta al vuelo —
+        gráficas, planes de pago, apartados de ahorro— nunca la misma pantalla dos veces,
+        y nunca inventa una cifra.
+      </p>
+      <div class="ctas">
+        <a class="btn claro" href="#descarga">Pruébala ahora</a>
+        <a class="btn oscuro" href="https://github.com/AdvantageLucky/Banorte-Me-Alcanza">Ver el código</a>
       </div>
     </div>
+  </section>
 
-    <footer>
-      Proyecto para HackMTY 2026 — reto de UI Generativa de Banorte.
-      <br />
-      <a href="https://github.com/AdvantageLucky/Banorte-Me-Alcanza">Código fuente en GitHub</a>
-    </footer>
+  <div class="props">
+    <div class="prop-card">
+      <div class="emoji">💬</div>
+      <h3>Habla, no llenes formularios</h3>
+      <p>"¿Me alcanza para el concierto?" — así de simple. Banorberto entiende la intención y arma la interfaz que esa pregunta necesita.</p>
+    </div>
+    <div class="prop-card">
+      <div class="emoji">🧩</div>
+      <h3>La interfaz se genera sola</h3>
+      <p>Cada respuesta es una superficie distinta: tarjetas, gráficas interactivas, sliders — construida en tiempo real, no una plantilla fija.</p>
+    </div>
+    <div class="prop-card">
+      <div class="emoji">🔒</div>
+      <h3>El dinero nunca lo calcula la IA</h3>
+      <p>Banorberto decide qué mostrarte; un motor determinista decide cuánto. Ninguna cifra de dinero sale directo del modelo.</p>
+    </div>
   </div>
+
+  <section class="descarga" id="descarga">
+    <div class="wrap">
+      <h2>Escanea o toca para entrar</h2>
+      <p class="lead">Misma cuenta, misma conversación, en el navegador o en tu celular.</p>
+
+      <div class="cards">
+        <div class="card">
+          <span class="tag">Web</span>
+          <h3>Ábrela en el navegador</h3>
+          <p class="desc">Sin instalar nada, funciona en cualquier dispositivo.</p>
+          <img class="qr" src="qr-web.png" alt="Código QR hacia la app web" />
+          <a class="btn" href="https://frontend.jzackarias.lat" target="_blank" rel="noopener">
+            Abrir la app web
+          </a>
+        </div>
+
+        <div class="card secundaria">
+          <span class="tag">Android</span>
+          <h3>Instálala en tu celular</h3>
+          <p class="desc">Descarga el APK más reciente. Android puede pedir permitir "orígenes desconocidos".</p>
+          <img class="qr" src="qr-apk.png" alt="Código QR hacia la descarga del APK" />
+          <a
+            class="btn"
+            href="https://github.com/AdvantageLucky/Banorte-Me-Alcanza/releases/download/latest-apk/me-alcanza.apk"
+          >
+            Descargar APK
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Proyecto para HackMTY 2026 — reto de Interfaces Generativas de Banorte.
+    <div class="creado-por">Con Banorberto 🐻</div>
+    <a href="https://github.com/AdvantageLucky/Banorte-Me-Alcanza">Código fuente en GitHub</a>
+  </footer>
 </body>
 </html>

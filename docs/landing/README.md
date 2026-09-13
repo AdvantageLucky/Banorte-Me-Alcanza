@@ -1,7 +1,9 @@
 # Landing page de descarga
 
-Página estática (`index.html` + `qr-web.png` + `qr-apk.png`) que
-[`.github/workflows/release-apk.yml`](../../.github/workflows/release-apk.yml)
+Página estática con identidad de marketing propia (`index.html` +
+`banorberto.png`, la mascota, tomada de
+`frontend/src/assets/images/banorberto.png` + `qr-web.png` + `qr-apk.png`)
+que [`.github/workflows/release-apk.yml`](../../.github/workflows/release-apk.yml)
 publica en GitHub Pages en cada push a `main` que toque `flutter_app/` o
 esta carpeta. El mismo workflow compila el APK y lo sube como asset del
 Release fijo `latest-apk`, así que el link/QR de descarga siempre apunta al
