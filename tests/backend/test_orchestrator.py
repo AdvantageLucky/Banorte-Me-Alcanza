@@ -489,6 +489,31 @@ def test_obtener_resumen_propuesta_de_otra_cuenta_devuelve_none():
     assert orchestrator.obtener_resumen_propuesta("luis", proposal.id) is None
 
 
+def test_generar_propuesta_sugerencia_devuelve_el_texto_del_modelo():
+    genai_client = MagicMock()
+    genai_client.models.generate_content.return_value = MagicMock(
+        text="Considera adelantar este pago para evitar quedarte corto.\n"
+    )
+    orchestrator = Orchestrator(genai_client, "gemini-test", MagicMock())
+
+    propuesta = orchestrator.generar_propuesta_sugerencia(
+        "Pago próximo: Agua", "$320.00 vence el 15 sep 2026."
+    )
+
+    assert propuesta == "Considera adelantar este pago para evitar quedarte corto."
+    kwargs = genai_client.models.generate_content.call_args.kwargs
+    assert "Pago próximo: Agua" in kwargs["contents"][0]
+    assert "$320.00 vence el 15 sep 2026." in kwargs["contents"][0]
+
+
+def test_generar_propuesta_sugerencia_sin_texto_devuelve_cadena_vacia():
+    genai_client = MagicMock()
+    genai_client.models.generate_content.return_value = MagicMock(text=None)
+    orchestrator = Orchestrator(genai_client, "gemini-test", MagicMock())
+
+    assert orchestrator.generar_propuesta_sugerencia("Título", "Descripción") == ""
+
+
 @pytest.mark.asyncio
 async def test_confirm_action_apartado_llama_crear_apartado_en_mcp():
     mcp_client = MagicMock()

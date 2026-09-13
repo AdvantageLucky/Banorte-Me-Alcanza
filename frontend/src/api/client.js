@@ -66,6 +66,8 @@ export function createApiClient(baseUrl) {
       post(`/api/sugerencias/${sugerenciaId}/atender`, { token }),
     descartarSugerencia: (token, sugerenciaId) =>
       post(`/api/sugerencias/${sugerenciaId}/descartar`, { token }),
+    getPropuestaSugerencia: (token, sugerenciaId) =>
+      get(`/api/sugerencias/${sugerenciaId}/propuesta`, { token }),
   };
 }
 

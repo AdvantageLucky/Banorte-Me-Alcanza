@@ -172,6 +172,14 @@ class ScoreSaludResponse(BaseModel):
     factores: list[str]
 
 
+class PropuestaSugerenciaResponse(BaseModel):
+    # Elaborada por el LLM bajo demanda (nunca automática) a partir de los
+    # hechos ya detectados de forma determinista — ver
+    # Orchestrator.generar_propuesta_sugerencia. Nunca contiene datos que el
+    # LLM no haya recibido como contexto.
+    propuesta: str
+
+
 class ConversacionResponse(BaseModel):
     id: int
     titulo: str

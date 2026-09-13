@@ -28,7 +28,7 @@ def _formatear_fecha(fecha_iso: str) -> str:
     return f"{fecha.day:02d} {_MESES_ABREV[fecha.month]} {fecha.year}"
 
 
-def _titulo_y_descripcion(tipo: str, detalle: dict) -> tuple[str, str]:
+def titulo_y_descripcion(tipo: str, detalle: dict) -> tuple[str, str]:
     # Mismo copy que antes vivía en el frontend (sugerenciaCopy.js) -se mueve
     # aquí porque ahora la tarjeta completa (no solo el texto) la arma el
     # backend, para que las notificaciones se rendericen con el mismo
@@ -60,7 +60,7 @@ def construir_tarjeta_sugerencia(sugerencia: dict) -> list[dict]:
     # 'proponer_x'/'confirmar_accion' -el usuario nunca confirma/descarta
     # contra un texto que el modelo pudo haber alucinado, porque el modelo
     # nunca participa en armar esto.
-    titulo, descripcion = _titulo_y_descripcion(sugerencia["tipo"], sugerencia["detalle"])
+    titulo, descripcion = titulo_y_descripcion(sugerencia["tipo"], sugerencia["detalle"])
     surface_id = _new_surface_id()
     sugerencia_id = sugerencia["id"]
     return [

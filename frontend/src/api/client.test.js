@@ -245,5 +245,21 @@ describe('createApiClient', () => {
         }),
       );
     });
+
+    it('getPropuestaSugerencia hace un GET autenticado a /api/sugerencias/{id}/propuesta', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({ propuesta: 'Considera adelantar este pago.' }),
+      });
+      const client = createApiClient('http://api.test');
+
+      const result = await client.getPropuestaSugerencia('jwt-123', 9);
+
+      expect(result).toEqual({ propuesta: 'Considera adelantar este pago.' });
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/api/sugerencias/9/propuesta',
+        expect.objectContaining({ method: 'GET', headers: { Authorization: 'Bearer jwt-123' } }),
+      );
+    });
   });
 });

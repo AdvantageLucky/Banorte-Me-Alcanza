@@ -1,23 +1,26 @@
 import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext.jsx';
 import AsistenteView from './AsistenteView.jsx';
+import AtencionView from './AtencionView.jsx';
 import YoView from './YoView.jsx';
 
 // Navbar de nivel app: antes ChatView era la única pantalla tras el login y
 // traía su propio encabezado con marca + "Salir". Ahora ese encabezado vive
-// aquí, una sola vez, con tabs para cambiar entre Asistente y Yo.
-// El tab "Dashboard" (lista estática de sugerencias en HTML aparte, sin
-// nada que la disparara sola) se eliminó: las sugerencias pendientes ahora
-// se inyectan como tarjetas A2UI más en el mismo feed de Asistente (ver
-// AsistenteView), con el mismo catálogo visual que cualquier respuesta del
-// chat en vez de un componente de React aparte.
+// aquí, una sola vez, con tabs para cambiar entre Asistente, Atención y Yo.
+// El tab "Dashboard" original (lista estática de sugerencias en HTML aparte,
+// sin nada que la disparara sola) se eliminó; las notificaciones pasaron
+// primero al feed de Asistente y ahora viven en su propio tab "Atención"
+// (ver AtencionView), donde se pueden filtrar y cada una trae su propia UI
+// generativa además de una propuesta del asistente bajo demanda.
 const TABS = [
   { id: 'asistente', label: 'Asistente' },
+  { id: 'atencion', label: 'Atención' },
   { id: 'yo', label: 'Yo' },
 ];
 
 const VIEWS = {
   asistente: AsistenteView,
+  atencion: AtencionView,
   yo: YoView,
 };
 

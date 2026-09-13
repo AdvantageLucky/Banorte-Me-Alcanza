@@ -28,6 +28,7 @@ from .dtos import (
     MetaUpdate,
     MovimientoResponse,
     PropuestaResponse,
+    PropuestaSugerenciaResponse,
     ScoreSaludResponse,
     SugerenciaResponse,
 )
@@ -543,6 +544,26 @@ async def descartar_sugerencia(
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return SugerenciaResponse(**actualizada)
+
+
+@router.get("/sugerencias/{sugerencia_id}/propuesta", response_model=PropuestaSugerenciaResponse)
+async def get_propuesta_sugerencia(
+    sugerencia_id: int,
+    request: Request,
+    account_id: str = Depends(auth.get_current_account_id),
+) -> PropuestaSugerenciaResponse:
+    try:
+        sugerencias = await request.app.state.mcp_client.call(
+            "generar_y_listar_sugerencias", {"account_id": account_id}
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    sugerencia = next((s for s in sugerencias if s["id"] == sugerencia_id), None)
+    if sugerencia is None:
+        raise HTTPException(status_code=404, detail="Sugerencia no encontrada")
+    titulo, descripcion = sugerencias_a2ui.titulo_y_descripcion(sugerencia["tipo"], sugerencia["detalle"])
+    propuesta = request.app.state.orchestrator.generar_propuesta_sugerencia(titulo, descripcion)
+    return PropuestaSugerenciaResponse(propuesta=propuesta)
 
 
 @router.get("/score-salud-financiera", response_model=ScoreSaludResponse)

@@ -559,6 +559,34 @@ def test_descartar_sugerencia_inexistente_devuelve_400(app):
         assert response.status_code == 400
 
 
+def test_get_propuesta_sugerencia_llama_al_orquestador_con_los_hechos_deterministas(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        sugerencias = client.get("/api/sugerencias", headers={"Authorization": f"Bearer {token}"}).json()
+        sugerencia_id = sugerencias[0]["id"]
+        app.state.orchestrator.generar_propuesta_sugerencia = MagicMock(
+            return_value="Considera adelantar este pago para evitar quedarte corto."
+        )
+        response = client.get(
+            f"/api/sugerencias/{sugerencia_id}/propuesta", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        assert response.json() == {"propuesta": "Considera adelantar este pago para evitar quedarte corto."}
+        app.state.orchestrator.generar_propuesta_sugerencia.assert_called_once()
+        titulo, descripcion = app.state.orchestrator.generar_propuesta_sugerencia.call_args[0]
+        assert titulo
+        assert descripcion
+
+
+def test_get_propuesta_sugerencia_inexistente_devuelve_404(app):
+    with TestClient(app) as client:
+        token = _login(client)
+        response = client.get(
+            "/api/sugerencias/999999/propuesta", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 404
+
+
 def test_get_score_salud_financiera(app):
     with TestClient(app) as client:
         token = _login(client)

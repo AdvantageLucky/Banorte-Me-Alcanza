@@ -780,3 +780,131 @@ body {
   color: var(--color-on-primary);
   border: none;
 }
+
+.atencion-modal-propuesta,
+.atender-modal-propuesta {
+  margin-bottom: var(--a2ui-spacing-m);
+}
+
+.atender-modal-generar {
+  background: none;
+  border: var(--a2ui-border-width) dashed var(--color-primary);
+  color: var(--color-primary);
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-s);
+  font-weight: 600;
+}
+
+.atender-modal-propuesta-loading {
+  font-size: var(--a2ui-font-size-s);
+  color: var(--color-secondary);
+  margin: 0;
+}
+
+.atender-modal-propuesta-lista {
+  background: var(--a2ui-color-background);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  padding: var(--a2ui-spacing-m);
+}
+
+.atender-modal-propuesta-label {
+  margin: 0 0 4px;
+  font-size: var(--a2ui-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-secondary);
+}
+
+.atender-modal-propuesta-texto {
+  margin: 0;
+  font-size: var(--a2ui-font-size-s);
+}
+
+.atender-modal-propuesta-error {
+  margin: 0;
+  font-size: var(--a2ui-font-size-s);
+  color: var(--color-primary);
+}
+
+.atencion-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-m);
+  padding: var(--a2ui-spacing-l);
+  overflow-y: auto;
+}
+
+.atencion-filtros {
+  display: flex;
+  gap: var(--a2ui-spacing-s);
+  flex-wrap: wrap;
+}
+
+.atencion-filtro {
+  background: none;
+  border: var(--a2ui-border-width) solid var(--color-border);
+  color: var(--color-on-surface);
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--a2ui-font-family-title);
+  font-size: var(--a2ui-font-size-s);
+  font-weight: 600;
+}
+
+.atencion-filtro-activo {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.atencion-vacio {
+  color: var(--color-secondary);
+}
+
+.atencion-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-m);
+  max-width: 640px;
+}
+
+.atencion-historial-item {
+  display: flex;
+  align-items: center;
+  gap: var(--a2ui-spacing-m);
+  padding: var(--a2ui-spacing-s) var(--a2ui-spacing-m);
+  border-radius: calc(var(--a2ui-border-radius) / 2);
+  border: var(--a2ui-border-width) solid var(--color-border);
+  font-size: var(--a2ui-font-size-s);
+}
+
+.atencion-historial-tipo {
+  font-weight: 600;
+  flex: 1;
+}
+
+.atencion-historial-estado {
+  text-transform: capitalize;
+  font-size: var(--a2ui-font-size-xs);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--a2ui-color-background);
+}
+
+.atencion-historial-estado-atendida {
+  color: #1a8f4c;
+}
+
+.atencion-historial-estado-descartada {
+  color: var(--color-secondary);
+}
+
+.atencion-historial-fecha {
+  color: var(--color-secondary);
+  font-size: var(--a2ui-font-size-xs);
+}

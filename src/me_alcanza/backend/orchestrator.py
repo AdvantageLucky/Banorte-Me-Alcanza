@@ -807,6 +807,33 @@ class Orchestrator:
             return None
         return {"tipo": proposal.tipo, "resumen": proposal.resumen}
 
+    def generar_propuesta_sugerencia(self, titulo: str, descripcion: str) -> str:
+        # Bajo demanda (nunca automático al abrir la tab "Atención"): la
+        # detección de la sugerencia es 100% determinista (sugerencias_engine.py,
+        # ver ADR 0019), pero elaborar una recomendación de qué hacer con ese
+        # hecho sí es una tarea de lenguaje natural razonable para el LLM,
+        # siempre y cuando reciba los hechos ya calculados como único
+        # contexto y no pueda inventar cifras nuevas. Es una llamada de una
+        # sola vuelta (sin tools, sin A2UI) — no reusa _run_tool_loop.
+        prompt = (
+            f"Detectamos lo siguiente en la cuenta del usuario: '{titulo}: {descripcion}'. "
+            "En 1-2 oraciones, en español, sugiere una acción concreta y realista que el "
+            "usuario podría tomar al respecto. Nunca inventes montos, fechas u otros datos "
+            "que no te dimos aquí: solo elabora sobre estos hechos. No repitas el dato tal "
+            "cual, ve directo a la recomendación."
+        )
+        response = self._client.models.generate_content(
+            model=self._model,
+            contents=[prompt],
+            config=types.GenerateContentConfig(
+                system_instruction=(
+                    "Eres el asistente financiero de un banco. Respondes SIEMPRE en texto "
+                    "plano y breve, nunca en JSON ni A2UI."
+                ),
+            ),
+        )
+        return (response.text or "").strip()
+
     async def confirm_action(self, account_id: str, proposal_id: str) -> list[dict]:
         proposal = proposals.obtener_propuesta_valida(proposal_id, account_id)
         if proposal is None:

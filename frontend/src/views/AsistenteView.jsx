@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, Fragment } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MessageProcessor } from '@a2ui/web_core/v0_9';
 import { A2uiSurface } from '@a2ui/react/v0_9';
 import { injectStyles, removeStyles } from '@a2ui/react/styles';
@@ -14,7 +14,6 @@ import { apiClient } from '../api/client.js';
 import { useApiResource } from '../api/useApiResource.js';
 import { createActionHandler } from '../chat/actionHandler.js';
 import { createConfirmActionWithModal } from '../chat/confirmWithModal.js';
-import { createSugerenciaActionHandler } from '../chat/sugerenciaActionHandler.js';
 import { buildTurnsFromHistorial } from '../chat/buildTurnsFromHistorial.js';
 import { dropDuplicateCreateSurface } from '../chat/messageFilter.js';
 import { extractSurfaceId } from '../chat/extractSurfaceId.js';
@@ -24,6 +23,10 @@ import ConversationSidebar from '../components/ConversationSidebar.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import logo from '../assets/images/logo.svg';
 
+// Las notificaciones/sugerencias ya no viven aquí: tienen su propio tab
+// "Atención" (ver AtencionView), donde se pueden filtrar y cada una trae su
+// propia UI generativa más una propuesta del asistente bajo demanda. Este
+// componente vuelve a ser solo el chat.
 export default function AsistenteView() {
   const { token, logout } = useAuth();
   const [mensaje, setMensaje] = useState('');
@@ -34,12 +37,6 @@ export default function AsistenteView() {
   // ocurrieron — el backend le da a cada turno del agente su propio
   // surfaceId único (tanto en vivo como al reabrir un historial pasado).
   const [turns, setTurns] = useState([]);
-  // Tarjetas de sugerencias pendientes: se cargan una vez al entrar (no
-  // dependen de la conversación activa) y se muestran arriba del feed como
-  // si el asistente las hubiera generado sin que nadie preguntara nada.
-  // Cada entrada es un turno normal (kind:'agent') + el sugerenciaId que le
-  // dio origen, para poder quitarlo del feed cuando se atiende/descarta.
-  const [notificaciones, setNotificaciones] = useState([]);
   // null = todavía no hay conversación real: el próximo mensaje que se
   // mande hace que el backend cree una y devuelva su id (ver handleSubmit).
   const [conversacionId, setConversacionId] = useState(null);
@@ -74,17 +71,6 @@ export default function AsistenteView() {
     [token],
   );
 
-  const sugerenciaActionHandler = useMemo(
-    () =>
-      createSugerenciaActionHandler({
-        atenderSugerencia: (id) => apiClient.atenderSugerencia(token, id),
-        descartarSugerencia: (id) => apiClient.descartarSugerencia(token, id),
-        onResuelta: (id) => setNotificaciones((prev) => prev.filter((n) => n.sugerenciaId !== id)),
-        onError: (err) => handleApiError(err, 'No se pudo actualizar la notificación, intenta de nuevo.'),
-      }),
-    [token],
-  );
-
   function appendAgentTurn(messages) {
     const surfaceId = extractSurfaceId(messages);
     if (surfaceId) {
@@ -105,14 +91,7 @@ export default function AsistenteView() {
       },
       onError: (err) => handleApiError(err, 'No se pudo confirmar la acción, intenta de nuevo.'),
     });
-    // Cada handler ignora los eventos que no le tocan (por nombre), así que
-    // encadenarlos aquí es seguro: nunca se ejecutan los dos para la misma
-    // acción.
-    const handleAction = async (action) => {
-      await confirmActionHandler(action);
-      await sugerenciaActionHandler(action);
-    };
-    proc = new MessageProcessor([meAlcanzaCatalog], handleAction);
+    proc = new MessageProcessor([meAlcanzaCatalog], confirmActionHandler);
     return proc;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
@@ -121,37 +100,6 @@ export default function AsistenteView() {
     injectStyles();
     return () => removeStyles();
   }, []);
-
-  useEffect(() => {
-    let cancelado = false;
-    (async () => {
-      try {
-        const sugerencias = await apiClient.getSugerencias(token);
-        const pendientes = sugerencias.filter((s) => s.estado === 'pendiente' && s.a2ui_json);
-        const nuevasNotificaciones = [];
-        for (const sugerencia of pendientes) {
-          processor.processMessages(
-            dropDuplicateCreateSurface(sugerencia.a2ui_json, new Set(processor.model.surfacesMap.keys())),
-          );
-          const surfaceId = extractSurfaceId(sugerencia.a2ui_json);
-          if (surfaceId) {
-            nuevasNotificaciones.push({ kind: 'agent', id: surfaceId, surfaceId, sugerenciaId: sugerencia.id });
-          }
-        }
-        if (!cancelado) {
-          setNotificaciones(nuevasNotificaciones);
-        }
-      } catch (err) {
-        if (!cancelado) {
-          handleApiError(err, 'No se pudieron cargar las notificaciones.');
-        }
-      }
-    })();
-    return () => {
-      cancelado = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, processor]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -214,11 +162,6 @@ export default function AsistenteView() {
     }
   }
 
-  // Las notificaciones van siempre primero, sin importar qué conversación
-  // esté activa: no son "parte" de un hilo, son avisos del asistente que
-  // conviven con cualquier conversación en el mismo feed.
-  const feed = [...notificaciones, ...turns];
-
   return (
     <div className="asistente-view">
       <ConversationSidebar
@@ -229,10 +172,10 @@ export default function AsistenteView() {
       />
       <div className="chat-view">
         <main className="chat-surfaces">
-          {feed.length === 0 && (
+          {turns.length === 0 && (
             <Typewriter />
           )}
-          {feed.map((turn) => {
+          {turns.map((turn) => {
             if (turn.kind === 'user') {
               return (
                 <p key={turn.id} className="chat-message-user">
