@@ -112,3 +112,51 @@ export const ApartadoPlannerApi = {
     })
     .strict(),
 };
+
+export const DonutChartApi = {
+  name: 'DonutChart',
+  schema: z
+    .object({
+      weight: z.number().optional(),
+      title: DynamicString.optional(),
+      centerLabel: DynamicString.optional(),
+      centerValue: DynamicString.optional(),
+      slices: z
+        .array(
+          z
+            .object({
+              id: z.string(),
+              label: z.string(),
+              value: z.number(),
+            })
+            .strict(),
+        )
+        .min(2),
+      selectedId: DynamicString.optional(),
+    })
+    .strict(),
+};
+
+export const BudgetAllocatorApi = {
+  name: 'BudgetAllocator',
+  schema: z
+    .object({
+      weight: z.number().optional(),
+      title: DynamicString.optional(),
+      subtitle: DynamicString.optional(),
+      total: z.number(),
+      categorias: z
+        .array(
+          z
+            .object({
+              id: z.string(),
+              label: z.string(),
+            })
+            .strict(),
+        )
+        .min(2),
+      categoriaSeleccionada: DynamicString,
+      montoAsignado: DynamicNumber,
+    })
+    .strict(),
+};

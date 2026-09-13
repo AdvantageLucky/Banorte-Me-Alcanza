@@ -276,6 +276,118 @@ def _apartado_planner_schema() -> dict[str, Any]:
     }
 
 
+def _donut_chart_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "allOf": [
+            _component_common(),
+            {
+                "type": "object",
+                "properties": {
+                    "component": {"const": "DonutChart"},
+                    "title": _dynamic_string(description="Título opcional sobre la gráfica."),
+                    "centerLabel": _dynamic_string(description="Etiqueta pequeña al centro de la dona (ej. 'Total')."),
+                    "centerValue": _dynamic_string(
+                        description="Valor grande al centro de la dona, ya formateado (ej. '$4,530.00')."
+                    ),
+                    "slices": {
+                        "type": "array",
+                        "minItems": 2,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string", "description": "Id estable de esta porción."},
+                                "label": {"type": "string"},
+                                "value": {"type": "number", "description": "Debe ser >= 0."},
+                            },
+                            "required": ["id", "label", "value"],
+                            "additionalProperties": False,
+                        },
+                        "description": (
+                            "Porciones de la dona con datos reales devueltos por una herramienta "
+                            "(ej. get_resumen_movimientos agrupado por categoría), nunca inventados. "
+                            "Los porcentajes se calculan solos a partir de 'value'."
+                        ),
+                    },
+                    "selectedId": _dynamic_string(
+                        description=(
+                            "Id de la porción resaltada actualmente, enlazado a un path del data "
+                            "model (ej. {'path': '/categoriaResaltada'}). Tocar una porción o su "
+                            "renglón en la leyenda la actualiza; es solo para resaltar, no dispara "
+                            "ninguna otra acción."
+                        )
+                    ),
+                    "weight": {"type": "number"},
+                },
+                "required": ["component", "slices"],
+            },
+        ],
+        "unevaluatedProperties": False,
+    }
+
+
+def _budget_allocator_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "allOf": [
+            _component_common(),
+            {
+                "type": "object",
+                "properties": {
+                    "component": {"const": "BudgetAllocator"},
+                    "title": _dynamic_string(description="Título (ej. 'Reparte tu margen de este mes')."),
+                    "subtitle": _dynamic_string(description="Aclaración corta debajo del título."),
+                    "total": {
+                        "type": "number",
+                        "description": (
+                            "Monto real disponible a repartir (ej. 'margen' de simular_flujo_de_caja "
+                            "cuando es positivo). Nunca lo inventes."
+                        ),
+                    },
+                    "categorias": {
+                        "type": "array",
+                        "minItems": 2,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "label": {"type": "string"},
+                            },
+                            "required": ["id", "label"],
+                            "additionalProperties": False,
+                        },
+                        "description": "Destinos reales entre los que se puede repartir 'total' (ej. metas del usuario).",
+                    },
+                    "categoriaSeleccionada": _dynamic_string(
+                        description=(
+                            "Id de la categoría activa, enlazado a un path (ej. "
+                            "{'path': '/categoriaSeleccionada'}). Tocar un chip la cambia."
+                        )
+                    ),
+                    "montoAsignado": _dynamic_number(
+                        description=(
+                            "Monto asignado a la categoría activa, enlazado a un path (ej. "
+                            "{'path': '/montoAsignado'}) inicializado con updateDataModel. El "
+                            "componente calcula EN EL CLIENTE, al instante, cuánto queda sin "
+                            "asignar de 'total' — no dispares ninguna otra acción mientras el "
+                            "usuario arrastra."
+                        )
+                    ),
+                    "weight": {"type": "number"},
+                },
+                "required": [
+                    "component",
+                    "total",
+                    "categorias",
+                    "categoriaSeleccionada",
+                    "montoAsignado",
+                ],
+            },
+        ],
+        "unevaluatedProperties": False,
+    }
+
+
 def _build_catalog_schema(version: str) -> dict[str, Any]:
     base = copy.deepcopy(BasicCatalog.get_config(version=version).provider.load())
     base["$id"] = CUSTOM_CATALOG_ID
@@ -284,14 +396,16 @@ def _build_catalog_schema(version: str) -> dict[str, Any]:
     base["description"] = (
         "Catálogo propio del equipo: primitivos base del protocolo A2UI más "
         "componentes de dominio financiero (StatCard, BarChart, PlanDePago, "
-        "LineChart, ApartadoPlanner) diseñados y programados por el equipo, "
-        "no una biblioteca de UI entregada por el reto."
+        "LineChart, ApartadoPlanner, DonutChart, BudgetAllocator) diseñados y "
+        "programados por el equipo, no una biblioteca de UI entregada por el reto."
     )
     base["components"]["StatCard"] = _stat_card_schema()
     base["components"]["BarChart"] = _bar_chart_schema()
     base["components"]["PlanDePago"] = _plan_de_pago_schema()
     base["components"]["LineChart"] = _line_chart_schema()
     base["components"]["ApartadoPlanner"] = _apartado_planner_schema()
+    base["components"]["DonutChart"] = _donut_chart_schema()
+    base["components"]["BudgetAllocator"] = _budget_allocator_schema()
 
     any_component = base["$defs"]["anyComponent"]
     any_component["oneOf"].extend(
@@ -301,6 +415,8 @@ def _build_catalog_schema(version: str) -> dict[str, Any]:
             {"$ref": "#/components/PlanDePago"},
             {"$ref": "#/components/LineChart"},
             {"$ref": "#/components/ApartadoPlanner"},
+            {"$ref": "#/components/DonutChart"},
+            {"$ref": "#/components/BudgetAllocator"},
         ]
     )
     return base

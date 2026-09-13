@@ -83,3 +83,67 @@ def test_apartado_planner_sin_monto_objetivo_es_rechazado():
         raise AssertionError("se esperaba que el parser rechazara un ApartadoPlanner sin montoObjetivo")
     except Exception:  # noqa: BLE001
         pass
+
+
+def test_donut_chart_valido_parsea_sin_error():
+    components = """[
+        {"id": "root", "component": "Card", "child": "donut"},
+        {"id": "donut", "component": "DonutChart", "title": "Gasto por categoría",
+         "centerLabel": "Total", "centerValue": "$4,530.00", "slices": [
+            {"id": "renta", "label": "Renta", "value": 4500},
+            {"id": "internet", "label": "Internet", "value": 599}
+         ], "selectedId": {"path": "/categoriaResaltada"}}
+    ]"""
+    parts = _parse(components, data_model_json='{"categoriaResaltada": "renta"}')
+    assert len(parts) == 1
+    assert parts[0].a2ui_json is not None
+
+
+def test_donut_chart_con_una_sola_porcion_es_rechazado():
+    # minItems: 2 — una dona con una sola porción no comunica proporción.
+    components = """[
+        {"id": "root", "component": "Card", "child": "donut"},
+        {"id": "donut", "component": "DonutChart", "slices": [{"id": "renta", "label": "Renta", "value": 4500}]}
+    ]"""
+    try:
+        _parse(components)
+        raise AssertionError("se esperaba que el parser rechazara un DonutChart con una sola porción")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def test_budget_allocator_valido_parsea_sin_error():
+    components = """[
+        {"id": "root", "component": "Card", "child": "allocator"},
+        {"id": "allocator", "component": "BudgetAllocator", "title": "Reparte tu margen",
+         "total": 1200, "categorias": [
+            {"id": "laptop", "label": "Laptop nueva"},
+            {"id": "libre", "label": "Sin asignar"}
+         ], "categoriaSeleccionada": {"path": "/categoriaSeleccionada"},
+         "montoAsignado": {"path": "/montoAsignado"}}
+    ]"""
+    parts = _parse(
+        components,
+        data_model_json='{"categoriaSeleccionada": "laptop", "montoAsignado": 500}',
+    )
+    assert len(parts) == 1
+    assert parts[0].a2ui_json is not None
+
+
+def test_budget_allocator_sin_total_es_rechazado():
+    components = """[
+        {"id": "root", "component": "Card", "child": "allocator"},
+        {"id": "allocator", "component": "BudgetAllocator", "categorias": [
+            {"id": "laptop", "label": "Laptop nueva"},
+            {"id": "libre", "label": "Sin asignar"}
+         ], "categoriaSeleccionada": {"path": "/categoriaSeleccionada"},
+         "montoAsignado": {"path": "/montoAsignado"}}
+    ]"""
+    try:
+        _parse(
+            components,
+            data_model_json='{"categoriaSeleccionada": "laptop", "montoAsignado": 500}',
+        )
+        raise AssertionError("se esperaba que el parser rechazara un BudgetAllocator sin total")
+    except Exception:  # noqa: BLE001
+        pass

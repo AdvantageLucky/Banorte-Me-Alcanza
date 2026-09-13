@@ -2,8 +2,8 @@
 //
 // Catálogo A2UI propio del equipo para Flutter: los primitivos básicos de
 // genui más los componentes de dominio financiero que diseñamos nosotros
-// (StatCard, BarChart, PlanDePago, LineChart, ApartadoPlanner). Debe
-// mantenerse en sync a mano con
+// (StatCard, BarChart, PlanDePago, LineChart, ApartadoPlanner, DonutChart,
+// BudgetAllocator). Debe mantenerse en sync a mano con
 // src/me_alcanza/backend/a2ui_custom_catalog.py (schemas) y con
 // frontend/src/a2ui-custom/ (renderer web): mismo catalogId, mismos nombres,
 // mismas props.
@@ -22,7 +22,15 @@ const meAlcanzaCatalogId = 'https://me-alcanza.hackmty.dev/catalogs/v1/catalog.j
 /// al básico para que las superficies del modo offline (que declaran el id
 /// de a2ui.org) sigan renderizando.
 Catalog buildMeAlcanzaCatalog() => BasicCatalogItems.asCatalog().copyWith(
-      newItems: [statCard, barChart, planDePago, lineChart, apartadoPlanner],
+      newItems: [
+        statCard,
+        barChart,
+        planDePago,
+        lineChart,
+        apartadoPlanner,
+        donutChart,
+        budgetAllocator,
+      ],
       catalogId: meAlcanzaCatalogId,
     );
 
@@ -817,6 +825,423 @@ class _ApartadoPlannerView extends StatelessWidget {
             fontWeight: FontWeight.w600,
             color: alcanzaCompleto ? BrandColors.exito : const Color(0xFFB8860B),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+// -------------------------------------------------------- DonutChart
+
+// Paleta fija asignada por posición, no por nombre: 'label' viene de datos
+// reales (get_resumen_movimientos) y es texto libre.
+const _donutPalette = [
+  BrandColors.rojo,
+  BrandColors.exito,
+  Color(0xFFB8860B),
+  Color(0xFF2F6FED),
+  Color(0xFF8A4FD8),
+  Color(0xFF0F9AA8),
+  BrandColors.gris,
+];
+
+final donutChart = CatalogItem(
+  name: 'DonutChart',
+  isImplicitlyFlexible: true,
+  dataSchema: S.object(
+    description: 'Dona de proporciones sobre un total, con leyenda y porción resaltable.',
+    properties: {
+      'title': A2uiSchemas.stringReference(description: 'Título opcional.'),
+      'centerLabel': A2uiSchemas.stringReference(description: 'Etiqueta pequeña al centro.'),
+      'centerValue': A2uiSchemas.stringReference(description: 'Valor grande al centro, ya formateado.'),
+      'slices': S.list(
+        items: S.object(
+          properties: {
+            'id': S.string(),
+            'label': S.string(),
+            'value': S.number(),
+          },
+          required: ['id', 'label', 'value'],
+        ),
+      ),
+      'selectedId': A2uiSchemas.stringReference(
+        description: 'Id de la porción resaltada, enlazado a un path del data model.',
+      ),
+      'weight': S.number(),
+    },
+    required: ['slices'],
+  ),
+  widgetBuilder: (itemContext) {
+    final data = itemContext.data as Map<String, Object?>;
+    final slices = (data['slices'] as List? ?? const [])
+        .map((s) => (s as Map).cast<String, Object?>())
+        .map((s) => _DonutSlice(
+              id: s['id'] as String? ?? '',
+              label: s['label'] as String? ?? '',
+              value: (s['value'] as num?)?.toDouble() ?? 0,
+            ))
+        .toList();
+    final selectedRef = data['selectedId'];
+    final String? path =
+        (selectedRef is Map && selectedRef['path'] is String) ? selectedRef['path'] as String : null;
+
+    return BoundString(
+      dataContext: itemContext.dataContext,
+      value: data['title'],
+      builder: (context, title) => BoundString(
+        dataContext: itemContext.dataContext,
+        value: data['centerLabel'],
+        builder: (context, centerLabel) => BoundString(
+          dataContext: itemContext.dataContext,
+          value: data['centerValue'],
+          builder: (context, centerValue) => BoundString(
+            dataContext: itemContext.dataContext,
+            value: selectedRef,
+            builder: (context, selectedId) => _DonutChartView(
+              title: title,
+              centerLabel: centerLabel,
+              centerValue: centerValue,
+              slices: slices,
+              selectedId: selectedId,
+              onSelect: path == null ? null : (id) => itemContext.dataContext.update(DataPath(path), id),
+            ),
+          ),
+        ),
+      ),
+    );
+  },
+);
+
+class _DonutSlice {
+  const _DonutSlice({required this.id, required this.label, required this.value});
+  final String id;
+  final String label;
+  final double value;
+}
+
+class _DonutChartView extends StatelessWidget {
+  const _DonutChartView({
+    required this.title,
+    required this.centerLabel,
+    required this.centerValue,
+    required this.slices,
+    required this.selectedId,
+    required this.onSelect,
+  });
+
+  final String? title;
+  final String? centerLabel;
+  final String? centerValue;
+  final List<_DonutSlice> slices;
+  final String? selectedId;
+  final void Function(String id)? onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    if (slices.length < 2) return const SizedBox.shrink();
+    final texto = Theme.of(context).textTheme;
+    final total = slices.fold(0.0, (s, e) => s + e.value.abs());
+    final divisor = total == 0 ? 1.0 : total;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (title != null && title!.isNotEmpty) ...[
+          Text(title!, style: DisplayText.seccion.copyWith(fontSize: 15)),
+          const SizedBox(height: Space.s),
+        ],
+        Wrap(
+          spacing: Space.m,
+          runSpacing: Space.m,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 150,
+              height: 150,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size(150, 150),
+                    painter: _DonutChartPainter(slices: slices, selectedId: selectedId, divisor: divisor),
+                  ),
+                  if (centerValue != null || centerLabel != null)
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (centerValue != null && centerValue!.isNotEmpty)
+                          Text(
+                            centerValue!,
+                            style: DisplayText.cifra.copyWith(fontSize: 18, color: BrandColors.tinta),
+                          ),
+                        if (centerLabel != null && centerLabel!.isNotEmpty)
+                          Text(centerLabel!, style: texto.bodySmall?.copyWith(fontSize: 11, color: BrandColors.gris)),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: Space.s),
+        for (var i = 0; i < slices.length; i++)
+          _DonutLegendRow(
+            slice: slices[i],
+            color: _donutPalette[i % _donutPalette.length],
+            pct: slices[i].value.abs() / divisor,
+            selected: selectedId != null && slices[i].id == selectedId,
+            onTap: onSelect == null ? null : () => onSelect!(slices[i].id),
+            style: texto.bodySmall,
+          ),
+      ],
+    );
+  }
+}
+
+class _DonutLegendRow extends StatelessWidget {
+  const _DonutLegendRow({
+    required this.slice,
+    required this.color,
+    required this.pct,
+    required this.selected,
+    required this.onTap,
+    required this.style,
+  });
+
+  final _DonutSlice slice;
+  final Color color;
+  final double pct;
+  final bool selected;
+  final VoidCallback? onTap;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.08) : null,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            const SizedBox(width: Space.s),
+            Expanded(child: Text(slice.label, style: style, overflow: TextOverflow.ellipsis)),
+            Text('${(pct * 100).round()}%', style: style?.copyWith(color: BrandColors.gris)),
+            const SizedBox(width: Space.s),
+            Text(formatMonto(slice.value), style: style?.copyWith(fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DonutChartPainter extends CustomPainter {
+  _DonutChartPainter({required this.slices, required this.selectedId, required this.divisor});
+
+  final List<_DonutSlice> slices;
+  final String? selectedId;
+  final double divisor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const stroke = 22.0;
+    final radius = (size.width - stroke) / 2;
+    var startAngle = -3.14159265 / 2;
+
+    for (var i = 0; i < slices.length; i++) {
+      final slice = slices[i];
+      final sweep = (slice.value.abs() / divisor) * 2 * 3.14159265;
+      final isSelected = selectedId != null && slice.id == selectedId;
+      final paint = Paint()
+        ..color = _donutPalette[i % _donutPalette.length]
+            .withValues(alpha: selectedId != null && !isSelected ? 0.45 : 1)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isSelected ? stroke + 6 : stroke
+        ..strokeCap = StrokeCap.butt;
+      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweep, false, paint);
+      startAngle += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutChartPainter oldDelegate) {
+    return oldDelegate.slices != slices || oldDelegate.selectedId != selectedId;
+  }
+}
+
+// ---------------------------------------------------- BudgetAllocator
+
+// Un solo grado de libertad (categoriaSeleccionada + montoAsignado): igual
+// que ApartadoPlanner, todo el cálculo es una función pura de props para
+// garantizar que React y Flutter muestren SIEMPRE el mismo número a partir
+// del mismo stream A2UI — nunca reparto entre N categorías a la vez.
+final budgetAllocator = CatalogItem(
+  name: 'BudgetAllocator',
+  dataSchema: S.object(
+    description: 'Reparte un monto real entre destinos reales, uno a la vez.',
+    properties: {
+      'title': A2uiSchemas.stringReference(),
+      'subtitle': A2uiSchemas.stringReference(),
+      'total': S.number(),
+      'categorias': S.list(
+        items: S.object(
+          properties: {'id': S.string(), 'label': S.string()},
+          required: ['id', 'label'],
+        ),
+      ),
+      'categoriaSeleccionada': A2uiSchemas.stringReference(),
+      'montoAsignado': A2uiSchemas.numberReference(),
+    },
+    required: ['total', 'categorias', 'categoriaSeleccionada', 'montoAsignado'],
+  ),
+  widgetBuilder: (itemContext) {
+    final data = itemContext.data as Map<String, Object?>;
+    final total = (data['total'] as num).toDouble();
+    final categorias = (data['categorias'] as List? ?? const [])
+        .map((c) => (c as Map).cast<String, Object?>())
+        .map((c) => _Categoria(id: c['id'] as String? ?? '', label: c['label'] as String? ?? ''))
+        .toList();
+    final catRef = data['categoriaSeleccionada'];
+    final catPath = (catRef is Map && catRef['path'] is String) ? catRef['path'] as String : null;
+    final montoRef = data['montoAsignado'];
+    final montoPath = (montoRef is Map && montoRef.containsKey('path'))
+        ? montoRef['path'] as String
+        : '${itemContext.id}.montoAsignado';
+
+    return BoundString(
+      dataContext: itemContext.dataContext,
+      value: data['title'],
+      builder: (context, title) => BoundString(
+        dataContext: itemContext.dataContext,
+        value: data['subtitle'],
+        builder: (context, subtitle) => BoundString(
+          dataContext: itemContext.dataContext,
+          value: catRef,
+          builder: (context, categoriaSeleccionada) => BoundNumber(
+            dataContext: itemContext.dataContext,
+            value: {'path': montoPath},
+            builder: (context, value) {
+              var monto = value?.toDouble();
+              monto ??= (montoRef is num) ? montoRef.toDouble() : 0.0;
+              return _BudgetAllocatorView(
+                title: title,
+                subtitle: subtitle,
+                total: total,
+                categorias: categorias.isEmpty ? const [_Categoria(id: '', label: '')] : categorias,
+                categoriaSeleccionada: categoriaSeleccionada,
+                monto: monto,
+                onSelectCategoria: catPath == null
+                    ? null
+                    : (id) => itemContext.dataContext.update(DataPath(catPath), id),
+                onChangeMonto: (v) => itemContext.dataContext.update(DataPath(montoPath), v),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  },
+);
+
+class _Categoria {
+  const _Categoria({required this.id, required this.label});
+  final String id;
+  final String label;
+}
+
+class _BudgetAllocatorView extends StatelessWidget {
+  const _BudgetAllocatorView({
+    required this.title,
+    required this.subtitle,
+    required this.total,
+    required this.categorias,
+    required this.categoriaSeleccionada,
+    required this.monto,
+    required this.onSelectCategoria,
+    required this.onChangeMonto,
+  });
+
+  final String? title;
+  final String? subtitle;
+  final double total;
+  final List<_Categoria> categorias;
+  final String? categoriaSeleccionada;
+  final double monto;
+  final void Function(String id)? onSelectCategoria;
+  final ValueChanged<double> onChangeMonto;
+
+  @override
+  Widget build(BuildContext context) {
+    if (categorias.length < 2) return const SizedBox.shrink();
+    final texto = Theme.of(context).textTheme;
+    final activaId = categoriaSeleccionada ?? categorias.first.id;
+    final activa = categorias.firstWhere((c) => c.id == activaId, orElse: () => categorias.first);
+    final montoAcotado = monto.clamp(0.0, total);
+    final restante = total - montoAcotado;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (title != null && title!.isNotEmpty)
+          Text(title!, style: DisplayText.seccion.copyWith(fontSize: 16)),
+        if (subtitle != null && subtitle!.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(subtitle!, style: texto.bodySmall),
+        ],
+        const SizedBox(height: Space.s),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final c in categorias)
+              ChoiceChip(
+                label: Text(c.label),
+                selected: c.id == activaId,
+                selectedColor: const Color(0xFFFCE4E9),
+                onSelected: onSelectCategoria == null ? null : (_) => onSelectCategoria!(c.id),
+              ),
+          ],
+        ),
+        const SizedBox(height: Space.s),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(formatMonto(montoAcotado), style: DisplayText.cifra.copyWith(fontSize: 28, color: BrandColors.rojo)),
+            const SizedBox(width: Space.s),
+            Flexible(child: Text('para ${activa.label}', style: texto.bodySmall)),
+          ],
+        ),
+        Slider(
+          value: montoAcotado,
+          min: 0,
+          max: total <= 0 ? 1 : total,
+          activeColor: BrandColors.rojo,
+          onChanged: onChangeMonto,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(formatMonto(0), style: texto.bodySmall?.copyWith(fontSize: 11, color: BrandColors.gris)),
+              Text(formatMonto(total), style: texto.bodySmall?.copyWith(fontSize: 11, color: BrandColors.gris)),
+            ],
+          ),
+        ),
+        const SizedBox(height: Space.xs),
+        Text(
+          'Sin asignar: ${formatMonto(restante)} de ${formatMonto(total)}',
+          style: texto.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );

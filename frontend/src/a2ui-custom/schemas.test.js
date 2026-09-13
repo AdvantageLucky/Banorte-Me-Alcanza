@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { StatCardApi, BarChartApi, PlanDePagoApi, LineChartApi, ApartadoPlannerApi } from './schemas.js';
+import {
+  StatCardApi,
+  BarChartApi,
+  PlanDePagoApi,
+  LineChartApi,
+  ApartadoPlannerApi,
+  DonutChartApi,
+  BudgetAllocatorApi,
+} from './schemas.js';
 
 describe('StatCardApi', () => {
   it('acepta un valor literal y un binding para label/value', () => {
@@ -146,6 +154,72 @@ describe('ApartadoPlannerApi', () => {
       minMonto: 50,
       maxMonto: 300,
       montoPorPeriodo: { path: '/montoPorPeriodo' },
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('DonutChartApi', () => {
+  it('acepta al menos 2 slices con selectedId enlazado a un path', () => {
+    const result = DonutChartApi.schema.safeParse({
+      title: 'Gasto por categoría',
+      centerLabel: 'Total',
+      centerValue: '$4,530.00',
+      slices: [
+        { id: 'renta', label: 'Renta', value: 4500 },
+        { id: 'internet', label: 'Internet', value: 599 },
+      ],
+      selectedId: { path: '/categoriaResaltada' },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rechaza con un solo slice', () => {
+    const result = DonutChartApi.schema.safeParse({
+      slices: [{ id: 'renta', label: 'Renta', value: 4500 }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rechaza sin slices', () => {
+    const result = DonutChartApi.schema.safeParse({ title: 'x' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('BudgetAllocatorApi', () => {
+  it('acepta total y categorias reales con bindings', () => {
+    const result = BudgetAllocatorApi.schema.safeParse({
+      title: 'Reparte tu margen',
+      total: 1200,
+      categorias: [
+        { id: 'laptop', label: 'Laptop nueva' },
+        { id: 'libre', label: 'Sin asignar' },
+      ],
+      categoriaSeleccionada: { path: '/categoriaSeleccionada' },
+      montoAsignado: { path: '/montoAsignado' },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rechaza con una sola categoría', () => {
+    const result = BudgetAllocatorApi.schema.safeParse({
+      total: 1200,
+      categorias: [{ id: 'laptop', label: 'Laptop nueva' }],
+      categoriaSeleccionada: { path: '/categoriaSeleccionada' },
+      montoAsignado: { path: '/montoAsignado' },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rechaza sin total', () => {
+    const result = BudgetAllocatorApi.schema.safeParse({
+      categorias: [
+        { id: 'laptop', label: 'Laptop nueva' },
+        { id: 'libre', label: 'Sin asignar' },
+      ],
+      categoriaSeleccionada: { path: '/categoriaSeleccionada' },
+      montoAsignado: { path: '/montoAsignado' },
     });
     expect(result.success).toBe(false);
   });

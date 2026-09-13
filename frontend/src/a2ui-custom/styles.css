@@ -339,3 +339,185 @@
 .apartado-planner-total-corto {
   color: #b9770e;
 }
+
+.donut-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-s, 8px);
+  padding: var(--a2ui-spacing-m, 16px);
+  border-radius: var(--a2ui-border-radius, 12px);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  background: var(--a2ui-color-surface, #fff);
+}
+
+.donut-chart-title {
+  margin: 0;
+  font-size: var(--a2ui-font-size-m, 16px);
+  font-weight: 600;
+}
+
+.donut-chart-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a2ui-spacing-m, 16px);
+}
+
+.donut-chart-svg {
+  flex-shrink: 0;
+}
+
+.donut-chart-center-value {
+  font-size: 20px;
+  font-weight: 700;
+  fill: var(--a2ui-color-on-surface, #1f1f1f);
+}
+
+.donut-chart-center-label {
+  font-size: 11px;
+  fill: var(--a2ui-color-secondary, #6a6867);
+}
+
+.donut-chart-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.donut-chart-legend-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto;
+  align-items: center;
+  gap: var(--a2ui-spacing-s, 8px);
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  transition: background 0.15s ease;
+}
+
+.donut-chart-legend-row:hover {
+  background: var(--a2ui-color-background, #f5f5f5);
+}
+
+.donut-chart-legend-row-selected {
+  background: color-mix(in srgb, var(--a2ui-color-primary, #ec0029) 8%, transparent);
+}
+
+.donut-chart-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.donut-chart-legend-label {
+  font-size: var(--a2ui-font-size-s, 14px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.donut-chart-legend-pct {
+  font-size: var(--a2ui-font-size-xs, 12px);
+  color: var(--a2ui-color-secondary, #6a6867);
+}
+
+.donut-chart-legend-value {
+  font-size: var(--a2ui-font-size-s, 14px);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.budget-allocator {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-s, 8px);
+  padding: var(--a2ui-spacing-m, 16px);
+  border-radius: var(--a2ui-border-radius, 12px);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  background: var(--a2ui-color-surface, #fff);
+}
+
+.budget-allocator-title {
+  margin: 0;
+  font-size: var(--a2ui-font-size-m, 16px);
+  font-weight: 600;
+}
+
+.budget-allocator-subtitle {
+  margin: 0 0 4px;
+  font-size: var(--a2ui-font-size-s, 14px);
+  color: var(--a2ui-color-secondary, #6a6867);
+}
+
+.budget-allocator-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.budget-allocator-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  background: var(--a2ui-color-input, #fff);
+  font: inherit;
+  font-size: var(--a2ui-font-size-s, 14px);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.budget-allocator-chip-selected {
+  border-color: var(--a2ui-color-primary, #ec0029);
+  border-width: 2px;
+  background: color-mix(in srgb, var(--a2ui-color-primary, #ec0029) 6%, var(--a2ui-color-input, #fff));
+  font-weight: 600;
+}
+
+.budget-allocator-result {
+  display: flex;
+  align-items: baseline;
+  gap: var(--a2ui-spacing-s, 8px);
+  flex-wrap: wrap;
+}
+
+.budget-allocator-monto {
+  font-size: var(--a2ui-font-size-2xl, 32px);
+  font-weight: 700;
+  color: var(--a2ui-color-primary, #ec0029);
+  line-height: 1;
+}
+
+.budget-allocator-monto-label {
+  font-size: var(--a2ui-font-size-s, 14px);
+  color: var(--a2ui-color-secondary, #6a6867);
+}
+
+.budget-allocator-slider {
+  width: 100%;
+  accent-color: var(--a2ui-color-primary, #ec0029);
+  cursor: pointer;
+}
+
+.budget-allocator-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--a2ui-font-size-xs, 12px);
+  color: var(--a2ui-color-secondary, #6a6867);
+  margin-top: -8px;
+}
+
+.budget-allocator-restante {
+  margin: 4px 0 0;
+  font-size: var(--a2ui-font-size-s, 14px);
+}

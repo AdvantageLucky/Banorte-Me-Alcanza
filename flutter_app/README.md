@@ -38,8 +38,9 @@ lib/
 ## Catálogo A2UI propio
 
 El backend emite superficies con el `catalogId`
-`https://me-alcanza.hackmty.dev/catalogs/v1/catalog.json` y tres componentes
-de dominio además de los básicos. `genui` renderiza **"Catalog not found"**
+`https://me-alcanza.hackmty.dev/catalogs/v1/catalog.json` y siete componentes
+de dominio (StatCard, BarChart, PlanDePago, LineChart, ApartadoPlanner,
+DonutChart, BudgetAllocator) además de los básicos. `genui` renderiza **"Catalog not found"**
 si ese id no está registrado, así que `lib/a2ui/me_alcanza_catalog.dart`
 debe mantenerse en sync a mano con `src/me_alcanza/backend/a2ui_custom_catalog.py`
 y `frontend/src/a2ui-custom/`: mismo id, mismos nombres, mismas props. El
@@ -85,7 +86,7 @@ flutter test
 Unitarios sobre los módulos puros: `ApiClient` (todos los endpoints,
 incluidos errores 400/422), formateadores, validadores, el modelo del
 riel de la quincena, `SugerenciasController` y los routers de acciones.
-Widget tests del riel y de los tres componentes del catálogo propio
+Widget tests del riel y de los siete componentes del catálogo propio
 (renderizados por un `SurfaceController` real). Las pantallas se
 verifican a mano en un emulador, dispositivo o con `flutter build web`.
 

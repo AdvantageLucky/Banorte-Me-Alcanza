@@ -31,6 +31,8 @@ _ALLOWED_COMPONENTS = [
     "PlanDePago",
     "LineChart",
     "ApartadoPlanner",
+    "DonutChart",
+    "BudgetAllocator",
 ]
 MAX_TOOL_CALL_ROUNDS = 5
 # Cuántos mensajes de historial (no turnos) se reenvían a Gemini como
@@ -535,7 +537,7 @@ def build_system_prompt() -> str:
             "No inventes datos que el usuario deba ajustar si no tienes un rango o valor inicial "
             "razonable: si no sabes min/max, pide el dato por texto en vez de mostrar un Slider a "
             "ciegas. "
-            "8) Además tienes 5 componentes propios de dominio financiero (no son parte del "
+            "8) Además tienes 7 componentes propios de dominio financiero (no son parte del "
             "catálogo básico del protocolo, los diseñó este equipo) — úsalos para presentar datos "
             "reales de forma mucho más clara que un Text plano: "
             "StatCard muestra un dato destacado con tendencia (props: label, value ya formateado "
@@ -585,7 +587,27 @@ def build_system_prompt() -> str:
             "razonable alrededor del monto_por_periodo sugerido (ej. la mitad y el doble). "
             "Ponlo seguido de un Button normal cuya 'action.event.context' lea el path de "
             "montoPorPeriodo para de verdad crear el apartado con ese monto ajustado. "
-            "Nunca uses estos 5 componentes como decoración de un dato que ya se explica solo con "
+            "DonutChart muestra una proporción del total, no una comparación de barras "
+            "independientes (props: title opcional, centerLabel/centerValue opcionales ya "
+            "formateados, slices=lista de {id, label, value}, selectedId enlazado a un path para "
+            "resaltar la porción que el usuario toque). Úsalo en vez de BarChart SOLO cuando el "
+            "punto sea 'de qué está compuesto el 100% de X' (ej. distribución del gasto total del "
+            "mes entre categorías); si el punto es comparar montos entre sí sin importar el total, "
+            "usa BarChart. Mismo origen de datos que BarChart: 'get_resumen_movimientos', "
+            "slices=[{id: categoria, label: categoria, value: total} por cada fila], "
+            "centerValue=la suma de todos los totales ya formateada. Nunca inventes categorías. "
+            "BudgetAllocator reparte un monto real entre destinos reales con un chip seleccionable "
+            "más un slider (props: title/subtitle opcionales, total=monto real disponible, "
+            "categorias=lista de {id, label} con AL MENOS 2 destinos reales, "
+            "categoriaSeleccionada y montoAsignado enlazados a paths del data model). Úsalo con "
+            "total='margen' de 'simular_flujo_de_caja' cuando sea positivo, y categorias tomadas "
+            "de 'get_metas' (una entrada por meta activa, más una entrada final tipo "
+            "{id: 'libre', label: 'Sin asignar'} si quieres dejar la opción de no apartarlo). El "
+            "componente calcula SOLO en el navegador cuánto queda sin asignar de 'total' al mover "
+            "el slider o cambiar de chip — tú nunca calculas eso. Ponlo seguido de un Button normal "
+            "cuya 'action.event.context' lea categoriaSeleccionada y montoAsignado para de verdad "
+            "crear el apartado en esa meta. "
+            "Nunca uses estos 7 componentes como decoración de un dato que ya se explica solo con "
             "un Text; resérvalos para cuando de verdad ayudan a comparar, destacar o interactuar "
             "con información real."
         ),

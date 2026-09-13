@@ -173,6 +173,94 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('DonutChart pinta las porciones y resalta al tocar la leyenda', (tester) async {
+    final controller = await _montar(
+      tester,
+      _mensajes([
+        {
+          'id': 'root',
+          'component': 'DonutChart',
+          'title': 'Gasto por categoría',
+          'centerLabel': 'Total',
+          'centerValue': r'$5,099.00',
+          'slices': [
+            {'id': 'renta', 'label': 'Renta', 'value': 4500},
+            {'id': 'internet', 'label': 'Internet', 'value': 599},
+          ],
+          'selectedId': {'path': '/categoriaResaltada'},
+        },
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Gasto por categoría'), findsOneWidget);
+    expect(find.text('Renta'), findsOneWidget);
+    expect(find.byType(CustomPaint), findsWidgets);
+    expect(find.byType(FallbackWidget), findsNothing);
+
+    await tester.tap(find.text('Internet'));
+    await tester.pumpAndSettle();
+
+    expect(
+      controller.contextFor(_surface).dataModel.getValue<String>(DataPath('/categoriaResaltada')),
+      'internet',
+    );
+    controller.dispose();
+  });
+
+  testWidgets('DonutChart con una sola porción no truena (se oculta)', (tester) async {
+    final controller = await _montar(tester, _mensajes([
+      {
+        'id': 'root',
+        'component': 'DonutChart',
+        'slices': [
+          {'id': 'renta', 'label': 'Renta', 'value': 4500},
+        ],
+      },
+    ]));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    controller.dispose();
+  });
+
+  testWidgets('BudgetAllocator recalcula lo sin asignar EN EL CLIENTE al mover el slider', (tester) async {
+    final controller = await _montar(
+      tester,
+      _mensajes([
+        {
+          'id': 'root',
+          'component': 'BudgetAllocator',
+          'title': 'Reparte tu margen',
+          'total': 1200,
+          'categorias': [
+            {'id': 'laptop', 'label': 'Laptop nueva'},
+            {'id': 'libre', 'label': 'Sin asignar'},
+          ],
+          'categoriaSeleccionada': {'path': '/categoriaSeleccionada'},
+          'montoAsignado': {'path': '/montoAsignado'},
+        },
+      ], data: {'categoriaSeleccionada': 'laptop', 'montoAsignado': 500.0}),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Sin asignar: \$700.00 de \$1,200.00'), findsOneWidget);
+
+    await tester.tap(find.text('Sin asignar'));
+    await tester.pumpAndSettle();
+    expect(
+      controller.contextFor(_surface).dataModel.getValue<String>(DataPath('/categoriaSeleccionada')),
+      'libre',
+    );
+
+    await tester.drag(find.byType(Slider), const Offset(200, 0));
+    await tester.pumpAndSettle();
+    final nuevoMonto =
+        controller.contextFor(_surface).dataModel.getValue<double>(DataPath('/montoAsignado'));
+    expect(nuevoMonto, isNotNull);
+    expect(nuevoMonto, greaterThan(500.0));
+    controller.dispose();
+  });
+
   testWidgets('una superficie con el id básico sigue renderizando (modo offline)', (tester) async {
     final controller = await _montar(tester, [
       {

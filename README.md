@@ -8,8 +8,8 @@ Reto *Interfaces que la IA construye en tiempo real* — Banorte × Tec de Monte
 |---|---|
 | **LLM** | Gemini, OpenAI o Anthropic Claude intercambiables por `LLM_PROVIDER` (mismo tool-loop, cero cambios al orquestador — [ADR 0022](docs/adr/0022-adaptador-openai-sin-tocar-el-orquestador.md), [ADR 0023](docs/adr/0023-tercer-adaptador-anthropic-claude.md)) |
 | **MCP** | Servidor propio `core-bancario` sobre stdio — 36 tools, SQLite sembrado |
-| **A2UI** | Protocolo v0.9 (`a2ui-agent-sdk`), **catálogo propio** (`StatCard`/`BarChart`/`PlanDePago`/`LineChart`/`ApartadoPlanner` + primitivos base — [ADR 0011](docs/adr/0011-a2ui-con-catalogo-basico-del-sdk.md)); la misma superficie se renderiza en **React** y en **Flutter** |
-| **Tests** | 280 en Python (backend + MCP) · 81 en React · 66 en Flutter |
+| **A2UI** | Protocolo v0.9 (`a2ui-agent-sdk`), **catálogo propio** (`StatCard`/`BarChart`/`PlanDePago`/`LineChart`/`ApartadoPlanner`/`DonutChart`/`BudgetAllocator` + primitivos base — [ADR 0011](docs/adr/0011-a2ui-con-catalogo-basico-del-sdk.md)); la misma superficie se renderiza en **React** y en **Flutter** |
+| **Tests** | 291 en Python (backend + MCP) · 93 en React · 72 en Flutter |
 
 ---
 
@@ -191,8 +191,9 @@ El seed usa fechas **relativas a hoy**: la demo dispara igual el día que sea.
 |---|---|
 | *¿me alcanza para el concierto del 13 de octubre?* | Veredicto + `LineChart` con la proyección de saldo día a evento (punto crítico marcado) + `ApartadoPlanner` interactivo si no alcanza |
 | *deposítale 500 a mi hermano Pepe* | Dos tarjetas de confirmación (desambiguación por toque) |
-| *¿en qué gasté este mes?* | Resumen por categoría en `BarChart`, con `tone` de advertencia en las categorías donde `detectar_picos_gasto` encontró un pico real |
+| *¿en qué gasté este mes?* | Resumen por categoría en `BarChart` o `DonutChart` (según si el punto es comparar montos o ver de qué se compone el total), con `tone`/resaltado en las categorías donde `detectar_picos_gasto` encontró un pico real |
 | *¿cómo ando de finanzas?* | `StatCard` con el score 0–100 de salud financiera y sus factores |
+| *quiero repartir lo que me sobra este mes entre mis metas* | `BudgetAllocator` interactivo (chip + slider) sobre el `margen` real de `simular_flujo_de_caja` y las metas de `get_metas` |
 | *agrega a Sofi como contacto, cuenta 5566778899* | Tarjeta de confirmación → `crear_contacto` |
 | Pestaña **Atención** → botón "Atender" en cualquier notificación | Modal HITL con los hechos deterministas + botón "Ver propuesta del asistente" (LLM, bajo demanda) |
 
@@ -241,7 +242,7 @@ Cada decisión está registrada como ADR (formato Nygard) en [`docs/adr/`](docs/
 | [**Proponer → confirmar**](docs/adr/0009-patron-proponer-confirmar.md) para toda mutación | El modelo nunca puede ejecutar una transferencia por su cuenta. La propuesta es un objeto verificable (dueño, TTL, descarte previo a ejecutar) | Un round-trip extra; el usuario siempre toca un botón |
 | [**Explicabilidad por componente**](docs/adr/0020-explicabilidad-por-componente.md) — modal *¿Cómo se calculó?* en todo número derivado | El brief pide UI que actúa; un veredicto sin sus entradas no es accionable | Prompt más largo; el modelo a veces omite el modal |
 | [**MCP real por stdio**](docs/adr/0006-mcp-como-proceso-separado-sobre-stdio.md), no un registry in-process | Es lo que la pieza MCP del reto exige; el servidor puede reutilizarse desde cualquier cliente MCP | Latencia de proceso; un `banco.db` compartido entre servidor y tests |
-| [**Catálogo A2UI propio**](docs/adr/0011-a2ui-con-catalogo-basico-del-sdk.md) — primitivos base + `StatCard`/`BarChart`/`PlanDePago`/`LineChart`/`ApartadoPlanner` bajo un `catalogId` propio | El reto exige "el equipo diseña su propio sistema de componentes", no solo consumir el catálogo de referencia de la spec | Arrancó como deuda reconocida (solo catálogo básico) y se cerró después; los tres lados (backend, React, Flutter) se mantienen en sync a mano |
+| [**Catálogo A2UI propio**](docs/adr/0011-a2ui-con-catalogo-basico-del-sdk.md) — primitivos base + `StatCard`/`BarChart`/`PlanDePago`/`LineChart`/`ApartadoPlanner`/`DonutChart`/`BudgetAllocator` bajo un `catalogId` propio | El reto exige "el equipo diseña su propio sistema de componentes", no solo consumir el catálogo de referencia de la spec | Arrancó como deuda reconocida (solo catálogo básico) y se cerró después; los tres lados (backend, React, Flutter) se mantienen en sync a mano |
 | [**Dos clientes, un solo stream**](docs/adr/0012-dos-clientes-mismo-stream-a2ui.md) (React + Flutter) | Demuestra que la interfaz *viaja*: el backend no sabe quién la renderiza | Cada componente nuevo se paga dos veces |
 | [**Sugerencias proactivas sin LLM**](docs/adr/0019-sugerencias-proactivas-sin-llm.md) | Alertas deterministas (riesgo de liquidez, gasto próximo, meta en riesgo, picos de gasto) que aparecen solas en la pestaña *Atención* | La detección nunca es UI generativa por sí sola; por eso cada alerta se renderiza como tarjeta A2UI con `StatCard` y admite pedir una propuesta de solución al LLM bajo demanda |
 | [**SQLite + seed relativo a hoy**](docs/adr/0013-sqlite-con-seed-relativo-a-hoy.md) | Cero infraestructura; la demo dispara el mismo escenario cualquier día | No es multi-proceso; suficiente para la demo |
@@ -258,7 +259,7 @@ src/me_alcanza/
 ├── backend/
 │   ├── app.py                 FastAPI + lifespan (levanta el MCP por stdio)
 │   ├── orchestrator.py        tool-loop, prompt, propuestas → tarjetas A2UI
-│   ├── a2ui_custom_catalog.py catálogo propio: básico + StatCard/BarChart/PlanDePago/LineChart/ApartadoPlanner
+│   ├── a2ui_custom_catalog.py catálogo propio: básico + StatCard/BarChart/PlanDePago/LineChart/ApartadoPlanner/DonutChart/BudgetAllocator
 │   ├── sugerencias_a2ui.py    tarjetas A2UI deterministas del feed de Atención
 │   ├── openai_compat_client.py     adaptador OpenAI (ADR 0022)
 │   ├── anthropic_compat_client.py  adaptador Anthropic Claude (ADR 0023)
@@ -276,7 +277,7 @@ src/me_alcanza/
 frontend/        React + Vite · @a2ui/react · catálogo propio en src/a2ui-custom/
 flutter_app/     Flutter · a2ui_core + genui · mismo catálogo propio en lib/a2ui/
 docs/adr/        23 decisiones de arquitectura (Nygard)
-tests/           backend/ (280, incluye mcp_bank)
+tests/           backend/ (291, incluye mcp_bank)
 ```
 
 Cada feature se construyó con TDD; el *por qué* de cada pieza está en [`docs/adr/`](docs/adr/README.md).
@@ -284,9 +285,9 @@ Cada feature se construyó con TDD; el *por qué* de cada pieza está en [`docs/
 ## Tests
 
 ```bash
-uv run pytest tests/ -q          # 280 — incluye el servidor MCP real por stdio
-cd frontend && npm test          # 81
-cd flutter_app && flutter test   # 66
+uv run pytest tests/ -q          # 291 — incluye el servidor MCP real por stdio
+cd frontend && npm test          # 93
+cd flutter_app && flutter test   # 72
 ```
 
 Sin red: el LLM se mockea en los tests del orquestador (los tres adaptadores tienen su propia suite); el MCP se levanta de verdad contra una DB temporal.
@@ -295,6 +296,6 @@ Sin red: el LLM se mockea en los tests del orquestador (los tres adaptadores tie
 
 ## Estado
 
-- **Hecho:** afford-check + apartado, transferencia con desambiguación, alta de contactos/gastos/ingresos/metas por chat con confirmación, CRUD REST completo, resumen por categoría con detección de picos de gasto, sugerencias proactivas con propuesta de solución del LLM bajo demanda (pestaña *Atención*), score de salud, explicabilidad por modal, hilos de conversación con memoria, modo offline de respaldo, **tres proveedores de LLM intercambiables**, **catálogo A2UI propio** con 5 componentes de dominio (`StatCard`/`BarChart`/`PlanDePago`/`LineChart`/`ApartadoPlanner`, el último con recálculo instantáneo en el cliente) en los dos clientes, TTS/STT en el chat, dos clientes A2UI, despliegue público.
-- **Pendiente:** seguir ampliando el catálogo propio (5 componentes hoy) — rivales conocidos ya muestran 14+, aunque muchos de los suyos son átomos genéricos que nuestro catálogo básico ya cubre; verificar en producción (no solo en desarrollo) que el historial de conversación resuelve bien pedidos de "repite la acción anterior" (el contexto se reenvía, pero no hay prueba end-to-end confirmada); `confirm_action` sigue devolviendo una tarjeta fija sin pasar por el modelo.
+- **Hecho:** afford-check + apartado, transferencia con desambiguación, alta de contactos/gastos/ingresos/metas por chat con confirmación, CRUD REST completo, resumen por categoría con detección de picos de gasto, sugerencias proactivas con propuesta de solución del LLM bajo demanda (pestaña *Atención*), score de salud, explicabilidad por modal, hilos de conversación con memoria, modo offline de respaldo, **tres proveedores de LLM intercambiables**, **catálogo A2UI propio** con 7 componentes de dominio (`StatCard`/`BarChart`/`PlanDePago`/`LineChart`/`ApartadoPlanner`/`DonutChart`/`BudgetAllocator`; `ApartadoPlanner` y `BudgetAllocator` con recálculo instantáneo en el cliente) en los dos clientes, TTS/STT en el chat, dos clientes A2UI, despliegue público.
+- **Pendiente:** seguir ampliando el catálogo propio (7 componentes hoy) — rivales conocidos ya muestran 14+, aunque muchos de los suyos son átomos genéricos que nuestro catálogo básico ya cubre; verificar en producción (no solo en desarrollo) que el historial de conversación resuelve bien pedidos de "repite la acción anterior" (el contexto se reenvía, pero no hay prueba end-to-end confirmada); `confirm_action` sigue devolviendo una tarjeta fija sin pasar por el modelo.
 - **Riesgo conocido:** el tier gratuito de Gemini se agota fácil el día del evento. `LLM_PROVIDER=openai`/`anthropic` son el respaldo de pago real (no solo el [modo offline](docs/adr/0016-modo-offline-determinista.md)); ver [ADR 0022](docs/adr/0022-adaptador-openai-sin-tocar-el-orquestador.md) y [ADR 0023](docs/adr/0023-tercer-adaptador-anthropic-claude.md).
