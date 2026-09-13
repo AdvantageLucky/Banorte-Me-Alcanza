@@ -53,3 +53,17 @@ def test_construir_tarjeta_genera_un_surface_id_distinto_cada_vez():
     tarjeta_1 = construir_tarjeta_sugerencia(_sugerencia("gasto_fijo_proximo", detalle, sugerencia_id=1))
     tarjeta_2 = construir_tarjeta_sugerencia(_sugerencia("gasto_fijo_proximo", detalle, sugerencia_id=1))
     assert tarjeta_1[0]["createSurface"]["surfaceId"] != tarjeta_2[0]["createSurface"]["surfaceId"]
+
+
+def test_envelopes_usan_version_v0_9():
+    # a2ui_core (Flutter) lanza A2uiValidationError si version != "v0.9";
+    # el resto del backend (orchestrator, fake_provider) ya usa "v0.9".
+    sugerencia = {
+        "id": 1,
+        "tipo": "gasto_fijo_proximo",
+        "detalle": {"concepto": "Agua", "monto": 320.0, "proxima_fecha": "2026-09-15"},
+        "estado": "pendiente",
+    }
+    mensajes = construir_tarjeta_sugerencia(sugerencia)
+    assert {m["version"] for m in mensajes} == {"v0.9"}
+

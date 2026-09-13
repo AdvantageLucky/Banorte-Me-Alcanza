@@ -3,7 +3,9 @@ from datetime import datetime
 
 from . import a2ui_custom_catalog
 
-_VERSION = "0.9"
+_VERSION = "0.9"  # solo para BasicCatalog.get_catalog_id
+# El envelope A2UI exige el prefijo "v": a2ui_core (Flutter) rechaza "0.9".
+_ENVELOPE_VERSION = "v0.9"
 
 _MESES_ABREV = {
     1: "ene", 2: "feb", 3: "mar", 4: "abr", 5: "may", 6: "jun",
@@ -64,9 +66,9 @@ def construir_tarjeta_sugerencia(sugerencia: dict) -> list[dict]:
     surface_id = _new_surface_id()
     sugerencia_id = sugerencia["id"]
     return [
-        {"version": _VERSION, "createSurface": {"surfaceId": surface_id, "catalogId": _catalog_id()}},
+        {"version": _ENVELOPE_VERSION, "createSurface": {"surfaceId": surface_id, "catalogId": _catalog_id()}},
         {
-            "version": _VERSION,
+            "version": _ENVELOPE_VERSION,
             "updateComponents": {
                 "surfaceId": surface_id,
                 "components": [
