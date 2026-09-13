@@ -50,8 +50,12 @@ html:root {
   --radius-xl: 1.25rem;
   --radius-full: 9999px;
   --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 4px 10px -2px rgba(15, 23, 42, 0.12), 0 2px 4px -2px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 20px 25px -8px rgba(15, 23, 42, 0.18), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+  --shadow-md:
+    0 4px 10px -2px rgba(15, 23, 42, 0.12),
+    0 2px 4px -2px rgba(15, 23, 42, 0.08);
+  --shadow-lg:
+    0 20px 25px -8px rgba(15, 23, 42, 0.18),
+    0 8px 10px -6px rgba(15, 23, 42, 0.1);
   --a2ui-font-family-title:
     -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --a2ui-font-family-monospace: "SFMono-Regular", Consolas, monospace;
@@ -273,13 +277,16 @@ body {
   border-radius: calc(var(--a2ui-border-radius) / 2);
   font-size: var(--a2ui-font-size-m);
   color: var(--color-on-input);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .login-form input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #eb0029) 15%, transparent);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--color-primary, #eb0029) 15%, transparent);
 }
 
 .login-form button,
@@ -292,7 +299,10 @@ body {
   font-size: var(--a2ui-font-size-m);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
 }
 
 .login-form button:hover:not(:disabled),
@@ -379,7 +389,10 @@ body {
   font-weight: 600;
   color: var(--color-on-primary);
   opacity: 0.85;
-  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .app-navbar-tab:hover {
@@ -434,9 +447,101 @@ body {
 }
 
 .chat-empty {
-  opacity: 0.6;
+  margin: 0;
   font-family: var(--a2ui-font-family-title);
-  font-size: var(--a2ui-font-size-l);
+  font-size: var(--a2ui-font-size-xl);
+  font-weight: 700;
+  color: var(--color-on-background);
+}
+
+/* Bienvenida centrada que reemplaza la línea suelta de antes (ver
+   AsistenteEmptyState.jsx): flex:1 dentro de .chat-surfaces para que ocupe
+   el espacio disponible y centre su contenido, en vez de quedar pegada
+   arriba. Solo aparece antes del primer mensaje. */
+.asistente-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--a2ui-spacing-s);
+  padding: var(--a2ui-spacing-xl);
+  text-align: center;
+}
+
+.asistente-empty-avatar {
+  margin-bottom: var(--a2ui-spacing-s);
+  /* --shadow-md trae spread-radius (el 4to valor), que drop-shadow() no
+     acepta — con él el navegador descarta el filtro completo. */
+  filter: drop-shadow(0 4px 10px rgba(15, 23, 42, 0.12));
+}
+
+.asistente-empty-subtitulo {
+  margin: 0 0 var(--a2ui-spacing-l);
+  color: var(--color-secondary);
+}
+
+.asistente-suggestions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--a2ui-spacing-s);
+  width: 100%;
+  max-width: 600px;
+}
+
+@media (min-width: 640px) {
+  .asistente-suggestions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.asistente-suggestion-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-xs);
+  padding: var(--a2ui-spacing-m);
+  background: var(--color-surface);
+  border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.asistente-suggestion-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.asistente-suggestion-titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--a2ui-spacing-xs);
+  font-weight: 600;
+  font-size: var(--a2ui-font-size-s);
+  color: var(--color-on-surface);
+}
+
+.asistente-suggestion-icon {
+  display: inline-flex;
+}
+
+.asistente-suggestion-icon-chart {
+  color: var(--color-primary);
+}
+
+.asistente-suggestion-icon-sparkles {
+  color: var(--a2ui-color-warning);
+}
+
+.asistente-suggestion-desc {
+  font-size: var(--a2ui-font-size-xs);
+  color: var(--color-secondary);
 }
 
 .chat-message-user {
@@ -521,7 +626,9 @@ body {
   font-weight: 600;
   color: var(--color-secondary);
   white-space: nowrap;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .yo-subnav-tab:hover {
@@ -693,9 +800,17 @@ body {
 }
 
 .yo-badge-activo {
-  background: color-mix(in srgb, var(--color-success, #059669) 12%, var(--color-surface, #fff));
+  background: color-mix(
+    in srgb,
+    var(--color-success, #059669) 12%,
+    var(--color-surface, #fff)
+  );
   color: var(--color-success, #059669);
-  border-color: color-mix(in srgb, var(--color-success, #059669) 35%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--color-success, #059669) 35%,
+    transparent
+  );
 }
 
 .yo-badge-cancelado {
@@ -734,7 +849,9 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
   font-weight: 600;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .yo-btn-primary {
@@ -758,7 +875,9 @@ body {
   background: none;
   border: var(--a2ui-border-width) solid var(--color-danger, #c5221f);
   color: var(--color-danger, #c5221f);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .yo-btn-danger:hover {
@@ -781,7 +900,9 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-xs);
   color: var(--color-secondary);
-  transition: border-color 0.15s ease, color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .yo-card-actions button:hover {
@@ -825,14 +946,17 @@ body {
   font-size: var(--a2ui-font-size-m);
   background: var(--color-input);
   color: var(--color-on-input);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .yo-form-row input:focus,
 .yo-form-row select:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #eb0029) 15%, transparent);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--color-primary, #eb0029) 15%, transparent);
 }
 
 .yo-form-error {
@@ -856,7 +980,9 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
   color: var(--color-secondary);
-  transition: border-color 0.15s ease, color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .yo-form-actions button:not(.yo-btn-primary):hover {
@@ -913,7 +1039,9 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .conversation-nueva:hover {
@@ -951,7 +1079,11 @@ body {
 
 .conversation-item-active,
 .conversation-item-active:hover {
-  background: color-mix(in srgb, var(--color-primary, #eb0029) 8%, var(--color-background, #f8fafc));
+  background: color-mix(
+    in srgb,
+    var(--color-primary, #eb0029) 8%,
+    var(--color-background, #f8fafc)
+  );
   font-weight: 600;
 }
 
@@ -985,7 +1117,9 @@ body {
   font-size: var(--a2ui-font-size-m);
   line-height: 1;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .mic-button:hover {
@@ -1029,13 +1163,23 @@ body {
 }
 
 @keyframes modal-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes modal-scale-up {
-  from { transform: scale(0.96); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .confirm-modal-overlay {
@@ -1093,7 +1237,9 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
   font-weight: 600;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .confirm-modal-cancel {
@@ -1203,7 +1349,10 @@ body {
   font-family: var(--a2ui-font-family-title);
   font-size: var(--a2ui-font-size-s);
   font-weight: 600;
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .atencion-filtro:hover:not(.atencion-filtro-activo) {
@@ -1222,17 +1371,49 @@ body {
 }
 
 .atencion-lista {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: var(--a2ui-spacing-m);
-  max-width: 640px;
+}
+
+@media (min-width: 1280px) {
+  .atencion-lista {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .atencion-lista {
+    grid-template-columns: 1fr;
+  }
 }
 
 .atencion-tarjeta {
+  display: flex;
+  flex-direction: row;
+  min-width: 0;
   border-radius: var(--radius-xl);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+/* La tarjeta A2UI (el <div class="a2ui-card"> que renderiza A2uiSurface) trae
+   su propio ancho "shrink-to-fit": sin esto, como hijo único de un flex row,
+   se queda al tamaño de su contenido en vez de repartirse 50/50 con su
+   vecina en la grilla. */
+.atencion-tarjeta > * {
+  width: 100%;
+}
+
+/* Las filas de historial (sin tarjeta A2UI) son angostas por diseño; que
+   ocupen las dos columnas evita que queden partidas a la mitad junto a una
+   tarjeta pendiente cuando el filtro es "todas". */
+.atencion-historial-item {
+  grid-column: 1 / -1;
 }
 
 .atencion-tarjeta:hover {
@@ -1268,7 +1449,11 @@ body {
 
 .atencion-historial-estado-atendida {
   color: var(--color-success, #059669);
-  background: color-mix(in srgb, var(--color-success, #059669) 12%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--color-success, #059669) 12%,
+    transparent
+  );
 }
 
 .atencion-historial-estado-descartada {

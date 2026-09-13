@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import AsistenteView from './AsistenteView.jsx';
 import AtencionView from './AtencionView.jsx';
 import YoView from './YoView.jsx';
+import { LogOut } from 'lucide-react';
 
 // Navbar de nivel app: antes ChatView era la única pantalla tras el login y
 // traía su propio encabezado con marca + "Salir". Ahora ese encabezado vive
@@ -53,7 +54,7 @@ export default function AppShell() {
           className="app-navbar-tab logout"
           onClick={logout}
         >
-          Salir
+          <LogOut size={22} color="white" />
         </button>
       </header>
       <main className="app-shell-body">

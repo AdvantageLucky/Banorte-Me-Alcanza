@@ -20,7 +20,7 @@ import { extractSurfaceId } from '../chat/extractSurfaceId.js';
 import { extractSurfaceText } from '../chat/extractSurfaceText.js';
 import { useSpeechRecognition } from '../chat/useSpeechRecognition.js';
 import { useSpeechSynthesis } from '../chat/useSpeechSynthesis.js';
-import Typewriter from '../components/typewritter.jsx';
+import AsistenteEmptyState from '../components/AsistenteEmptyState.jsx';
 import ConfirmActionModal from '../components/ConfirmActionModal.jsx';
 import ConversationSidebar from '../components/ConversationSidebar.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -223,7 +223,7 @@ export default function AsistenteView() {
       <div className="chat-view">
         <main className="chat-surfaces">
           {(turns.length === 0 && !sending) && (
-            <Typewriter />
+            <AsistenteEmptyState onSugerencia={submitMensaje} />
           )}
           {turns.map((turn) => {
             if (turn.kind === 'user') {
