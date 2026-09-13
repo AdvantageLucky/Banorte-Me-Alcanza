@@ -1,30 +1,56 @@
-# me-alcanza — frontend Flutter (Android)
+# Me alcanza — cliente Flutter (Android)
 
-Cliente Flutter con paridad funcional completa con el frontend React:
-login, chat con UI generativa (A2UI vía `genui`), y confirmación de
-acciones (apartado de ahorro / transferencia). Navegación de 3 tabs
-(Dashboard, Chat, Yo) — **solo Chat es funcional hoy**; Dashboard y Yo
-son placeholders deliberados (ver
-`docs/superpowers/specs/2026-09-12-frontend-flutter-design.md`).
+Segundo cliente del mismo backend: consume exactamente el mismo stream
+A2UI que el frontend web (`POST /api/chat`, `POST /api/confirm-action`)
+y lo renderiza con `genui` + `a2ui_core`. Es la prueba de que la
+interfaz *viaja* ([ADR 0012](../docs/adr/0012-dos-clientes-mismo-stream-a2ui.md)).
+
+## Pestañas
+
+| Pestaña | Qué hace | Estado |
+|---|---|---|
+| **Sugerencias** | Tarjetas A2UI que el backend arma solo, sin que el usuario pregunte (`GET /api/sugerencias`). Atender / Descartar van al REST. Historial colapsado. Badge con pendientes en la barra. | Hecho |
+| **Asistente** | Chat con UI generativa; conserva el hilo (`conversacion_id`) entre turnos; botón para abrir un hilo nuevo; tres preguntas sugeridas al inicio. | Hecho |
+| **Yo** | Un solo scroll: saldo + **riel de la quincena** (hoy → próxima nómina con los pagos fijos marcados), score de salud, y CRUD completo de pagos fijos, ingresos, metas (+ apartar / cancelar apartado), contactos y movimientos. Todo se edita en bottom sheets; deslizar para eliminar. | Hecho |
+
+**Pendiente — concepto bandera:** debajo de cada tarjeta de Sugerencias
+irá la propuesta de solución generada por el LLM para esa situación
+concreta, sin que el usuario teclee. El punto de extensión está
+marcado en `lib/sugerencias/sugerencias_screen.dart` (`_PendienteTile`).
+
+## Estructura
+
+```
+lib/
+├── a2ui/a2ui_host.dart        plomería genui compartida (chat y sugerencias)
+├── api/api_client.dart        un método por endpoint REST
+├── models/models.dart         formas de los recursos
+├── theme/                     tokens de marca + ThemeData (BankGothic para cifras)
+├── shared/                    formateadores es-MX, widgets comunes
+├── sugerencias/               controller, router de acciones, pantalla
+├── chat/                      pantalla del asistente + router de confirmar_accion
+├── yo/                        controller, riel de quincena, secciones, sheets, validadores
+├── login/  shell/  auth/
+└── config.dart                API_BASE_URL
+```
 
 ## Requisitos
 
 - Flutter 3.44+ / Dart 3.12+.
-- El backend corriendo (ver raíz del repo: `uv run me-alcanza`).
-- Un emulador Android (`flutter emulators --launch <id>`) o un celular
-  físico conectado por USB con depuración habilitada.
+- El backend corriendo (ver raíz del repo: `uv run me-alcanza`), o el
+  público en `https://homelab.tail8dc7f1.ts.net`.
 
-## Configuración de red — IMPORTANTE
+## Configuración de red
 
-- **Emulador Android**: usa el valor por defecto
-  (`http://10.0.2.2:8000`) — `10.0.2.2` es cómo el emulador ve el
-  `localhost` de la laptop que lo corre. No cambiar nada.
-- **Celular físico**: `10.0.2.2` NO funciona. Corre
-  `hostname -I` (Linux) o revisa tu IP de red local (ej.
-  `192.168.1.50`), asegúrate de que el celular esté en la misma red
-  Wi-Fi que la laptop, y lanza la app con:
+- **Emulador Android**: valor por defecto `http://10.0.2.2:8000`
+  (`10.0.2.2` es el `localhost` de la laptop visto desde el emulador).
+- **Celular físico**: misma red Wi-Fi que la laptop, y su IP local:
   ```bash
   flutter run --dart-define=API_BASE_URL=http://192.168.1.50:8000
+  ```
+- **Backend público**:
+  ```bash
+  flutter run --dart-define=API_BASE_URL=https://homelab.tail8dc7f1.ts.net
   ```
 
 ## Uso
@@ -35,45 +61,30 @@ flutter pub get
 flutter run
 ```
 
-Usuarios demo: `ana`/`pass123`, `luis`/`pass456`.
+Cuentas demo: `ana` / `pass123`, `luis` / `pass456`.
 
 ## Pruebas
 
 ```bash
-cd flutter_app
+flutter analyze
 flutter test
 ```
 
-Corre los tests unitarios de los módulos Dart puros (`ApiClient`,
-`AuthRepository`, `ActionRouter`). Las pantallas (`LoginScreen`,
-`ChatScreen`, `AppShell`) se verifican manualmente en un
-emulador/dispositivo — ver los dos flujos abajo.
+Unitarios sobre los módulos puros: `ApiClient` (todos los endpoints,
+incluidos errores 400/422), formateadores, validadores, el modelo del
+riel de la quincena, `SugerenciasController` y los routers de acciones.
+Las pantallas se verifican a mano en un emulador o dispositivo.
 
-## Verificación manual de los dos flujos núcleo
+## Verificación manual antes de la demo
 
-Con el backend corriendo y la app instalada en el emulador/dispositivo:
-
-1. **Afford-check + apartado**: inicia sesión como `ana`/`pass123`,
-   escribe "¿me alcanza para el concierto del 13 de octubre?". Debe
-   aparecer una tarjeta con el veredicto y, si no alcanza, un botón
-   para activar el apartado sugerido.
-2. **Transferencia con desambiguación**: escribe "deposítale 500 a mi
-   hermano Pepe". Deben aparecer dos tarjetas de confirmación (dos
-   contactos candidatos).
-
-Ambos flujos deben sobrevivir cerrar y volver a abrir la app sin perder
-la sesión (el token persiste vía `shared_preferences`).
-
-## Estado de verificación en este entorno de desarrollo
-
-- `flutter test`: corrido y verificado en este entorno (12/12 tests).
-- `flutter build apk --debug`: corrido y verificado en este entorno
-  (compila con éxito, genera el APK real incluyendo la integración de
-  `genui`).
-- Verificación manual end-to-end (los dos flujos de arriba, en un
-  emulador/dispositivo real contra el backend real): **no realizada en
-  este entorno** — no hay ningún dispositivo/emulador Android
-  disponible aquí (`flutter devices` no lista ninguno; el toolchain de
-  Android tiene licencias sin aceptar). Esta verificación queda
-  pendiente para que el equipo la corra en su propia máquina/dispositivo
-  antes de la demo, siguiendo los pasos de la sección anterior.
+1. **Sugerencias**: entra como `ana`. Deben aparecer 4 tarjetas de pago
+   próximo (Agua, Luz, dos colegiaturas). Descarta una: pasa al
+   historial y el badge baja a 3.
+2. **Yo**: el saldo dice `$500.00`, la frase "Mañana cobras $12,500" y
+   el riel muestra la nómina al final. Agrega un pago fijo con fecha
+   antes de la nómina: aparece como marca roja en el riel. En la meta
+   "Concierto", toca **Apartar**, deja `$142.50` semanal y activa: el
+   saldo baja a `$357.50` animado y aparece el movimiento.
+3. **Asistente**: pregunta "¿me alcanza para el concierto del 13 de
+   octubre?"; debe aparecer el veredicto con botón de apartado. Después
+   escribe "y si fueran 5,000": debe responder con memoria del hilo.

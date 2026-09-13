@@ -22,5 +22,10 @@ lo está llamando.
 - Es la prueba tangible de que el contrato A2UI es real y de que el equipo no
   está casado con un framework.
 - Duplica el costo de cada componente nuevo y de cada verificación manual.
-- Flutter tiene el chat completo; *Dashboard* y *Yo* ahí son placeholders. Si no
-  se muestra en la demo, el jurado no se entera y la inversión no cuenta.
+- Si Flutter no se muestra en la demo, el jurado no se entera y la inversión
+  no cuenta.
+
+*Actualización 2026-09-13:* Flutter dejó de ser "solo el chat". Tiene
+Sugerencias (tarjetas A2UI del backend con Atender/Descartar), Asistente con
+memoria de hilo y Yo con CRUD completo; la propuesta generada por el LLM bajo
+cada sugerencia sigue pendiente. Ver `flutter_app/README.md`.

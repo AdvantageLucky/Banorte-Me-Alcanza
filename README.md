@@ -130,7 +130,7 @@ docker compose up --build
 - Para levantar solo uno de los dos: `docker compose up --build backend`
   o `docker compose up --build frontend`.
 
-**Flutter** (opcional): `cd flutter_app && flutter run`. El emulador Android llega al host por `10.0.2.2:8000` ([`config.dart`](flutter_app/lib/config.dart)).
+**Flutter** (Android): `cd flutter_app && flutter run`. El emulador llega al host por `10.0.2.2:8000`; contra el backend público, `--dart-define=API_BASE_URL=https://homelab.tail8dc7f1.ts.net`. Detalle en [`flutter_app/README.md`](flutter_app/README.md).
 
 ### Desplegado
 
@@ -204,7 +204,7 @@ Cada decisión está registrada como ADR (formato Nygard) en [`docs/adr/`](docs/
 | [**Explicabilidad por componente**](docs/adr/0020-explicabilidad-por-componente.md) — modal *¿Cómo se calculó?* en todo número derivado | El brief pide UI que actúa; un veredicto sin sus entradas no es accionable | Prompt más largo; el modelo a veces omite el modal |
 | [**MCP real por stdio**](docs/adr/0006-mcp-como-proceso-separado-sobre-stdio.md), no un registry in-process | Es lo que la pieza MCP del reto exige; el servidor puede reutilizarse desde cualquier cliente MCP | Latencia de proceso; un `banco.db` compartido entre servidor y tests |
 | [**A2UI v0.9 con el catálogo básico del SDK**](docs/adr/0011-a2ui-con-catalogo-basico-del-sdk.md) | Priorizamos que el ciclo completo funcionara antes que componentes vistosos | Las tarjetas son genéricas (`Card/Text/Button/Modal`). Componentes de dominio propios — pendiente |
-| [**Dos clientes, un solo stream**](docs/adr/0012-dos-clientes-mismo-stream-a2ui.md) (React + Flutter) | Demuestra que la interfaz *viaja*: el backend no sabe quién la renderiza | Flutter solo tiene el chat real; *Dashboard* y *Yo* son placeholders ahí |
+| [**Dos clientes, un solo stream**](docs/adr/0012-dos-clientes-mismo-stream-a2ui.md) (React + Flutter) | Demuestra que la interfaz *viaja*: el backend no sabe quién la renderiza | Cada componente nuevo se paga dos veces; la propuesta LLM bajo cada sugerencia solo está pendiente en Flutter |
 | [**Sugerencias proactivas sin LLM**](docs/adr/0019-sugerencias-proactivas-sin-llm.md) | Alertas deterministas que aparecen solas en el Dashboard, sin que nadie pregunte | No es UI generativa; es un feed clásico. Con el seed actual dispara 1 de las 3 reglas |
 | [**SQLite + seed relativo a hoy**](docs/adr/0013-sqlite-con-seed-relativo-a-hoy.md) | Cero infraestructura; la demo dispara el mismo escenario cualquier día | No es multi-proceso; suficiente para la demo |
 | [**Gemini gratuito, modelo configurable**](docs/adr/0005-gemini-via-google-ai-studio.md) | Function calling estable con el SDK A2UI de Python; costo cero | Cuota del tier gratuito el día del evento — por eso existe el [modo offline](docs/adr/0016-modo-offline-determinista.md) |
