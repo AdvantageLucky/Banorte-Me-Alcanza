@@ -183,6 +183,47 @@ def seed(conn: sqlite3.Connection) -> None:
         ("luis", "003344", 8200.00, "MXN"),
     )
 
+    conn.execute(
+        "INSERT INTO usuarios (account_id, username, password_hash, nombre) VALUES (?, ?, ?, ?)",
+        ("jesus", "jesus", hash_password("mty123"), "Jesús Chávez"),
+    )
+    conn.execute(
+        "INSERT INTO cuentas (account_id, numero_cuenta, saldo, moneda) VALUES (?, ?, ?, ?)",
+        ("jesus", "005566", 3200.00, "MXN"),
+    )
+    conn.execute(
+        """
+        INSERT INTO ingresos_programados (account_id, descripcion, monto, frecuencia, proxima_fecha)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        ("jesus", "Nómina", 9800.00, "quincenal", (hoy + timedelta(days=4)).isoformat()),
+    )
+    for concepto, monto, dias_offset in [
+        ("Renta", 4500.00, 6),
+        ("Internet", 599.00, 6),
+    ]:
+        conn.execute(
+            """
+            INSERT INTO gastos_fijos (account_id, concepto, monto, frecuencia, proxima_fecha)
+            VALUES (?, ?, ?, 'mensual', ?)
+            """,
+            ("jesus", concepto, monto, (hoy + timedelta(days=dias_offset)).isoformat()),
+        )
+    conn.execute(
+        """
+        INSERT INTO metas (account_id, descripcion, monto_objetivo, fecha_objetivo)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("jesus", "Laptop nueva", 18000.00, (hoy + timedelta(days=90)).isoformat()),
+    )
+    conn.execute(
+        """
+        INSERT INTO contactos (account_id_titular, nombre, alias, cuenta_destino, relacion)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        ("jesus", "Ana Torres", "Ana", "001122", "amiga"),
+    )
+
     conn.commit()
 
 

@@ -23,9 +23,10 @@ def conn():
     connection.close()
 
 
-def test_seed_crea_dos_usuarios(conn):
+def test_seed_crea_tres_usuarios(conn):
     assert db.autenticar(conn, "ana", "pass123") == "ana"
     assert db.autenticar(conn, "luis", "pass456") == "luis"
+    assert db.autenticar(conn, "jesus", "mty123") == "jesus"
 
 
 def test_autenticar_rechaza_password_incorrecta(conn):
@@ -39,7 +40,7 @@ def test_autenticar_rechaza_usuario_inexistente(conn):
 def test_seed_es_idempotente(conn):
     db.seed(conn)  # segunda llamada no debe duplicar ni fallar
     total = conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
-    assert total == 2
+    assert total == 3
 
 
 def test_get_saldo(conn):
