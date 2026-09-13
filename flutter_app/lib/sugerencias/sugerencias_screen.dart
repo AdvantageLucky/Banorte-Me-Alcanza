@@ -135,7 +135,7 @@ class _SugerenciasScreenState extends State<SugerenciasScreen> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     return Scaffold(
-      appBar: BrandAppBar(seccion: 'Sugerencias', onLogout: widget.authController.logout),
+      appBar: BrandAppBar(seccion: 'Atención', onLogout: widget.authController.logout),
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, _) {

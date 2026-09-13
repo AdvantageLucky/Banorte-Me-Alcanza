@@ -117,7 +117,7 @@ class _AppShellState extends State<AppShell> {
                   isLabelVisible: pendientes > 0,
                   child: const Icon(Icons.notifications),
                 ),
-                label: 'Sugerencias',
+                label: 'Atención',
               ),
               const NavigationDestination(
                 icon: Icon(Icons.chat_bubble_outline),
