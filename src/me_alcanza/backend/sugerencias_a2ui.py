@@ -31,10 +31,11 @@ def _formatear_fecha(fecha_iso: str) -> str:
 
 
 def titulo_y_descripcion(tipo: str, detalle: dict) -> tuple[str, str]:
-    # Mismo copy que antes vivía en el frontend (sugerenciaCopy.js) -se mueve
-    # aquí porque ahora la tarjeta completa (no solo el texto) la arma el
-    # backend, para que las notificaciones se rendericen con el mismo
-    # catálogo A2UI que cualquier respuesta del chat, no como HTML aparte.
+    # Se usa para el resumen de texto plano del modal HITL de "Atender" (ver
+    # extractSugerenciaCopy.js: recombina lo que aquí se separa en label/
+    # value/trendLabel del StatCard). La tarjeta que ve el usuario en el feed
+    # ya no usa este texto tal cual: usa un StatCard (ver
+    # _stat_card_props/construir_tarjeta_sugerencia).
     if tipo == "riesgo_liquidez":
         return (
             "Riesgo de saldo negativo",
@@ -57,12 +58,49 @@ def titulo_y_descripcion(tipo: str, detalle: dict) -> tuple[str, str]:
     return ("Sugerencia", "")
 
 
+def _stat_card_props(tipo: str, detalle: dict) -> dict:
+    # El dato destacado de cada tipo de sugerencia, para el StatCard que
+    # reemplaza el texto plano en la tarjeta del feed (ver
+    # construir_tarjeta_sugerencia) — mismo StatCard que ya usa el LLM en el
+    # chat (a2ui_custom_catalog.py), para que "Atención" no se sienta como
+    # un feed de texto aparte sino como la misma UI generativa.
+    if tipo == "riesgo_liquidez":
+        return {
+            "label": "Saldo proyectado",
+            "value": _formatear_monto(detalle["margen"]),
+            "trendLabel": f"para el {_formatear_fecha(detalle['fecha_critica'])}",
+            "tone": "negative",
+        }
+    if tipo == "gasto_fijo_proximo":
+        return {
+            "label": detalle["concepto"],
+            "value": _formatear_monto(detalle["monto"]),
+            "trendLabel": (
+                f"vence el {_formatear_fecha(detalle['proxima_fecha'])} y es una parte "
+                "importante de tu saldo actual"
+            ),
+            "tone": "warning",
+        }
+    if tipo == "meta_en_riesgo":
+        return {
+            "label": detalle["descripcion"],
+            "value": (
+                f"{_formatear_monto(detalle['monto_ahorrado'])} de "
+                f"{_formatear_monto(detalle['monto_objetivo'])}"
+            ),
+            "trendLabel": f"fecha límite {_formatear_fecha(detalle['fecha_objetivo'])}",
+            "tone": "warning",
+        }
+    return {"label": "Sugerencia", "value": "", "tone": "neutral"}
+
+
 def construir_tarjeta_sugerencia(sugerencia: dict) -> list[dict]:
     # Determinista, no generada por el LLM: misma garantía de seguridad que
     # 'proponer_x'/'confirmar_accion' -el usuario nunca confirma/descarta
     # contra un texto que el modelo pudo haber alucinado, porque el modelo
     # nunca participa en armar esto.
-    titulo, descripcion = titulo_y_descripcion(sugerencia["tipo"], sugerencia["detalle"])
+    titulo, _ = titulo_y_descripcion(sugerencia["tipo"], sugerencia["detalle"])
+    stat_props = _stat_card_props(sugerencia["tipo"], sugerencia["detalle"])
     surface_id = _new_surface_id()
     sugerencia_id = sugerencia["id"]
     return [
@@ -73,9 +111,9 @@ def construir_tarjeta_sugerencia(sugerencia: dict) -> list[dict]:
                 "surfaceId": surface_id,
                 "components": [
                     {"id": "root", "component": "Card", "child": "col"},
-                    {"id": "col", "component": "Column", "children": ["titulo", "descripcion", "botones"]},
+                    {"id": "col", "component": "Column", "children": ["titulo", "stat", "botones"]},
                     {"id": "titulo", "component": "Text", "text": titulo, "variant": "h3"},
-                    {"id": "descripcion", "component": "Text", "text": descripcion, "variant": "body"},
+                    {"id": "stat", "component": "StatCard", **stat_props},
                     {
                         "id": "botones",
                         "component": "Row",
