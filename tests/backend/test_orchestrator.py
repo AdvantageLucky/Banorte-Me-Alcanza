@@ -804,6 +804,9 @@ async def test_handle_message_proponer_contacto_crea_propuesta_sin_tocar_mcp():
     proposal = next(iter(proposals.PROPOSALS.values()))
     assert proposal.tipo == "contacto"
     assert proposal.payload["nombre"] == "Sofía López"
+    # El hilo real donde se propuso — sin esto, confirmar más tarde no sabe
+    # en qué conversación dejar el resultado (ver confirm_action).
+    assert proposal.conversacion_id == 1
 
 
 @pytest.mark.asyncio
@@ -849,6 +852,85 @@ async def test_confirm_action_contacto_llama_crear_contacto_en_mcp():
     )
     assert "createSurface" in messages[0]
     assert proposal.id not in proposals.PROPOSALS
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_persiste_la_confirmacion_en_el_hilo_donde_se_propuso():
+    # El hallazgo: reabrir una conversación pasada mostraba la tarjeta
+    # original de "agregar contacto" sin ninguna señal de si de verdad se
+    # confirmó — el resultado nunca se guardaba en el historial. Ahora debe
+    # quedar un segundo turno "model" en ESE hilo con el mensaje de éxito.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1, "nombre": "Mamá"})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "contacto",
+        {"nombre": "Mamá", "alias": "Mamá", "cuenta_destino": "1234567890", "relacion": "Familia"},
+        "Agregar a Mamá (Mamá) como contacto",
+        conversacion_id=42,
+    )
+    await orchestrator.confirm_action("ana", proposal.id)
+
+    llamadas = mcp_client.call.await_args_list
+    assert llamadas[0].args[0] == "crear_contacto"
+    assert llamadas[1].args[0] == "agregar_mensaje_conversacion"
+    persist_args = llamadas[1].args[1]
+    assert persist_args["account_id"] == "ana"
+    assert persist_args["conversacion_id"] == 42
+    assert persist_args["rol"] == "model"
+
+    # El texto guardado debe reconstruirse igual que cualquier otro turno
+    # del historial (mismo camino que reparsear_mensaje_modelo usa al abrir
+    # una conversación pasada).
+    reconstruido = orchestrator.reparsear_mensaje_modelo(persist_args["contenido"])
+    assert reconstruido is not None
+    valores = next(m for m in reconstruido if "updateDataModel" in m)["updateDataModel"]["value"]
+    assert valores == {"mensaje": "Contacto Mamá agregado correctamente."}
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_sin_conversacion_id_no_intenta_persistir():
+    # Propuestas creadas sin conversacion_id (hoy no debería pasar para
+    # ningún tipo, pero es el default del dataclass) no deben intentar
+    # guardar nada — solo la llamada que crea el contacto.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"id": 1, "nombre": "Sofía López"})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "contacto",
+        {"nombre": "Sofía López", "alias": "Sofi", "cuenta_destino": "5566778899", "relacion": "amiga"},
+        "Agregar a Sofía López (Sofi) como contacto",
+    )
+    await orchestrator.confirm_action("ana", proposal.id)
+    mcp_client.call.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_fallo_al_persistir_no_descarta_la_accion_ya_ejecutada():
+    # Mismo criterio que handle_message: crear_contacto YA se ejecutó de
+    # verdad cuando el guardado en el historial falla — ese fallo nunca debe
+    # convertirse en un error de vuelta al usuario.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(
+        side_effect=[{"id": 1, "nombre": "Mamá"}, RuntimeError("persist failed")]
+    )
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana",
+        "contacto",
+        {"nombre": "Mamá", "alias": "Mamá", "cuenta_destino": "1234567890", "relacion": "Familia"},
+        "Agregar a Mamá (Mamá) como contacto",
+        conversacion_id=42,
+    )
+    messages = await orchestrator.confirm_action("ana", proposal.id)
+
+    valores = next(m for m in messages if "updateDataModel" in m)["updateDataModel"]["value"]
+    assert valores == {"mensaje": "Contacto Mamá agregado correctamente."}
 
 
 @pytest.mark.asyncio

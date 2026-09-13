@@ -13,18 +13,31 @@ class Proposal:
     payload: dict
     resumen: str
     created_at: float = field(default_factory=time.time)
+    # Hilo donde el modelo la propuso (None solo si se creó fuera de un chat,
+    # lo cual hoy no ocurre para ningún tipo de propuesta). Al confirmar, el
+    # resultado se persiste en ESTE hilo — ver Orchestrator.confirm_action —
+    # para que reabrir la conversación después muestre si de verdad se
+    # autorizó, no solo la tarjeta original sin confirmar.
+    conversacion_id: int | None = None
 
 
 PROPOSALS: dict[str, Proposal] = {}
 
 
-def crear_propuesta(account_id: str, tipo: str, payload: dict, resumen: str) -> Proposal:
+def crear_propuesta(
+    account_id: str,
+    tipo: str,
+    payload: dict,
+    resumen: str,
+    conversacion_id: int | None = None,
+) -> Proposal:
     proposal = Proposal(
         id=str(uuid.uuid4()),
         account_id=account_id,
         tipo=tipo,
         payload=payload,
         resumen=resumen,
+        conversacion_id=conversacion_id,
     )
     PROPOSALS[proposal.id] = proposal
     return proposal

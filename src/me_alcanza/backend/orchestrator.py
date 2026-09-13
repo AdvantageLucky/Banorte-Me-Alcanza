@@ -1,8 +1,10 @@
+import json
 import logging
 import uuid
 from typing import Any
 
 from a2ui.inference_formats.direct_json.format import DirectJsonFormat
+from a2ui.schema.constants import A2UI_CLOSE_TAG, A2UI_OPEN_TAG
 from google.genai import types
 
 from . import a2ui_custom_catalog, fake_provider, proposals
@@ -160,6 +162,14 @@ def _confirmation_a2ui_block(mensaje: str, surface_id: str | None = None) -> lis
             },
         },
     ]
+
+
+def _a2ui_block_to_raw_text(block: list[dict]) -> str:
+    """Serializa un bloque A2UI ya armado (ej. `_confirmation_a2ui_block`) al
+    mismo formato de texto crudo que produce el LLM, para poder persistirlo
+    con `agregar_mensaje_conversacion` y que `reparsear_mensaje_modelo` lo
+    reconstruya igual que cualquier otro turno del historial."""
+    return f"{A2UI_OPEN_TAG}\n{json.dumps(block)}\n{A2UI_CLOSE_TAG}"
 
 
 # Campos que el usuario puede corregir en la tarjeta de confirmación antes de
@@ -723,7 +733,7 @@ class Orchestrator:
             ),
         )
 
-    async def _run_tool_loop(self, account_id: str, contents: list) -> str:
+    async def _run_tool_loop(self, account_id: str, contents: list, conversacion_id: int) -> str:
         config = self._generate_content_config()
 
         for _ in range(MAX_TOOL_CALL_ROUNDS):
@@ -736,7 +746,7 @@ class Orchestrator:
             contents.append(response.candidates[0].content)
 
             for call in response.function_calls:
-                tool_result = await self._dispatch_tool_call(account_id, call)
+                tool_result = await self._dispatch_tool_call(account_id, call, conversacion_id)
                 contents.append(
                     types.Part.from_function_response(
                         name=call.name,
@@ -746,7 +756,7 @@ class Orchestrator:
 
         return ""
 
-    async def _dispatch_tool_call(self, account_id: str, call) -> Any:
+    async def _dispatch_tool_call(self, account_id: str, call, conversacion_id: int) -> Any:
         if call.name in _READ_ONLY_TOOLS:
             args = {"account_id": account_id}
             if call.name in ("get_resumen_movimientos", "detectar_picos_gasto"):
@@ -783,26 +793,26 @@ class Orchestrator:
                 return {"error": str(exc)}
 
         if call.name == "proponer_transferencia":
-            return await self._proponer_transferencia(account_id, call.args)
+            return await self._proponer_transferencia(account_id, call.args, conversacion_id)
 
         if call.name == "proponer_apartado":
-            return self._proponer_apartado(account_id, call.args)
+            return self._proponer_apartado(account_id, call.args, conversacion_id)
 
         if call.name == "proponer_contacto":
-            return self._proponer_contacto(account_id, call.args)
+            return self._proponer_contacto(account_id, call.args, conversacion_id)
 
         if call.name == "proponer_gasto_fijo":
-            return self._proponer_gasto_fijo(account_id, call.args)
+            return self._proponer_gasto_fijo(account_id, call.args, conversacion_id)
 
         if call.name == "proponer_ingreso_programado":
-            return self._proponer_ingreso_programado(account_id, call.args)
+            return self._proponer_ingreso_programado(account_id, call.args, conversacion_id)
 
         if call.name == "proponer_meta":
-            return self._proponer_meta(account_id, call.args)
+            return self._proponer_meta(account_id, call.args, conversacion_id)
 
         return {"error": f"Herramienta no permitida: {call.name}"}
 
-    async def _proponer_transferencia(self, account_id: str, args: dict) -> dict:
+    async def _proponer_transferencia(self, account_id: str, args: dict, conversacion_id: int) -> dict:
         args = args or {}
         monto = args.get("monto")
         if monto is None:
@@ -836,10 +846,11 @@ class Orchestrator:
                 "concepto": concepto,
             },
             resumen=f"Transferir ${monto:.2f} a {contacto['nombre']}",
+            conversacion_id=conversacion_id,
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
-    def _proponer_apartado(self, account_id: str, args: dict) -> dict:
+    def _proponer_apartado(self, account_id: str, args: dict, conversacion_id: int) -> dict:
         args = args or {}
         meta_id = args.get("meta_id")
         if meta_id is None:
@@ -864,10 +875,11 @@ class Orchestrator:
                 "periodicidad": periodicidad,
             },
             resumen=f"Apartar ${monto_por_periodo:.2f} {periodicidad} hacia tu meta",
+            conversacion_id=conversacion_id,
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
-    def _proponer_contacto(self, account_id: str, args: dict) -> dict:
+    def _proponer_contacto(self, account_id: str, args: dict, conversacion_id: int) -> dict:
         payload = {
             "nombre": (args or {}).get("nombre"),
             "alias": (args or {}).get("alias"),
@@ -883,10 +895,11 @@ class Orchestrator:
             tipo="contacto",
             payload=payload,
             resumen=f"Agregar a {payload['nombre']} ({payload['alias']}) como contacto",
+            conversacion_id=conversacion_id,
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
-    def _proponer_gasto_fijo(self, account_id: str, args: dict) -> dict:
+    def _proponer_gasto_fijo(self, account_id: str, args: dict, conversacion_id: int) -> dict:
         payload = {
             "concepto": (args or {}).get("concepto"),
             "monto": (args or {}).get("monto"),
@@ -902,10 +915,11 @@ class Orchestrator:
             tipo="gasto_fijo",
             payload=payload,
             resumen=f"Agregar gasto fijo: {payload['concepto']} (${payload['monto']:.2f} {payload['frecuencia']})",
+            conversacion_id=conversacion_id,
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
-    def _proponer_ingreso_programado(self, account_id: str, args: dict) -> dict:
+    def _proponer_ingreso_programado(self, account_id: str, args: dict, conversacion_id: int) -> dict:
         payload = {
             "descripcion": (args or {}).get("descripcion"),
             "monto": (args or {}).get("monto"),
@@ -921,10 +935,11 @@ class Orchestrator:
             tipo="ingreso_programado",
             payload=payload,
             resumen=f"Agregar ingreso programado: {payload['descripcion']} (${payload['monto']:.2f} {payload['frecuencia']})",
+            conversacion_id=conversacion_id,
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
 
-    def _proponer_meta(self, account_id: str, args: dict) -> dict:
+    def _proponer_meta(self, account_id: str, args: dict, conversacion_id: int) -> dict:
         payload = {
             "descripcion": (args or {}).get("descripcion"),
             "monto_objetivo": (args or {}).get("monto_objetivo"),
@@ -938,6 +953,7 @@ class Orchestrator:
             account_id=account_id,
             tipo="meta",
             payload=payload,
+            conversacion_id=conversacion_id,
             resumen=f"Crear meta: {payload['descripcion']} (${payload['monto_objetivo']:.2f})",
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
@@ -1031,8 +1047,8 @@ class Orchestrator:
                         "periodicidad": proposal.payload["periodicidad"],
                     },
                 )
-                return _confirmation_a2ui_block(
-                    "Apartado de ahorro activado correctamente."
+                return await self._responder_confirmacion(
+                    account_id, proposal, "Apartado de ahorro activado correctamente."
                 )
 
             if proposal.tipo == "transferencia":
@@ -1058,8 +1074,10 @@ class Orchestrator:
                         "concepto": proposal.payload["concepto"],
                     },
                 )
-                return _confirmation_a2ui_block(
-                    f"Transferencia realizada. Nuevo saldo: ${resultado['nuevo_saldo']:.2f}"
+                return await self._responder_confirmacion(
+                    account_id,
+                    proposal,
+                    f"Transferencia realizada. Nuevo saldo: ${resultado['nuevo_saldo']:.2f}",
                 )
 
             if proposal.tipo == "contacto":
@@ -1073,8 +1091,8 @@ class Orchestrator:
                         "relacion": payload["relacion"],
                     },
                 )
-                return _confirmation_a2ui_block(
-                    f"Contacto {payload['nombre']} agregado correctamente."
+                return await self._responder_confirmacion(
+                    account_id, proposal, f"Contacto {payload['nombre']} agregado correctamente."
                 )
 
             if proposal.tipo == "gasto_fijo":
@@ -1088,8 +1106,8 @@ class Orchestrator:
                         "proxima_fecha": payload["proxima_fecha"],
                     },
                 )
-                return _confirmation_a2ui_block(
-                    f"Gasto fijo '{payload['concepto']}' agregado correctamente."
+                return await self._responder_confirmacion(
+                    account_id, proposal, f"Gasto fijo '{payload['concepto']}' agregado correctamente."
                 )
 
             if proposal.tipo == "ingreso_programado":
@@ -1103,8 +1121,10 @@ class Orchestrator:
                         "proxima_fecha": payload["proxima_fecha"],
                     },
                 )
-                return _confirmation_a2ui_block(
-                    f"Ingreso programado '{payload['descripcion']}' agregado correctamente."
+                return await self._responder_confirmacion(
+                    account_id,
+                    proposal,
+                    f"Ingreso programado '{payload['descripcion']}' agregado correctamente.",
                 )
 
             if proposal.tipo == "meta":
@@ -1117,8 +1137,8 @@ class Orchestrator:
                         "fecha_objetivo": payload["fecha_objetivo"],
                     },
                 )
-                return _confirmation_a2ui_block(
-                    f"Meta '{payload['descripcion']}' creada correctamente."
+                return await self._responder_confirmacion(
+                    account_id, proposal, f"Meta '{payload['descripcion']}' creada correctamente."
                 )
 
             return error_a2ui_block(f"Tipo de propuesta desconocido: {proposal.tipo}")
@@ -1132,6 +1152,35 @@ class Orchestrator:
             return error_a2ui_block(
                 "No se pudo completar la acción. Intenta de nuevo en unos momentos."
             )
+
+    async def _responder_confirmacion(
+        self, account_id: str, proposal: proposals.Proposal, mensaje: str
+    ) -> list[dict]:
+        # La acción real (crear_contacto, ejecutar_transferencia, etc.) ya se
+        # ejecutó cuando esto se llama. Persistir el resultado en el hilo
+        # donde se propuso es lo único que hace que reabrir esa conversación
+        # después muestre si de verdad se autorizó, en vez de solo la
+        # tarjeta original — que sin esto se ve idéntica confirmada o no.
+        # Si falta conversacion_id (no debería, toda propuesta hoy nace
+        # dentro de un chat) o si el guardado falla, la acción YA ocurrió de
+        # verdad: nunca se convierte ese fallo en un error de vuelta al
+        # usuario, solo se registra (mismo criterio que handle_message usa
+        # para sus propios `agregar_mensaje_conversacion`).
+        bloque = _confirmation_a2ui_block(mensaje)
+        if proposal.conversacion_id is not None:
+            try:
+                await self._mcp.call(
+                    "agregar_mensaje_conversacion",
+                    {
+                        "account_id": account_id,
+                        "conversacion_id": proposal.conversacion_id,
+                        "rol": "model",
+                        "contenido": _a2ui_block_to_raw_text(bloque),
+                    },
+                )
+            except Exception:  # noqa: BLE001 - ver comentario arriba
+                _logger.exception("No se pudo persistir la confirmación en el historial")
+        return bloque
 
     def reparsear_mensaje_modelo(self, contenido: str) -> list[dict] | None:
         # Los turnos "model" persistidos en una conversación guardan el texto
@@ -1182,7 +1231,7 @@ class Orchestrator:
                 final_text = fake_provider.generar_respuesta_offline(mensaje)
                 es_respuesta_offline = True
             else:
-                final_text = await self._run_tool_loop(account_id, contents)
+                final_text = await self._run_tool_loop(account_id, contents, conversacion_id)
 
             for attempt in range(2):
                 try:
