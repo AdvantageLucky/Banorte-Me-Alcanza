@@ -9,25 +9,13 @@ esta carpeta. El mismo workflow compila el APK y lo sube como asset del
 Release fijo `latest-apk`, así que el link/QR de descarga siempre apunta al
 build más reciente sin cambiar de URL.
 
-## Requisito: el repo debe ser público
-
-- **GitHub Pages** en un repo privado necesita un plan de pago (Pro/Team/Enterprise).
-- Aunque Pages funcionara, los **assets de un Release en un repo privado**
-  exigen sesión de GitHub para descargarse — alguien escaneando el QR desde
-  su celular vería un login, no el APK.
-
-Con el repo público, ambos son gratis y de verdad públicos.
-
-## Activar Pages (una sola vez, después de hacer público el repo)
-
-```bash
-gh api repos/AdvantageLucky/Banorte-Me-Alcanza/pages -X POST -f build_type=workflow
-```
-
-o desde la UI: **Settings → Pages → Build and deployment → Source: GitHub
-Actions**. Después de eso, el workflow la despliega solo en cada push.
-
-La URL final es `https://advantagelucky.github.io/Banorte-Me-Alcanza/`.
+**Ya está en línea:** el repo es público, Pages está activado
+(`build_type: workflow`) y `https://advantagelucky.github.io/Banorte-Me-Alcanza/`
+responde 200. `qr-landing.png` es el QR de ESA página completa (no de
+`qr-web.png`/`qr-apk.png` por separado) — es el que va en diapositivas o
+cualquier lugar donde solo quepa un QR: quien lo escanea llega a la landing
+y ahí elige web o APK con contexto, en vez de dos códigos sueltos sin
+explicación.
 
 ## Regenerar los QR si cambian las URLs
 
@@ -36,4 +24,6 @@ uvx --from qrcode[pil] qr --output docs/landing/qr-web.png --error-correction=M 
   "https://frontend.jzackarias.lat"
 uvx --from qrcode[pil] qr --output docs/landing/qr-apk.png --error-correction=M \
   "https://github.com/AdvantageLucky/Banorte-Me-Alcanza/releases/download/latest-apk/me-alcanza.apk"
+uvx --from qrcode[pil] qr --output docs/landing/qr-landing.png --error-correction=H \
+  "https://advantagelucky.github.io/Banorte-Me-Alcanza/"
 ```
