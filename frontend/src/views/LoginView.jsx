@@ -27,6 +27,15 @@ export default function LoginView() {
     }
   }
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      // Si no se está enviando ya, ejecutamos la función pasando el evento
+      if (!submitting) {
+        handleSubmit(event);
+      }
+    }
+  };
+
   return (
     <div className="login-view">
       <header className="login-navbar">
@@ -41,13 +50,14 @@ export default function LoginView() {
               <p className="login-card-subtitle">Inicia sesión para continuar.</p>
               <label>
                 Usuario
-                <input value={username} onChange={(event) => setUsername(event.target.value)} required />
+                <input value={username} onKeyDown={handleKeyDown} onChange={(event) => setUsername(event.target.value)} required />
               </label>
               <label>
                 Contraseña
                 <input
                   type="password"
                   value={password}
+                  onKeyDown={handleKeyDown}
                   onChange={(event) => setPassword(event.target.value)}
                   required
                 />
