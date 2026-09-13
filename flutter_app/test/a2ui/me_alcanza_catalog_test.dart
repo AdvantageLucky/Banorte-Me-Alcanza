@@ -18,13 +18,18 @@ List<Map<String, dynamic>> _mensajes(List<Map<String, dynamic>> componentes, {Ma
         {'version': 'v0.9', 'updateDataModel': {'surfaceId': _surface, 'path': '/', 'value': data}},
     ];
 
-Future<SurfaceController> _montar(WidgetTester tester, List<Map<String, dynamic>> mensajes) async {
+Future<SurfaceController> _montar(
+  WidgetTester tester,
+  List<Map<String, dynamic>> mensajes, {
+  double? ancho,
+}) async {
   final controller = SurfaceController(catalogs: [BasicCatalogItems.asCatalog(), buildMeAlcanzaCatalog()]);
   for (final m in mensajes) {
     controller.handleMessage(core.A2uiMessage.fromJson(m));
   }
+  final surface = Surface(surfaceContext: controller.contextFor(_surface));
   await tester.pumpWidget(MaterialApp(
-    home: Scaffold(body: Surface(surfaceContext: controller.contextFor(_surface))),
+    home: Scaffold(body: ancho == null ? surface : SizedBox(width: ancho, child: surface)),
   ));
   await tester.pump();
   return controller;
@@ -258,6 +263,37 @@ void main() {
         controller.contextFor(_surface).dataModel.getValue<double>(DataPath('/montoAsignado'));
     expect(nuevoMonto, isNotNull);
     expect(nuevoMonto, greaterThan(500.0));
+    controller.dispose();
+  });
+
+  testWidgets('Row del catálogo básico no desborda con un par etiqueta/valor largo', (tester) async {
+    // Reproduce el bug real visto en producción: el modelo arma
+    // {"component": "Row", "children": [etiqueta, valor]} sin "weight" en
+    // ninguno de los dos para una línea de simulación ("Monto objetivo del
+    // concierto: $8,004.00 MXN"). El 'Row' del catálogo básico de genui deja
+    // ambos hijos sin envolver en Flexible (ver `buildWeightedChild`), y con
+    // `mainAxisSize: MainAxisSize.min` eso les da un ancho sin acotar — si no
+    // caben, el Row desborda horizontalmente en vez de partir la línea. Se
+    // fuerza aquí un ancho de teléfono real (320) para que el desborde
+    // ocurra sin el fix.
+    final controller = await _montar(
+      tester,
+      _mensajes([
+        {
+          'id': 'root',
+          'component': 'Row',
+          'justify': 'spaceBetween',
+          'children': ['etiqueta', 'valor'],
+        },
+        {'id': 'etiqueta', 'component': 'Text', 'text': 'Monto objetivo del concierto:'},
+        {'id': 'valor', 'component': 'Text', 'text': r'$8,004.00 MXN'},
+      ]),
+      ancho: 320,
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('Monto objetivo del concierto'), findsOneWidget);
+    expect(find.textContaining(r'$8,004.00 MXN'), findsOneWidget);
     controller.dispose();
   });
 

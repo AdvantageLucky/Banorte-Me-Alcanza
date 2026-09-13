@@ -30,6 +30,7 @@ Catalog buildMeAlcanzaCatalog() => BasicCatalogItems.asCatalog().copyWith(
         apartadoPlanner,
         donutChart,
         budgetAllocator,
+        rowSinDesborde,
       ],
       catalogId: meAlcanzaCatalogId,
     );
@@ -1247,3 +1248,131 @@ class _BudgetAllocatorView extends StatelessWidget {
     );
   }
 }
+
+// ------------------------------------------------------ Row sin desborde
+//
+// El 'Row' del catálogo básico de genui deja sin envolver en `Flexible` a
+// cualquier hijo sin `weight` explícito (ver `buildWeightedChild` en el
+// paquete: solo envuelve si `weight != null`). Combinado con
+// `mainAxisSize: MainAxisSize.min`, eso le da a esos hijos un ancho máximo
+// sin acotar — si el modelo arma un Row de dos Text (el patrón habitual
+// "etiqueta: valor" en tarjetas de simulación) y el total no cabe, el Row
+// desborda horizontalmente en vez de partir la línea. En debug se ve como
+// el banner de overflow (visto en tarjetas de "Monto objetivo del
+// concierto" / "Saldo mínimo proyectado"); en release el texto sencillamente
+// se recorta sin aviso.
+//
+// Se sobreescribe el item 'Row' del catálogo básico (mismo nombre => lo
+// reemplaza `Catalog.copyWith`) para que TODO hijo sin `weight` también
+// quede envuelto en un `Flexible` suelto con flex 1. Un hijo que ya cabía no
+// cambia de tamaño (Flexible suelto no fuerza a ocupar más espacio del que
+// necesita); uno que no cabía ahora envuelve texto en vez de desbordar. Los
+// hijos con `weight` explícito se comportan exactamente igual que antes.
+MainAxisAlignment _parseJustify(String? value) => switch (value) {
+      'center' => MainAxisAlignment.center,
+      'end' => MainAxisAlignment.end,
+      'spaceBetween' => MainAxisAlignment.spaceBetween,
+      'spaceAround' => MainAxisAlignment.spaceAround,
+      'spaceEvenly' => MainAxisAlignment.spaceEvenly,
+      _ => MainAxisAlignment.start,
+    };
+
+CrossAxisAlignment _parseAlign(String? value) => switch (value) {
+      'center' => CrossAxisAlignment.center,
+      'end' => CrossAxisAlignment.end,
+      'stretch' => CrossAxisAlignment.stretch,
+      _ => CrossAxisAlignment.start,
+    };
+
+Widget _buildRowChild({
+  required String componentId,
+  required DataContext dataContext,
+  required ChildBuilderCallback buildChild,
+  required GetComponentCallback getComponent,
+  Key? key,
+}) {
+  final explicitWeight = getComponent(componentId)?.properties['weight'] as int?;
+  return buildWeightedChild(
+    componentId: componentId,
+    dataContext: dataContext,
+    buildChild: buildChild,
+    weight: explicitWeight ?? 1,
+    flexFit: explicitWeight != null ? FlexFit.tight : FlexFit.loose,
+    key: key,
+  );
+}
+
+final rowSinDesborde = CatalogItem(
+  name: 'Row',
+  dataSchema: S.object(
+    description: 'A layout widget that arranges its children horizontally.',
+    properties: {
+      'children': A2uiSchemas.componentArrayReference(
+        description:
+            'Either an explicit list of widget IDs for the children, or a '
+            'template with a data binding to the list of children.',
+      ),
+      'justify': S.string(
+        enumValues: ['start', 'center', 'end', 'spaceBetween', 'spaceAround', 'spaceEvenly'],
+      ),
+      'align': S.string(enumValues: ['start', 'center', 'end', 'stretch']),
+    },
+    required: ['children'],
+  ),
+  widgetBuilder: (itemContext) {
+    final json = itemContext.data as Map<String, Object?>;
+    final children = json['children'];
+    final justify = _parseJustify(json['justify'] as String?);
+    final align = _parseAlign(json['align'] as String?);
+
+    return ComponentChildrenBuilder(
+      childrenData: children,
+      dataContext: itemContext.dataContext,
+      buildChild: itemContext.buildChild,
+      getComponent: itemContext.getComponent,
+      explicitListBuilder: (childIds, buildChild, getComponent, dataContext) => Row(
+        mainAxisAlignment: justify,
+        crossAxisAlignment: align,
+        mainAxisSize: MainAxisSize.min,
+        spacing: 16,
+        children: childIds
+            .map((id) => _buildRowChild(
+                  componentId: id,
+                  dataContext: dataContext,
+                  buildChild: buildChild,
+                  getComponent: getComponent,
+                ))
+            .toList(),
+      ),
+      templateListWidgetBuilder: (context, data, componentId, dataBinding) {
+        final List<Object?> values;
+        final List<String> keys;
+        if (data is List) {
+          values = data;
+          keys = List.generate(data.length, (index) => index.toString());
+        } else if (data is Map) {
+          values = data.values.toList();
+          keys = data.keys.map((k) => k.toString()).toList();
+        } else {
+          return const SizedBox.shrink();
+        }
+
+        return Row(
+          mainAxisAlignment: justify,
+          crossAxisAlignment: align,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < values.length; i++)
+              _buildRowChild(
+                componentId: componentId,
+                dataContext: itemContext.dataContext.nested(DataPath('$dataBinding/${keys[i]}')),
+                buildChild: itemContext.buildChild,
+                getComponent: itemContext.getComponent,
+                key: ValueKey(keys[i]),
+              ),
+          ],
+        );
+      },
+    );
+  },
+);
