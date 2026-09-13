@@ -22,6 +22,8 @@ import {
 import { StatCard } from './StatCard.jsx';
 import { BarChart } from './BarChart.jsx';
 import { PlanDePago } from './PlanDePago.jsx';
+import { LineChart } from './LineChart.jsx';
+import { ApartadoPlanner } from './ApartadoPlanner.jsx';
 
 // Debe ser IDÉNTICO al de src/me_alcanza/backend/a2ui_custom_catalog.py
 // (CUSTOM_CATALOG_ID) — no hay generación automática entre ambos lados, se
@@ -31,7 +33,7 @@ export const CUSTOM_CATALOG_ID = 'https://me-alcanza.hackmty.dev/catalogs/v1/cat
 // Catálogo propio del equipo: primitivos base del protocolo A2UI (misma
 // implementación de referencia que trae @a2ui/react, reexportados aquí
 // individualmente) más los componentes de dominio financiero que diseñamos
-// nosotros (StatCard, BarChart, PlanDePago). Un mismo surface puede mezclar
+// nosotros (StatCard, BarChart, PlanDePago, LineChart, ApartadoPlanner). Un mismo surface puede mezclar
 // ambos tipos porque comparten un único catalogId.
 export const meAlcanzaCatalog = new Catalog(
   CUSTOM_CATALOG_ID,
@@ -57,6 +59,8 @@ export const meAlcanzaCatalog = new Catalog(
     StatCard,
     BarChart,
     PlanDePago,
+    LineChart,
+    ApartadoPlanner,
   ],
   BASIC_FUNCTIONS,
 );

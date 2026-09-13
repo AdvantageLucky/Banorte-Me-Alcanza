@@ -192,3 +192,150 @@
   font-weight: 700;
   white-space: nowrap;
 }
+
+.line-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-s, 8px);
+  padding: var(--a2ui-spacing-m, 16px);
+  border-radius: var(--a2ui-border-radius, 12px);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  background: var(--a2ui-color-surface, #fff);
+}
+
+.line-chart-title {
+  margin: 0;
+  font-size: var(--a2ui-font-size-m, 16px);
+  font-weight: 600;
+}
+
+.line-chart-svg {
+  width: 100%;
+  height: 220px;
+  overflow: visible;
+}
+
+.line-chart-area {
+  fill: color-mix(in srgb, var(--a2ui-color-primary, #ec0029) 10%, transparent);
+  stroke: none;
+}
+
+.line-chart-line {
+  fill: none;
+  stroke: var(--a2ui-color-primary, #ec0029);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.line-chart-threshold {
+  stroke: var(--a2ui-color-secondary, #6a6867);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.line-chart-threshold-label {
+  font-size: 10px;
+  fill: var(--a2ui-color-secondary, #6a6867);
+  text-anchor: end;
+}
+
+.line-chart-dot {
+  fill: var(--a2ui-color-primary, #ec0029);
+  stroke: var(--a2ui-color-surface, #fff);
+  stroke-width: 2;
+}
+
+.line-chart-dot-negative {
+  fill: var(--a2ui-color-primary, #ec0029);
+}
+
+.line-chart-dot-warning {
+  fill: #b9770e;
+}
+
+.line-chart-dot-positive {
+  fill: #1a8f4c;
+}
+
+.line-chart-value-label {
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--a2ui-color-on-surface, #1f1f1f);
+  text-anchor: middle;
+}
+
+.line-chart-x-label {
+  font-size: 10px;
+  fill: var(--a2ui-color-secondary, #6a6867);
+  text-anchor: middle;
+}
+
+.apartado-planner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-spacing-s, 8px);
+  padding: var(--a2ui-spacing-m, 16px);
+  border-radius: var(--a2ui-border-radius, 12px);
+  border: var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #c7c9c9);
+  background: var(--a2ui-color-surface, #fff);
+}
+
+.apartado-planner-title {
+  margin: 0;
+  font-size: var(--a2ui-font-size-m, 16px);
+  font-weight: 600;
+}
+
+.apartado-planner-subtitle {
+  margin: 0 0 4px;
+  font-size: var(--a2ui-font-size-s, 14px);
+  color: var(--a2ui-color-secondary, #6a6867);
+}
+
+.apartado-planner-result {
+  display: flex;
+  align-items: baseline;
+  gap: var(--a2ui-spacing-s, 8px);
+  flex-wrap: wrap;
+}
+
+.apartado-planner-periodos {
+  font-size: var(--a2ui-font-size-2xl, 32px);
+  font-weight: 700;
+  color: var(--a2ui-color-primary, #ec0029);
+  line-height: 1;
+}
+
+.apartado-planner-periodos-label {
+  font-size: var(--a2ui-font-size-s, 14px);
+  color: var(--a2ui-color-secondary, #6a6867);
+}
+
+.apartado-planner-slider {
+  width: 100%;
+  accent-color: var(--a2ui-color-primary, #ec0029);
+  cursor: pointer;
+}
+
+.apartado-planner-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--a2ui-font-size-xs, 12px);
+  color: var(--a2ui-color-secondary, #6a6867);
+  margin-top: -8px;
+}
+
+.apartado-planner-total {
+  margin: 4px 0 0;
+  font-size: var(--a2ui-font-size-s, 14px);
+  font-weight: 600;
+}
+
+.apartado-planner-total-ok {
+  color: #1a8f4c;
+}
+
+.apartado-planner-total-corto {
+  color: #b9770e;
+}

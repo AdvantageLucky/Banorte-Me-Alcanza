@@ -29,6 +29,8 @@ _ALLOWED_COMPONENTS = [
     "StatCard",
     "BarChart",
     "PlanDePago",
+    "LineChart",
+    "ApartadoPlanner",
 ]
 MAX_TOOL_CALL_ROUNDS = 5
 # Cuántos mensajes de historial (no turnos) se reenvían a Gemini como
@@ -533,7 +535,7 @@ def build_system_prompt() -> str:
             "No inventes datos que el usuario deba ajustar si no tienes un rango o valor inicial "
             "razonable: si no sabes min/max, pide el dato por texto en vez de mostrar un Slider a "
             "ciegas. "
-            "8) Además tienes 3 componentes propios de dominio financiero (no son parte del "
+            "8) Además tienes 5 componentes propios de dominio financiero (no son parte del "
             "catálogo básico del protocolo, los diseñó este equipo) — úsalos para presentar datos "
             "reales de forma mucho más clara que un Text plano: "
             "StatCard muestra un dato destacado con tendencia (props: label, value ya formateado "
@@ -563,8 +565,29 @@ def build_system_prompt() -> str:
             "amount=monto_por_periodo formateado) seguido de un Button normal cuya "
             "'action.event.context' lea ese mismo path — nunca inventes tasas, CAT ni plazos "
             "adicionales que la herramienta no calculó. "
-            "Nunca uses estos 3 componentes como decoración de un dato que ya se explica solo con "
-            "un Text; resérvalos para cuando de verdad ayudan a comparar o destacar información."
+            "LineChart dibuja una serie de puntos conectados por una línea (props: title y "
+            "valuePrefix opcionales, points=lista de {label, value, tone opcional para marcar UN "
+            "punto crítico}, thresholdValue/thresholdLabel opcionales para una línea de "
+            "referencia horizontal). Úsalo SIEMPRE que 'simular_flujo_de_caja' devuelva su campo "
+            "'serie': points=[{label: fecha formateada corta, value: saldo} por cada punto de la "
+            "serie], marca con tone='negative' el punto cuya fecha coincida con 'fecha_critica', "
+            "y si 'alcanza' es false pon thresholdValue=0, thresholdLabel='Saldo en $0'. Esto "
+            "reemplaza el texto plano de '¿cómo se calculó?': muestra la gráfica en vez de (o "
+            "además de) los montos en un Modal. Nunca inventes puntos intermedios que la "
+            "herramienta no devolvió — usa la serie tal cual, en el mismo orden. "
+            "ApartadoPlanner es un slider interactivo para ajustar un apartado de ahorro (props: "
+            "title/subtitle opcionales, montoObjetivo=el déficit real en pesos, "
+            "periodicidadLabel=ej 'semanal', minMonto/maxMonto para el rango del slider, "
+            "montoPorPeriodo enlazado a un path del data model). El componente calcula SOLO en "
+            "el navegador cuántos periodos hacen falta según lo que el usuario arrastre — tú "
+            "nunca calculas eso, solo das montoObjetivo real (de 'apartado_sugerido' o del "
+            "'margen' negativo de 'simular_flujo_de_caja') y un rango de minMonto/maxMonto "
+            "razonable alrededor del monto_por_periodo sugerido (ej. la mitad y el doble). "
+            "Ponlo seguido de un Button normal cuya 'action.event.context' lea el path de "
+            "montoPorPeriodo para de verdad crear el apartado con ese monto ajustado. "
+            "Nunca uses estos 5 componentes como decoración de un dato que ya se explica solo con "
+            "un Text; resérvalos para cuando de verdad ayudan a comparar, destacar o interactuar "
+            "con información real."
         ),
         allowed_components=_ALLOWED_COMPONENTS,
         include_schema=True,

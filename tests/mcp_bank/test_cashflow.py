@@ -106,3 +106,35 @@ def test_ingreso_y_gasto_mismo_dia_ingreso_se_aplica_primero():
     assert resultado["saldo_minimo_proyectado"] == pytest.approx(100.0)
     assert resultado["margen"] == pytest.approx(100.0)
     assert resultado["alcanza"] is True
+
+
+def test_serie_incluye_punto_inicial_cada_evento_y_punto_final():
+    resultado = simular_flujo_de_caja(
+        saldo_actual=500.00,
+        ingresos=INGRESOS,
+        gastos=GASTOS,
+        hoy="2026-09-11",
+        fecha_objetivo="2026-09-15",
+        monto_objetivo=1000.00,
+    )
+    serie = resultado["serie"]
+    # Punto inicial (hoy, saldo actual) + 1 ingreso + 4 gastos + punto final
+    # (fecha_objetivo, tras restar monto_objetivo) = 7 puntos.
+    assert len(serie) == 7
+    assert serie[0] == {"fecha": "2026-09-11", "saldo": 500.0}
+    assert serie[-1]["fecha"] == "2026-09-15"
+    # saldo final = 500 + 12500 - 320 - 450 - 2400 - 2400 - 1000 (monto_objetivo)
+    assert serie[-1]["saldo"] == pytest.approx(6430.0)
+
+
+def test_serie_es_monotona_en_fecha():
+    resultado = simular_flujo_de_caja(
+        saldo_actual=500.00,
+        ingresos=INGRESOS,
+        gastos=GASTOS,
+        hoy="2026-09-11",
+        fecha_objetivo="2026-10-13",
+        monto_objetivo=1000.00,
+    )
+    fechas = [p["fecha"] for p in resultado["serie"]]
+    assert fechas == sorted(fechas)

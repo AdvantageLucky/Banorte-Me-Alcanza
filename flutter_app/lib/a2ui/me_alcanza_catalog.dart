@@ -2,7 +2,8 @@
 //
 // Catálogo A2UI propio del equipo para Flutter: los primitivos básicos de
 // genui más los componentes de dominio financiero que diseñamos nosotros
-// (StatCard, BarChart, PlanDePago). Debe mantenerse en sync a mano con
+// (StatCard, BarChart, PlanDePago, LineChart, ApartadoPlanner). Debe
+// mantenerse en sync a mano con
 // src/me_alcanza/backend/a2ui_custom_catalog.py (schemas) y con
 // frontend/src/a2ui-custom/ (renderer web): mismo catalogId, mismos nombres,
 // mismas props.
@@ -21,7 +22,7 @@ const meAlcanzaCatalogId = 'https://me-alcanza.hackmty.dev/catalogs/v1/catalog.j
 /// al básico para que las superficies del modo offline (que declaran el id
 /// de a2ui.org) sigan renderizando.
 Catalog buildMeAlcanzaCatalog() => BasicCatalogItems.asCatalog().copyWith(
-      newItems: [statCard, barChart, planDePago],
+      newItems: [statCard, barChart, planDePago, lineChart, apartadoPlanner],
       catalogId: meAlcanzaCatalogId,
     );
 
@@ -430,6 +431,394 @@ class _PlanOptionTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ------------------------------------------------------------ LineChart
+
+final lineChart = CatalogItem(
+  name: 'LineChart',
+  isImplicitlyFlexible: true,
+  dataSchema: S.object(
+    description: 'Serie de puntos conectados por una línea, con línea de referencia opcional.',
+    properties: {
+      'title': A2uiSchemas.stringReference(description: 'Título opcional.'),
+      'valuePrefix': S.string(description: "Prefijo de cada valor, p. ej. '\$'."),
+      'points': S.list(
+        items: S.object(
+          properties: {
+            'label': S.string(),
+            'value': S.number(),
+            'tone': S.string(enumValues: ['positive', 'negative', 'neutral', 'warning']),
+          },
+          required: ['label', 'value'],
+        ),
+      ),
+      'thresholdValue': S.number(),
+      'thresholdLabel': S.string(),
+      'weight': S.number(),
+    },
+    required: ['points'],
+  ),
+  widgetBuilder: (itemContext) {
+    final data = itemContext.data as Map<String, Object?>;
+    final prefix = data['valuePrefix'] as String? ?? '';
+    final points = (data['points'] as List? ?? const [])
+        .map((p) => (p as Map).cast<String, Object?>())
+        .map((p) => _LinePoint(
+              label: p['label'] as String? ?? '',
+              value: (p['value'] as num?)?.toDouble() ?? 0,
+              tone: p['tone'] as String?,
+            ))
+        .toList();
+    final thresholdValue = (data['thresholdValue'] as num?)?.toDouble();
+    final thresholdLabel = data['thresholdLabel'] as String?;
+    return BoundString(
+      dataContext: itemContext.dataContext,
+      value: data['title'],
+      builder: (context, title) => _LineChartView(
+        title: title,
+        prefix: prefix,
+        points: points,
+        thresholdValue: thresholdValue,
+        thresholdLabel: thresholdLabel,
+      ),
+    );
+  },
+);
+
+class _LinePoint {
+  const _LinePoint({required this.label, required this.value, required this.tone});
+  final String label;
+  final double value;
+  final String? tone;
+}
+
+class _LineChartView extends StatelessWidget {
+  const _LineChartView({
+    required this.title,
+    required this.prefix,
+    required this.points,
+    required this.thresholdValue,
+    required this.thresholdLabel,
+  });
+
+  final String? title;
+  final String prefix;
+  final List<_LinePoint> points;
+  final double? thresholdValue;
+  final String? thresholdLabel;
+
+  String _formatear(double v) {
+    if (prefix == r'$') return formatMonto(v);
+    final entero = v == v.roundToDouble();
+    return '$prefix${entero ? v.toInt() : v.toStringAsFixed(2)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (points.length < 2) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (title != null && title!.isNotEmpty) ...[
+          Text(title!, style: DisplayText.seccion.copyWith(fontSize: 15)),
+          const SizedBox(height: Space.s),
+        ],
+        SizedBox(
+          height: 200,
+          width: double.infinity,
+          child: CustomPaint(
+            painter: _LineChartPainter(
+              points: points,
+              thresholdValue: thresholdValue,
+              thresholdLabel: thresholdLabel,
+              formatValue: _formatear,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LineChartPainter extends CustomPainter {
+  _LineChartPainter({
+    required this.points,
+    required this.thresholdValue,
+    required this.thresholdLabel,
+    required this.formatValue,
+  });
+
+  final List<_LinePoint> points;
+  final double? thresholdValue;
+  final String? thresholdLabel;
+  final String Function(double) formatValue;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const padTop = 24.0;
+    const padBottom = 24.0;
+    final plotHeight = size.height - padTop - padBottom;
+    final plotWidth = size.width;
+
+    final values = points.map((p) => p.value).toList();
+    final allValues = [...values, ?thresholdValue];
+    final rawMin = allValues.reduce((a, b) => a < b ? a : b);
+    final rawMax = allValues.reduce((a, b) => a > b ? a : b);
+    final span = (rawMax - rawMin) == 0 ? 1.0 : (rawMax - rawMin);
+    final min = rawMin - span * 0.1;
+    final max = rawMax + span * 0.1;
+
+    double xAt(int i) => points.length == 1 ? 0 : (i / (points.length - 1)) * plotWidth;
+    double yAt(double value) => padTop + plotHeight - ((value - min) / (max - min)) * plotHeight;
+
+    final linePath = Path();
+    for (var i = 0; i < points.length; i++) {
+      final x = xAt(i);
+      final y = yAt(points[i].value);
+      if (i == 0) {
+        linePath.moveTo(x, y);
+      } else {
+        linePath.lineTo(x, y);
+      }
+    }
+
+    final areaPath = Path();
+    for (var i = 0; i < points.length; i++) {
+      final x = xAt(i);
+      final y = yAt(points[i].value);
+      if (i == 0) {
+        areaPath.moveTo(x, y);
+      } else {
+        areaPath.lineTo(x, y);
+      }
+    }
+    areaPath.lineTo(xAt(points.length - 1), padTop + plotHeight);
+    areaPath.lineTo(xAt(0), padTop + plotHeight);
+    areaPath.close();
+
+    canvas.drawPath(areaPath, Paint()..color = BrandColors.rojo.withValues(alpha: 0.1));
+
+    if (thresholdValue != null) {
+      final y = yAt(thresholdValue!);
+      final dashPaint = Paint()
+        ..color = BrandColors.gris
+        ..strokeWidth = 1;
+      const dashWidth = 4.0;
+      const dashSpace = 4.0;
+      var startX = 0.0;
+      while (startX < plotWidth) {
+        canvas.drawLine(Offset(startX, y), Offset(startX + dashWidth, y), dashPaint);
+        startX += dashWidth + dashSpace;
+      }
+      if (thresholdLabel != null) {
+        final tp = TextPainter(
+          text: TextSpan(text: thresholdLabel, style: const TextStyle(color: BrandColors.gris, fontSize: 10)),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(plotWidth - tp.width, y - tp.height - 2));
+      }
+    }
+
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = BrandColors.rojo
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    final criticalIndex = points.indexWhere((p) => p.tone == 'negative' || p.tone == 'warning');
+
+    for (var i = 0; i < points.length; i++) {
+      final x = xAt(i);
+      final y = yAt(points[i].value);
+      final isCritical = i == criticalIndex;
+      final dotColor = switch (points[i].tone) {
+        'negative' => BrandColors.error,
+        'warning' => const Color(0xFFB8860B),
+        'positive' => BrandColors.exito,
+        _ => BrandColors.rojo,
+      };
+      canvas.drawCircle(Offset(x, y), isCritical ? 6 : 4, Paint()..color = dotColor);
+      canvas.drawCircle(
+        Offset(x, y),
+        isCritical ? 6 : 4,
+        Paint()
+          ..color = BrandColors.superficie
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+
+      if (isCritical) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: formatValue(points[i].value),
+            style: const TextStyle(color: BrandColors.tinta, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(x - tp.width / 2, y - tp.height - 10));
+      }
+
+      final labelTp = TextPainter(
+        text: TextSpan(text: points[i].label, style: const TextStyle(color: BrandColors.gris, fontSize: 10)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      labelTp.paint(canvas, Offset(x - labelTp.width / 2, size.height - padBottom + 6));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
+    return oldDelegate.points != points ||
+        oldDelegate.thresholdValue != thresholdValue ||
+        oldDelegate.thresholdLabel != thresholdLabel;
+  }
+}
+
+// ------------------------------------------------------ ApartadoPlanner
+
+final apartadoPlanner = CatalogItem(
+  name: 'ApartadoPlanner',
+  dataSchema: S.object(
+    description: 'Slider interactivo que recalcula EN EL CLIENTE cuántos periodos hacen falta.',
+    properties: {
+      'title': A2uiSchemas.stringReference(),
+      'subtitle': A2uiSchemas.stringReference(),
+      'montoObjetivo': S.number(),
+      'periodicidadLabel': S.string(),
+      'minMonto': S.number(),
+      'maxMonto': S.number(),
+      'montoPorPeriodo': A2uiSchemas.numberReference(),
+    },
+    required: ['montoObjetivo', 'periodicidadLabel', 'minMonto', 'maxMonto', 'montoPorPeriodo'],
+  ),
+  widgetBuilder: (itemContext) {
+    final data = itemContext.data as Map<String, Object?>;
+    final montoObjetivo = (data['montoObjetivo'] as num).toDouble();
+    final periodicidadLabel = data['periodicidadLabel'] as String? ?? '';
+    final minMonto = (data['minMonto'] as num).toDouble();
+    final maxMonto = (data['maxMonto'] as num).toDouble();
+    final montoRef = data['montoPorPeriodo'];
+    final path = (montoRef is Map && montoRef.containsKey('path'))
+        ? montoRef['path'] as String
+        : '${itemContext.id}.montoPorPeriodo';
+
+    return BoundString(
+      dataContext: itemContext.dataContext,
+      value: data['title'],
+      builder: (context, title) => BoundString(
+        dataContext: itemContext.dataContext,
+        value: data['subtitle'],
+        builder: (context, subtitle) => BoundNumber(
+          dataContext: itemContext.dataContext,
+          value: {'path': path},
+          builder: (context, value) {
+            var monto = value?.toDouble();
+            monto ??= (montoRef is num) ? montoRef.toDouble() : minMonto;
+            return _ApartadoPlannerView(
+              title: title,
+              subtitle: subtitle,
+              montoObjetivo: montoObjetivo,
+              periodicidadLabel: periodicidadLabel,
+              minMonto: minMonto,
+              maxMonto: maxMonto,
+              monto: monto,
+              onChanged: (v) => itemContext.dataContext.update(DataPath(path), v),
+            );
+          },
+        ),
+      ),
+    );
+  },
+);
+
+class _ApartadoPlannerView extends StatelessWidget {
+  const _ApartadoPlannerView({
+    required this.title,
+    required this.subtitle,
+    required this.montoObjetivo,
+    required this.periodicidadLabel,
+    required this.minMonto,
+    required this.maxMonto,
+    required this.monto,
+    required this.onChanged,
+  });
+
+  final String? title;
+  final String? subtitle;
+  final double montoObjetivo;
+  final String periodicidadLabel;
+  final double minMonto;
+  final double maxMonto;
+  final double monto;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final texto = Theme.of(context).textTheme;
+    final montoSeguro = monto <= 0 ? 1.0 : monto;
+    final periodos = (montoObjetivo / montoSeguro).ceil().clamp(1, 999999);
+    final total = periodos * montoSeguro;
+    final alcanzaCompleto = total >= montoObjetivo;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (title != null && title!.isNotEmpty)
+          Text(title!, style: DisplayText.seccion.copyWith(fontSize: 16)),
+        if (subtitle != null && subtitle!.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(subtitle!, style: texto.bodySmall),
+        ],
+        const SizedBox(height: Space.s),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text('$periodos', style: DisplayText.cifra.copyWith(fontSize: 32, color: BrandColors.rojo)),
+            const SizedBox(width: Space.s),
+            Flexible(
+              child: Text(
+                'pago${periodos == 1 ? '' : 's'} ${periodicidadLabel}es de ${formatMonto(montoSeguro)}',
+                style: texto.bodySmall,
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: montoSeguro.clamp(minMonto, maxMonto),
+          min: minMonto,
+          max: maxMonto,
+          activeColor: BrandColors.rojo,
+          onChanged: onChanged,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(formatMonto(minMonto), style: texto.bodySmall?.copyWith(fontSize: 11, color: BrandColors.gris)),
+              Text(formatMonto(maxMonto), style: texto.bodySmall?.copyWith(fontSize: 11, color: BrandColors.gris)),
+            ],
+          ),
+        ),
+        const SizedBox(height: Space.xs),
+        Text(
+          'Total cubierto: ${formatMonto(total)} de ${formatMonto(montoObjetivo)}',
+          style: texto.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: alcanzaCompleto ? BrandColors.exito : const Color(0xFFB8860B),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -36,14 +36,21 @@ def simular_flujo_de_caja(
     running = saldo_actual
     minimo_historico = saldo_actual
     fecha_minimo_historico: date | None = None
+    # Serie determinista del saldo proyectado, punto por evento (nunca día a
+    # día relleno artificialmente) — es la fuente real de datos para
+    # graficar la proyección en un LineChart, en vez de reconstruirla a
+    # mano en el prompt o dejar que el LLM la invente.
+    serie = [{"fecha": hoy_fecha.isoformat(), "saldo": round(saldo_actual, 2)}]
 
     for evento in eventos:
         running += evento.monto
+        serie.append({"fecha": evento.fecha.isoformat(), "saldo": round(running, 2)})
         if running < minimo_historico:
             minimo_historico = running
             fecha_minimo_historico = evento.fecha
 
     running_final = running - monto_objetivo
+    serie.append({"fecha": objetivo.isoformat(), "saldo": round(running_final, 2)})
     if running_final < minimo_historico:
         margen = running_final
         fecha_critica = objetivo
@@ -73,4 +80,5 @@ def simular_flujo_de_caja(
         "fecha_critica": fecha_critica.isoformat() if fecha_critica else None,
         "margen": margen,
         "apartado_sugerido": apartado_sugerido,
+        "serie": serie,
     }

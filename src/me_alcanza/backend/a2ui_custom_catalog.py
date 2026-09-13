@@ -32,6 +32,10 @@ def _dynamic_string(**extra: Any) -> dict[str, Any]:
     return {"$ref": f"{_COMMON_TYPES}#/$defs/DynamicString", **extra}
 
 
+def _dynamic_number(**extra: Any) -> dict[str, Any]:
+    return {"$ref": f"{_COMMON_TYPES}#/$defs/DynamicNumber", **extra}
+
+
 def _component_common() -> dict[str, Any]:
     return {"$ref": f"{_COMMON_TYPES}#/$defs/ComponentCommon"}
 
@@ -170,6 +174,108 @@ def _plan_de_pago_schema() -> dict[str, Any]:
     }
 
 
+def _line_chart_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "allOf": [
+            _component_common(),
+            {
+                "type": "object",
+                "properties": {
+                    "component": {"const": "LineChart"},
+                    "title": _dynamic_string(description="Título opcional sobre la gráfica."),
+                    "valuePrefix": {
+                        "type": "string",
+                        "description": "Prefijo para cada valor mostrado (ej. '$'). Vacío si no aplica.",
+                    },
+                    "points": {
+                        "type": "array",
+                        "minItems": 2,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {"type": "string", "description": "Ej. una fecha corta '15 sep'."},
+                                "value": {"type": "number"},
+                                "tone": {
+                                    "type": "string",
+                                    "enum": ["positive", "negative", "neutral", "warning"],
+                                    "description": "Marca ESTE punto como el crítico/relevante (ej. el mínimo proyectado).",
+                                },
+                            },
+                            "required": ["label", "value"],
+                            "additionalProperties": False,
+                        },
+                        "description": (
+                            "Puntos de la serie, en orden. SIEMPRE con datos reales de una "
+                            "herramienta (ej. la 'serie' de simular_flujo_de_caja), nunca "
+                            "inventados ni interpolados por ti."
+                        ),
+                    },
+                    "thresholdValue": {
+                        "type": "number",
+                        "description": "Línea de referencia horizontal (ej. 0 para riesgo de saldo negativo).",
+                    },
+                    "thresholdLabel": {
+                        "type": "string",
+                        "description": "Etiqueta corta junto a la línea de referencia.",
+                    },
+                    "weight": {"type": "number"},
+                },
+                "required": ["component", "points"],
+            },
+        ],
+        "unevaluatedProperties": False,
+    }
+
+
+def _apartado_planner_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "allOf": [
+            _component_common(),
+            {
+                "type": "object",
+                "properties": {
+                    "component": {"const": "ApartadoPlanner"},
+                    "title": _dynamic_string(description="Título del planificador (ej. 'Ajusta tu apartado')."),
+                    "subtitle": _dynamic_string(description="Aclaración corta debajo del título."),
+                    "montoObjetivo": {
+                        "type": "number",
+                        "description": (
+                            "El déficit total real a cubrir (ej. 'deficit' derivado del margen "
+                            "negativo de simular_flujo_de_caja). Nunca lo inventes."
+                        ),
+                    },
+                    "periodicidadLabel": {
+                        "type": "string",
+                        "description": "Ej. 'semanal', 'quincenal'. Solo texto, no cambia el cálculo.",
+                    },
+                    "minMonto": {"type": "number", "description": "Mínimo razonable para el slider."},
+                    "maxMonto": {"type": "number", "description": "Máximo razonable para el slider."},
+                    "montoPorPeriodo": _dynamic_number(
+                        description=(
+                            "Enlázalo a un path del data model (ej. {'path': '/montoPorPeriodo'}) "
+                            "inicializado con updateDataModel. El componente recalcula EN EL "
+                            "CLIENTE, al instante, cuántos periodos hacen falta — no dispares "
+                            "ninguna otra acción mientras el usuario arrastra."
+                        )
+                    ),
+                    "weight": {"type": "number"},
+                },
+                "required": [
+                    "component",
+                    "montoObjetivo",
+                    "periodicidadLabel",
+                    "minMonto",
+                    "maxMonto",
+                    "montoPorPeriodo",
+                ],
+            },
+        ],
+        "unevaluatedProperties": False,
+    }
+
+
 def _build_catalog_schema(version: str) -> dict[str, Any]:
     base = copy.deepcopy(BasicCatalog.get_config(version=version).provider.load())
     base["$id"] = CUSTOM_CATALOG_ID
@@ -177,13 +283,15 @@ def _build_catalog_schema(version: str) -> dict[str, Any]:
     base["title"] = "Catálogo ¿Me Alcanza?"
     base["description"] = (
         "Catálogo propio del equipo: primitivos base del protocolo A2UI más "
-        "componentes de dominio financiero (StatCard, BarChart, PlanDePago) "
-        "diseñados y programados por el equipo, no una biblioteca de UI "
-        "entregada por el reto."
+        "componentes de dominio financiero (StatCard, BarChart, PlanDePago, "
+        "LineChart, ApartadoPlanner) diseñados y programados por el equipo, "
+        "no una biblioteca de UI entregada por el reto."
     )
     base["components"]["StatCard"] = _stat_card_schema()
     base["components"]["BarChart"] = _bar_chart_schema()
     base["components"]["PlanDePago"] = _plan_de_pago_schema()
+    base["components"]["LineChart"] = _line_chart_schema()
+    base["components"]["ApartadoPlanner"] = _apartado_planner_schema()
 
     any_component = base["$defs"]["anyComponent"]
     any_component["oneOf"].extend(
@@ -191,6 +299,8 @@ def _build_catalog_schema(version: str) -> dict[str, Any]:
             {"$ref": "#/components/StatCard"},
             {"$ref": "#/components/BarChart"},
             {"$ref": "#/components/PlanDePago"},
+            {"$ref": "#/components/LineChart"},
+            {"$ref": "#/components/ApartadoPlanner"},
         ]
     )
     return base

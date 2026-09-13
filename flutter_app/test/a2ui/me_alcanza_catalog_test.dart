@@ -104,6 +104,75 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('LineChart pinta la serie sin excepción y marca el punto crítico', (tester) async {
+    final controller = await _montar(tester, _mensajes([
+      {
+        'id': 'root',
+        'component': 'LineChart',
+        'title': 'Proyección de saldo',
+        'valuePrefix': r'$',
+        'points': [
+          {'label': '11 sep', 'value': 500},
+          {'label': '15 sep', 'value': -570, 'tone': 'negative'},
+        ],
+        'thresholdValue': 0,
+        'thresholdLabel': 'Saldo en \$0',
+      },
+    ]));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Proyección de saldo'), findsOneWidget);
+    expect(find.byType(CustomPaint), findsWidgets);
+    expect(find.byType(FallbackWidget), findsNothing);
+    controller.dispose();
+  });
+
+  testWidgets('LineChart con un solo punto no truena (se oculta)', (tester) async {
+    final controller = await _montar(tester, _mensajes([
+      {
+        'id': 'root',
+        'component': 'LineChart',
+        'points': [
+          {'label': '11 sep', 'value': 500},
+        ],
+      },
+    ]));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    controller.dispose();
+  });
+
+  testWidgets('ApartadoPlanner recalcula periodos EN EL CLIENTE al mover el slider', (tester) async {
+    final controller = await _montar(
+      tester,
+      _mensajes([
+        {
+          'id': 'root',
+          'component': 'ApartadoPlanner',
+          'title': 'Ajusta tu apartado',
+          'montoObjetivo': 570,
+          'periodicidadLabel': 'semanal',
+          'minMonto': 50,
+          'maxMonto': 300,
+          'montoPorPeriodo': {'path': '/montoPorPeriodo'},
+        },
+      ], data: {'montoPorPeriodo': 150.0}),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    // 570 / 150 = 3.8 -> 4 pagos.
+    expect(find.text('4'), findsOneWidget);
+
+    await tester.drag(find.byType(Slider), const Offset(500, 0));
+    await tester.pumpAndSettle();
+
+    final nuevoMonto =
+        controller.contextFor(_surface).dataModel.getValue<double>(DataPath('/montoPorPeriodo'));
+    expect(nuevoMonto, isNotNull);
+    expect(nuevoMonto, greaterThan(150.0));
+    controller.dispose();
+  });
+
   testWidgets('una superficie con el id básico sigue renderizando (modo offline)', (tester) async {
     final controller = await _montar(tester, [
       {

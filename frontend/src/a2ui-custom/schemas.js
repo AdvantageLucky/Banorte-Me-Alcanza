@@ -8,6 +8,7 @@ import { z } from 'zod';
 const DataBinding = z.object({ path: z.string() });
 
 export const DynamicString = z.union([z.string(), DataBinding]);
+export const DynamicNumber = z.union([z.number(), DataBinding]);
 
 const ToneEnum = z.enum(['positive', 'negative', 'neutral', 'warning']);
 
@@ -68,6 +69,46 @@ export const PlanDePagoApi = {
         )
         .min(1),
       selectedId: DynamicString,
+    })
+    .strict(),
+};
+
+export const LineChartApi = {
+  name: 'LineChart',
+  schema: z
+    .object({
+      weight: z.number().optional(),
+      title: DynamicString.optional(),
+      valuePrefix: z.string().optional(),
+      points: z
+        .array(
+          z
+            .object({
+              label: z.string(),
+              value: z.number(),
+              tone: ToneEnum.optional(),
+            })
+            .strict(),
+        )
+        .min(2),
+      thresholdValue: z.number().optional(),
+      thresholdLabel: z.string().optional(),
+    })
+    .strict(),
+};
+
+export const ApartadoPlannerApi = {
+  name: 'ApartadoPlanner',
+  schema: z
+    .object({
+      weight: z.number().optional(),
+      title: DynamicString.optional(),
+      subtitle: DynamicString.optional(),
+      montoObjetivo: z.number(),
+      periodicidadLabel: z.string(),
+      minMonto: z.number(),
+      maxMonto: z.number(),
+      montoPorPeriodo: DynamicNumber,
     })
     .strict(),
 };
