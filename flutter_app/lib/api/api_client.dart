@@ -281,6 +281,12 @@ class ApiClient {
   Future<Sugerencia> descartarSugerencia(String token, int id) async =>
       Sugerencia.fromJson(await _post('/api/sugerencias/$id/descartar', token: token, body: const {}));
 
+  /// Propuesta de solución elaborada por el LLM bajo demanda, a partir de
+  /// los mismos hechos deterministas ya mostrados en la tarjeta — nunca
+  /// automática (ver ADR 0019).
+  Future<String> getPropuestaSugerencia(String token, int id) async =>
+      (await _get('/api/sugerencias/$id/propuesta', token: token))['propuesta'] as String;
+
   // ------------------------------------------------------------ plomería
 
   static List<T> _list<T>(List<dynamic> raw, T Function(Map<String, dynamic>) parse) =>

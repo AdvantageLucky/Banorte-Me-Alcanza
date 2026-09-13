@@ -12,16 +12,27 @@ typedef MarcarSugerenciaFn = Future<Sugerencia> Function(int sugerenciaId);
 typedef OnSugerenciaResueltaFn = void Function(Sugerencia sugerencia);
 typedef OnErrorFn = void Function(Object error);
 
+/// Antes de ejecutar `atender`, le pide al llamador que confirme con el
+/// usuario (modal HITL) — espejo de requestConfirmacion en
+/// sugerenciaActionHandler.js. `onConfirm` ejecuta la acción real; si el
+/// usuario cancela, el llamador simplemente no lo invoca.
+typedef RequestConfirmacionFn = Future<void> Function(
+  int sugerenciaId,
+  Future<void> Function() onConfirm,
+);
+
 class SugerenciaActionRouter {
   SugerenciaActionRouter({
     required this.atender,
     required this.descartar,
+    required this.requestConfirmacion,
     required this.onResuelta,
     required this.onError,
   });
 
   final MarcarSugerenciaFn atender;
   final MarcarSugerenciaFn descartar;
+  final RequestConfirmacionFn requestConfirmacion;
   final OnSugerenciaResueltaFn onResuelta;
   final OnErrorFn onError;
 
@@ -39,13 +50,26 @@ class SugerenciaActionRouter {
     };
     if (id == null) return true;
 
-    try {
-      final actualizada =
-          name == atenderActionName ? await atender(id) : await descartar(id);
-      onResuelta(actualizada);
-    } catch (err) {
-      onError(err);
+    // Descartar es de bajo riesgo (solo cambia el estado, no mueve dinero
+    // ni crea nada): se ejecuta directo. Atender sí dispara una acción
+    // sobre la que vale la pena pedir foco humano, igual que
+    // confirmar_accion.
+    if (name == descartarActionName) {
+      try {
+        onResuelta(await descartar(id));
+      } catch (err) {
+        onError(err);
+      }
+      return true;
     }
+
+    await requestConfirmacion(id, () async {
+      try {
+        onResuelta(await atender(id));
+      } catch (err) {
+        onError(err);
+      }
+    });
     return true;
   }
 }

@@ -660,6 +660,29 @@ async def test_confirm_action_apartado_llama_crear_apartado_en_mcp():
 
 
 @pytest.mark.asyncio
+async def test_confirm_action_exitoso_usa_statcard_con_tono_positivo_no_texto_plano():
+    # Regresión: antes un éxito, una cancelación y un error se veían
+    # idénticos -un Text plano sin color ni tono-, así que el usuario no
+    # podía distinguir uno de otro a simple vista.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"ok": True, "apartado": {"id": 1}})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+
+    proposal = proposals.crear_propuesta(
+        "ana", "apartado", {"meta_id": 7, "monto_por_periodo": 142.5, "periodicidad": "semanal"}, "Apartar $142.50"
+    )
+
+    messages = await orchestrator.confirm_action("ana", proposal.id)
+
+    componentes = next(m for m in messages if "updateComponents" in m)["updateComponents"]["components"]
+    stat = next(c for c in componentes if c["id"] == "stat")
+    assert stat["component"] == "StatCard"
+    assert stat["tone"] == "positive"
+    assert stat["value"] == {"path": "/mensaje"}
+
+
+@pytest.mark.asyncio
 async def test_confirm_action_descarta_propuesta_antes_de_llamar_al_mcp():
     # Cierra la ventana de doble ejecución: la propuesta debe quedar descartada
     # ANTES de que se dispare la llamada al MCP que ejecuta la mutación real, no
@@ -913,6 +936,10 @@ async def test_reject_action_descarta_la_propuesta_sin_ejecutar_nada():
     valores = next(m for m in messages if "updateDataModel" in m)["updateDataModel"]["value"]
     assert valores == {"mensaje": "Cancelado: Agregar a Isaac Reyes (Isaac) como contacto."}
     assert proposal.id not in proposals.PROPOSALS
+
+    componentes = next(m for m in messages if "updateComponents" in m)["updateComponents"]["components"]
+    stat = next(c for c in componentes if c["id"] == "stat")
+    assert stat["tone"] == "neutral"
 
 
 @pytest.mark.asyncio
