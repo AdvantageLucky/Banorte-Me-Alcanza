@@ -855,6 +855,57 @@ async def test_confirm_action_contacto_llama_crear_contacto_en_mcp():
 
 
 @pytest.mark.asyncio
+async def test_confirm_action_apartado_usa_el_monto_ajustado_por_el_slider():
+    # ApartadoPlanner/BudgetAllocator ajustan monto_por_periodo con un slider
+    # ligado al data model antes de confirmar — igual que contacto/gasto_fijo,
+    # el valor ejecutado debe ser el ajustado, no el que el modelo propuso.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"ok": True, "apartado": {"id": 1}})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana", "apartado", {"meta_id": 7, "monto_por_periodo": 142.5, "periodicidad": "semanal"}, "Apartar $142.50"
+    )
+    await orchestrator.confirm_action("ana", proposal.id, context={"monto_por_periodo": "200"})
+    mcp_client.call.assert_awaited_once_with(
+        "crear_apartado",
+        {"account_id": "ana", "meta_id": 7, "monto_por_periodo": 200.0, "periodicidad": "semanal"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_apartado_context_con_monto_no_positivo_no_ejecuta():
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"ok": True})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana", "apartado", {"meta_id": 7, "monto_por_periodo": 142.5, "periodicidad": "semanal"}, "Apartar $142.50"
+    )
+    await orchestrator.confirm_action("ana", proposal.id, context={"monto_por_periodo": "0"})
+    mcp_client.call.assert_not_awaited()
+    assert proposal.id in proposals.PROPOSALS
+
+
+@pytest.mark.asyncio
+async def test_confirm_action_apartado_context_no_puede_sobreescribir_meta_id():
+    # meta_id no está en _CAMPOS_EDITABLES_AL_CONFIRMAR: ninguna tarjeta lo
+    # enlaza a un path editable, así que un context que lo incluya se ignora.
+    mcp_client = MagicMock()
+    mcp_client.call = AsyncMock(return_value={"ok": True})
+    genai_client = MagicMock()
+    orchestrator = Orchestrator(genai_client, "gemini-test", mcp_client)
+    proposal = proposals.crear_propuesta(
+        "ana", "apartado", {"meta_id": 7, "monto_por_periodo": 142.5, "periodicidad": "semanal"}, "Apartar $142.50"
+    )
+    await orchestrator.confirm_action("ana", proposal.id, context={"meta_id": 99})
+    mcp_client.call.assert_awaited_once_with(
+        "crear_apartado",
+        {"account_id": "ana", "meta_id": 7, "monto_por_periodo": 142.5, "periodicidad": "semanal"},
+    )
+
+
+@pytest.mark.asyncio
 async def test_confirm_action_persiste_la_confirmacion_en_el_hilo_donde_se_propuso():
     # El hallazgo: reabrir una conversación pasada mostraba la tarjeta
     # original de "agregar contacto" sin ninguna señal de si de verdad se

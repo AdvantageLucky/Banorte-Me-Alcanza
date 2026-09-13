@@ -178,6 +178,10 @@ def _a2ui_block_to_raw_text(block: list[dict]) -> str:
 # un campo de texto editable, y aceptar un override ahí sería el mismo hueco
 # de seguridad que el patrón proponer/confirmar (ADR 0009) existe para evitar.
 _CAMPOS_EDITABLES_AL_CONFIRMAR: dict[str, tuple[str, ...]] = {
+    # El único campo que ApartadoPlanner/BudgetAllocator ajustan con su
+    # slider antes de confirmar — meta_id y periodicidad no son editables en
+    # esa tarjeta (ninguna la enlaza a un path del data model).
+    "apartado": ("monto_por_periodo",),
     "contacto": ("nombre", "alias", "cuenta_destino", "relacion"),
     "gasto_fijo": ("concepto", "monto", "frecuencia", "proxima_fecha"),
     "ingreso_programado": ("descripcion", "monto", "frecuencia", "proxima_fecha"),
@@ -194,6 +198,22 @@ def _validar_datos_creacion(tipo: str, payload: dict) -> str | None:
     que el llamador guarde/reenvíe el mismo tipo sin importar si el valor
     vino de la tool del modelo (ya numérico) o de un TextField editado a mano
     (string)."""
+    if tipo == "apartado":
+        if payload.get("meta_id") is None:
+            return "Falta el argumento requerido: meta_id"
+        if payload.get("monto_por_periodo") is None:
+            return "Falta el argumento requerido: monto_por_periodo"
+        if not payload.get("periodicidad"):
+            return "Falta el argumento requerido: periodicidad"
+        try:
+            monto_por_periodo = float(payload["monto_por_periodo"])
+        except (TypeError, ValueError):
+            return "monto_por_periodo debe ser un número válido"
+        if monto_por_periodo <= 0:
+            return "monto_por_periodo debe ser mayor a cero"
+        payload["monto_por_periodo"] = monto_por_periodo
+        return None
+
     if tipo == "contacto":
         for campo in ("nombre", "alias", "cuenta_destino", "relacion"):
             if not payload.get(campo):
@@ -865,26 +885,21 @@ class Orchestrator:
         meta_id = args.get("meta_id")
         if meta_id is None:
             return {"error": "Falta el argumento requerido: meta_id"}
-        monto_por_periodo = args.get("monto_por_periodo")
-        if monto_por_periodo is None:
-            return {"error": "Falta el argumento requerido: monto_por_periodo"}
-        periodicidad = args.get("periodicidad")
-        if periodicidad is None:
-            return {"error": "Falta el argumento requerido: periodicidad"}
 
-        monto_por_periodo = float(monto_por_periodo)
-        if monto_por_periodo <= 0:
-            return {"error": "monto_por_periodo debe ser mayor a cero"}
+        payload = {
+            "meta_id": int(meta_id),
+            "monto_por_periodo": args.get("monto_por_periodo"),
+            "periodicidad": args.get("periodicidad"),
+        }
+        error = _validar_datos_creacion("apartado", payload)
+        if error:
+            return {"error": error}
 
         proposal = proposals.crear_propuesta(
             account_id=account_id,
             tipo="apartado",
-            payload={
-                "meta_id": int(meta_id),
-                "monto_por_periodo": monto_por_periodo,
-                "periodicidad": periodicidad,
-            },
-            resumen=f"Apartar ${monto_por_periodo:.2f} {periodicidad} hacia tu meta",
+            payload=payload,
+            resumen=f"Apartar ${payload['monto_por_periodo']:.2f} {payload['periodicidad']} hacia tu meta",
             conversacion_id=conversacion_id,
         )
         return {"proposalId": proposal.id, "resumen": proposal.resumen}
@@ -1052,13 +1067,15 @@ class Orchestrator:
                     "crear_apartado",
                     {
                         "account_id": account_id,
-                        "meta_id": proposal.payload["meta_id"],
-                        "monto_por_periodo": proposal.payload["monto_por_periodo"],
-                        "periodicidad": proposal.payload["periodicidad"],
+                        "meta_id": payload["meta_id"],
+                        "monto_por_periodo": payload["monto_por_periodo"],
+                        "periodicidad": payload["periodicidad"],
                     },
                 )
                 return await self._responder_confirmacion(
-                    account_id, proposal, "Apartado de ahorro activado correctamente."
+                    account_id,
+                    proposal,
+                    f"Apartado de ${payload['monto_por_periodo']:.2f} {payload['periodicidad']} activado correctamente.",
                 )
 
             if proposal.tipo == "transferencia":
